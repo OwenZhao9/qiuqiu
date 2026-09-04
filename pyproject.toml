@@ -1,0 +1,46 @@
+# 根工作区。业务代码在各 workspace 成员里，本文件只管工作区、依赖、lint 与测试配置。
+# 主调度 Agent 维护；分支 Agent 不改本文件，自己的依赖写在自己的 pyproject.toml 里。
+[project]
+name = "qiuqiu"
+version = "0.1.0"
+description = "丘丘 · 常驻桌面的 AI 桌宠"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "qiuqiu-data",
+    "qiuqiu-memory",
+    "qiuqiu-models",
+    "qiuqiu-api",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/data", "packages/memory", "packages/models", "services/api"]
+
+[tool.uv.sources]
+qiuqiu-data = { workspace = true }
+qiuqiu-memory = { workspace = true }
+qiuqiu-models = { workspace = true }
+qiuqiu-api = { workspace = true }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "-m 'not live'"
+markers = [
+    "live: 需要真实 key 与网络，CI 与冒烟不跑",
+]

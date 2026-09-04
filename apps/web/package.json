@@ -1,0 +1,10 @@
+{
+  "name": "@qiuqiu/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo '骨架占位：尚未实现构建'",
+    "test": "echo '骨架占位：尚未实现测试'"
+  }
+}
