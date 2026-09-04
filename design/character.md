@@ -1,0 +1,182 @@
+# 丘丘 · 形象规范
+
+`character` 分支的输入。本文只定参数，不改 Emotion Ball 的任何文件。
+
+对应 `docs/CONTRACTS.md` § 6。契约版本 **v0.1.2**。
+
+## 1 · 形象来源
+
+丘丘的视觉形象引用 [Emotion Ball](https://github.com/sam70361/aora-bot)，vendor 进仓库、不出网，按 `docs/ARCHITECTURE.md` § 3 引入四个脚本：
+
+```html
+<script src="vendor/emotion-ball/js/rings.js"></script>
+<script src="vendor/emotion-ball/js/emotions.js"></script>
+<script src="vendor/emotion-ball/js/ball.js"></script>
+<script src="vendor/emotion-ball/js/engine.js"></script>
+```
+
+`i18n.js` 与 `app.js` 属于上游展示站，不引入。
+
+- **身体形态**：`blob`（圆胖）。不用 `wedge`、不用 `gem`。
+- **表情总数**：32 个，ID 分三段：`00–07` 生命周期 8 个、`10–21` 情绪反应 12 个、`30–41` 代理工作状态 12 个。丘丘只用这 32 个，不注册 `50+` 自定义表情。
+
+### 32 个 emotionId 全表
+
+已于 2026-09-05 联网核对 `emotion-ball/js/emotions.js`，`transition` 为该表情的切入过渡时长（毫秒），`体色` 为该表情自带的语义体色（`—` 表示沿用引擎默认 `#F3F0EA`）。
+
+| id | 名称 | 组 | transition | 自带体色 | 丘丘用在哪 |
+|---|---|---|---|---|---|
+| `00` | 睡眠 | life | 900 | `#EEEBE4` | 闲置 300 s 后 |
+| `01` | 唤醒 | life | 320 | — | 从睡眠被唤醒的过场 |
+| `02` | 待机放空 | life | 700 | — | **状态 idle**、情绪推断默认回退、引擎 `fallbackId` |
+| `03` | 好奇 | life | 420 | — | 不用 |
+| `04` | 发呆 | life | 800 | — | 闲置 90 s 后 |
+| `05` | 加载苏醒 | life | 480 | — | 不用 |
+| `06` | 休眠 | life | 1200 | `#EBE8E1` | 不用 |
+| `07` | 抖动唤醒 | life | 220 | — | 不用 |
+| `10` | 开心 | emotion | 380 | `#F6EFE4` | **事件 write**、情绪推断 |
+| `11` | 疑惑 | emotion | 420 | — | **事件 filter.uncertain**、情绪推断 |
+| `12` | 失落 | emotion | 820 | `#EDEAE3` | 情绪推断 |
+| `13` | 惊讶 | emotion | 180 | — | 情绪推断 |
+| `14` | 害羞 | emotion | 560 | `#F4D3D0` | 情绪推断 |
+| `15` | 疲惫 | emotion | 900 | `#EFECE5` | 不用 |
+| `16` | 专注 | emotion | 320 | — | 不用 |
+| `17` | 慌张 | emotion | 200 | — | 不用 |
+| `18` | 无奈 | emotion | 560 | — | 情绪推断 |
+| `19` | 满意 | emotion | 580 | `#F5EFE6` | **事件 merge**、情绪推断 |
+| `20` | 困惑 | emotion | 480 | — | 情绪推断 |
+| `21` | 生气 | emotion | 260 | `#E4574A` | 情绪推断 |
+| `30` | 思考中 | agent | 480 | — | **状态 thinking** |
+| `31` | 接收任务 | agent | 220 | — | 不用 |
+| `32` | 处理中忙碌 | agent | 360 | — | 不用 |
+| `33` | 任务完成 | agent | 240 | — | 不用 |
+| `34` | 出错 | agent | 220 | `#E25B5B` | **事件 请求出错** |
+| `35` | 等待输入 | agent | 480 | — | **状态 listening** |
+| `36` | 联网加载 | agent | 380 | — | 不用 |
+| `37` | 复述回忆 | agent | 780 | — | **事件 recall 命中** |
+| `38` | 拒绝/受限 | agent | 380 | `#EFE8E4` | **事件 回复含拒绝** |
+| `39` | 输出回复 | agent | 360 | — | **状态 speaking** |
+| `40` | 检索资料 | agent | 320 | — | **事件 recall 下探冷存储** |
+| `41` | 停止终止 | agent | 280 | `#EBE8E2` | 不用 |
+
+## 2 · 主题色与眼色
+
+- **主题色（丘丘体色）`#F2E7D3`** —— 暖奶油。
+- **眼色 `#2A2621`** —— 暖墨。比引擎默认 `#1A1A1A` 略暖，与 `#F2E7D3` 的对比度 13.4:1，200 px 与 120 px 下都足够。
+
+### 为什么不走 `opts.color`
+
+Emotion Ball 的 `EmotionBall.create(el, { color, eyeColor })` 会在**每一帧无条件**执行 `pose.body.color = theme.body`，覆盖表情自带的语义体色。这会同时废掉三处色彩表演：`21` 生气变红、`14` 害羞变粉、`34` 出错红白闪。丘丘用得上这三个，所以：
+
+**不传 `opts.color`，也不传 `opts.eyeColor`。** 改为在启动时用公开 API `EmotionBall.config.register()` 打一遍主题补丁——纯数据配置，不触碰 vendor 文件，符合「只定参数」的约束。
+
+### 主题补丁算法
+
+`character` 在创建任何实例**之前**执行一次，全局生效：
+
+```
+对 32 个 id 逐个：
+  raw = 深拷贝 EmotionBall.config.get(id).raw
+  1. 体色：
+     若 id 在下表 → raw.body.color = 下表的「丘丘体色」
+     否则          → raw.body = { ...raw.body, color: '#F2E7D3' }
+  2. 序列起始色：raw.sequence.frames 中所有 body.color 值
+     等于 '#F3F0EA' 或 '#F6F3EC' 的，一律替换为 '#F2E7D3'
+  3. 眼色：raw.eyes = { both: { color: '#2A2621' }, ...raw.eyes }
+     （applySpec 恒先应用 both 再应用 left/right，表情自带的左右差异不受影响）
+  EmotionBall.config.register(raw)
+```
+
+第 3 步安全的依据：32 个表情**没有任何一个**声明过眼色，全部落在引擎默认 `#1A1A1A` 上。
+
+体色补丁表（只列 11 个自带语义体色的表情，其余 21 个统一 `#F2E7D3`）：
+
+| id | 上游原色 | 丘丘体色 | 语义 |
+|---|---|---|---|
+| `00` 睡眠 | `#EEEBE4` | `#E9DECB` | 暗一档 |
+| `06` 休眠 | `#EBE8E1` | `#E5DAC6` | 暗两档 |
+| `10` 开心 | `#F6EFE4` | `#F8EEDA` | 亮一档 |
+| `12` 失落 | `#EDEAE3` | `#E7E0D2` | 暗一档、去暖 |
+| `14` 害羞 | `#F4D3D0` | `#F3D2C6` | 暖粉 |
+| `15` 疲惫 | `#EFECE5` | `#EBE1CF` | 暗一档 |
+| `19` 满意 | `#F5EFE6` | `#F7EDD8` | 亮一档 |
+| `21` 生气 | `#E4574A` | `#E4574A` | 语义红，原样保留 |
+| `34` 出错 | `#E25B5B` | `#E25B5B` | 语义红，原样保留 |
+| `38` 拒绝 | `#EFE8E4` | `#EAE0D2` | 暗一档 |
+| `41` 停止 | `#EBE8E2` | `#E6DCC9` | 暗一档 |
+
+`34` 出错序列里的 `#DE5555` 是红闪的第二帧，保留不动。
+
+### 丘丘的颜色不跟随明暗主题
+
+界面换暗色主题时，丘丘的体色与眼色**不变**。丘丘是角色不是控件；暖奶油球体落在深色背景上是刻意的对比。`design/tokens.css` 把这两个值也导出成变量（`--qq-ball-body` / `--qq-ball-eye`），但明暗两套里取值相同。
+
+## 3 · 尺寸与创建参数
+
+| 场景 | 容器尺寸 | `eyeScale` | `lite` | `idle` | `autostart` |
+|---|---|---|---|---|---|
+| 桌宠窗口 | 200 × 200 px | `1` | `false` | 见 § 4 | `true` |
+| 主窗口（左栏顶部） | 120 × 120 px | `1.5` | `true` | `false` | `true` |
+| 网页端（页面内嵌） | 160 × 160 px | `1.2` | `false` | 见 § 4 | `true` |
+
+- 容器是正方形 `div`，`width` 与 `height` 写死上表像素值，不用百分比。SVG 自适应容器。
+- `eyeScale` 按上游建议取值：≤ 80 px 用 `1.5~1.8`，120 px 悬浮窗用 `1.5`。主窗口的 120 px 实例同时开 `lite: true` 关掉彩带与撒花——主窗口里丘丘是身份标识不是主角，特效会抢对话区的注意力。
+- 三处实例共享同一个 rAF 心跳，多开不增加循环开销。
+- 桌宠窗口与主窗口是两个渲染进程，各自持有一个实例；按 AD-5，桌宠实例的状态与表情全部来自 IPC `setPetState`，不自己连 SSE。
+- 主窗口失去焦点或被最小化时对 120 px 实例调 `ball.setActive(false)`，恢复时 `setActive(true)`。网页端用 `IntersectionObserver`，丘丘滚出视口调 `setActive(false)`。桌宠实例常驻，不停帧。
+
+创建示例（桌宠窗口）：
+
+```js
+applyQiuqiuTheme();                      // § 2 的主题补丁，全局只跑一次
+const ball = EmotionBall.create(el, {
+  emotion: '02',
+  shape: 'blob',
+  eyeScale: 1,
+  lite: false,
+  fallbackId: '02',
+  idle: { standbyAfter: 90000, sleepAfter: 300000, standbyId: '04', sleepId: '00' }
+});
+```
+
+## 4 · 闲置策略
+
+「闲置」= 距离上一次**用户交互或状态切换**经过的时间。计时由引擎的 `_lastActivity` 维护，宿主可用公开方法 `ball.resetIdle()` 手动复位；`setEmotion(id)` 不带 `auto` 标记时也会自动复位。
+
+| 阶段 | 阈值 | emotionId | 表现 |
+|---|---|---|---|
+| 活跃待机 | 0 – 90 s | `02` 待机放空 | 左看看右看看，偶尔甩彩带或弹跳 |
+| 待机 | 90 s | `04` 发呆 | 半闭眼慢轮换，双眼各望各的 |
+| 睡眠 | 300 s | `00` 睡眠 | 眼睛闭成细线，右上角飘 zzz，不再注视鼠标 |
+
+传给引擎就是 `idle: { standbyAfter: 90000, sleepAfter: 300000, standbyId: '04', sleepId: '00' }`。
+
+**只有桌宠窗口与网页端实例开 `idle`。** 主窗口的 120 px 实例传 `idle: false`——用户正开着主窗口时丘丘不该睡着。
+
+### 唤醒
+
+当前表情是 `00` 时，任何一次会让状态机离开 `idle` 的事件（发送消息、按住说话、桌宠单击）走唤醒过场：
+
+1. `ball.setEmotion('01')` —— 320 ms 切入，2100 ms 的睁眼序列，`settle: { next: '02' }` 由引擎自动落到 `02`
+2. 唤醒序列播放期间**不阻塞业务**：`POST /chat` 照常发出，气泡照常出字
+3. 序列结束（`change` 事件报出 `id === '02'`）后，状态机把当前状态的表情补上；若期间状态已经变成 `thinking`，直接切 `30`
+
+当前表情是 `04` 时不走唤醒过场，直接切到目标状态的表情。
+
+## 5 · 授权说明
+
+**丘丘的形象是非商业的，转产品必须整体替换。** 这是 `docs/ARCHITECTURE.md` § 2 的第一条约束。
+
+Emotion Ball 仓库里有三类授权不同的内容，丘丘用到的是前两类：
+
+| 内容 | 授权 | 对丘丘的意思 |
+|---|---|---|
+| 球形角色**视觉形象**（`blob`/`wedge`/`gem` 身体造型、配色、特效视觉） | 仅供个人技术学习与研究，**禁止任何商业用途**，且上游明确**永不提供商业授权** | 丘丘的球体外观只能停留在 demo 与研究。任何商业化之前必须换掉整个角色形象 |
+| 表情**引擎源代码与表情配置数据**（状态机、弹簧插值、球面投影、眼环/眼形参数、动画原语、关键帧序列） | 双许可：非商业免费；商业用途可向上游获取授权 | 引擎可以留下，但商业集成必须搭配自有或另行合法授权的角色形象 |
+| `mood-mates/` 子项目的原创角色（云宝 Nimbo / 亮亮 Twinkle） | 双许可，可商用 | 丘丘当前**不使用**。是形象替换时的首选候补——同源引擎，换角色不用改状态机 |
+
+落到工程上的三条硬规矩：
+
+1. vendor 目录保留上游的 `LICENSE`、`LICENSE-COMMERCIAL.md`、`NOTICE.md` 三个文件原文，不删不改。
+2. 不修改 `vendor/emotion-ball/` 下的任何文件。所有定制只经 `EmotionBall.config.register()` 与 `EmotionBall.create()` 的选项完成——本文 § 2、§ 3 的做法都满足这条。
+3. `character` 的表情映射表（状态 → id、事件 → id、情绪 → id）与本文的补丁表分别独立成模块，只依赖 `emotionId` 字符串。换形象时只需换一个渲染适配层，映射表原样复用。

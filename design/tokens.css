@@ -1,0 +1,321 @@
+/* ============================================================
+ * design/tokens.css —— 丘丘设计令牌
+ *
+ * frontend 直接引，不要复制值。所有令牌以 --qq- 前缀。
+ *
+ * 明暗两套：:root 是亮色，[data-theme="dark"] 是暗色。
+ * 宿主必须在 <html> 上显式写 data-theme="light" | "dark"，
+ * 首帧之前由内联脚本按 localStorage + prefers-color-scheme 决定，
+ * 避免闪白。这里不写 @media (prefers-color-scheme)，否则整套
+ * 暗色值要重复一遍，两处会跑偏。
+ *
+ * 数值来源：
+ *   丘丘体色 / 眼色 / 尺寸   → design/character.md § 2、§ 3
+ *   状态最短停留 / 事件表情   → design/state-machine.md § 3
+ *   发声脉动增益             → design/state-machine.md § 4
+ *   记忆事件五色             → design/memory-panel.md § 2
+ *   三栏宽度 / 断点          → design/interaction.md § 3
+ * ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- 排版 ---------- */
+  --qq-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --qq-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --qq-text-2xs: 11px;   /* 事件卡的时间戳、路径角标 */
+  --qq-text-xs: 12px;    /* 辅助说明、滑块刻度 */
+  --qq-text-sm: 13px;    /* 侧栏正文、按钮 */
+  --qq-text-base: 14px;  /* 界面默认字号 */
+  --qq-text-md: 15px;    /* 对话气泡正文 */
+  --qq-text-lg: 16px;    /* 输入条 */
+  --qq-text-xl: 18px;    /* 分区标题 */
+  --qq-text-2xl: 22px;   /* 页面标题 */
+  --qq-text-3xl: 28px;   /* 空态主标题 */
+
+  --qq-leading-tight: 1.25;
+  --qq-leading-snug: 1.4;
+  --qq-leading-normal: 1.6;
+  --qq-leading-relaxed: 1.75;
+
+  --qq-weight-regular: 400;
+  --qq-weight-medium: 500;
+  --qq-weight-semibold: 600;
+  --qq-weight-bold: 700;
+
+  --qq-tracking-tight: -0.01em;
+  --qq-tracking-normal: 0;
+  --qq-tracking-wide: 0.02em;
+
+  /* ---------- 间距 ---------- */
+  --qq-space-0: 0;
+  --qq-space-1: 2px;
+  --qq-space-2: 4px;
+  --qq-space-3: 6px;
+  --qq-space-4: 8px;
+  --qq-space-5: 12px;
+  --qq-space-6: 16px;
+  --qq-space-7: 20px;
+  --qq-space-8: 24px;
+  --qq-space-9: 32px;
+  --qq-space-10: 40px;
+  --qq-space-11: 48px;
+  --qq-space-12: 64px;
+
+  /* ---------- 圆角 ---------- */
+  --qq-radius-xs: 4px;
+  --qq-radius-sm: 6px;
+  --qq-radius-md: 8px;
+  --qq-radius-lg: 12px;
+  --qq-radius-xl: 16px;
+  --qq-radius-2xl: 24px;
+  --qq-radius-full: 999px;
+
+  /* ---------- 描边 ---------- */
+  --qq-border-thin: 1px;
+  --qq-border-thick: 2px;
+  --qq-focus-ring-width: 2px;
+  --qq-focus-ring-offset: 2px;
+
+  /* ---------- 颜色 · 底与面 ---------- */
+  --qq-color-bg: #FBF7F0;
+  --qq-color-bg-subtle: #F4EEE3;
+  --qq-color-surface: #FFFFFF;
+  --qq-color-surface-hover: #F7F2E9;
+  --qq-color-surface-sunken: #F0E9DC;
+  --qq-color-overlay: rgba(42, 38, 33, 0.45);
+
+  /* ---------- 颜色 · 描边 ---------- */
+  --qq-color-border: #E5DBC9;
+  --qq-color-border-strong: #CDBFA7;
+  --qq-color-focus: #A85A2A;
+
+  /* ---------- 颜色 · 文字 ---------- */
+  --qq-color-text: #2A2621;
+  --qq-color-text-secondary: #5F574B;
+  --qq-color-text-muted: #736A5C;
+  --qq-color-text-inverse: #FBF7F0;
+  --qq-color-text-link: #8F4A22;
+
+  /* ---------- 颜色 · 品牌 ---------- */
+  --qq-color-brand: #A85A2A;
+  --qq-color-brand-hover: #935024;
+  --qq-color-brand-active: #7E441E;
+  --qq-color-brand-subtle: #F6E5D6;
+  --qq-color-on-brand: #FFFFFF;
+
+  /* ---------- 颜色 · 记忆事件五色 ---------- */
+  --qq-color-reject: #6B6153;
+  --qq-color-reject-bg: #EFE9DF;
+  --qq-color-reject-border: #DDD3C3;
+
+  --qq-color-uncertain: #8A5D08;
+  --qq-color-uncertain-bg: #FAF0D5;
+  --qq-color-uncertain-border: #EBD8A3;
+
+  --qq-color-write: #286B46;
+  --qq-color-write-bg: #E1F1E7;
+  --qq-color-write-border: #B6DCC5;
+
+  --qq-color-merge: #4E5BB0;
+  --qq-color-merge-bg: #E7E9F8;
+  --qq-color-merge-border: #C3C9EE;
+
+  --qq-color-recall: #186767;
+  --qq-color-recall-bg: #DCEFEF;
+  --qq-color-recall-border: #AFD9D9;
+
+  --qq-color-danger: #B03A30;
+  --qq-color-danger-bg: #FAE4E1;
+  --qq-color-danger-border: #EFC0B9;
+
+  /* ---------- 阴影 ---------- */
+  --qq-shadow-1: 0 1px 2px rgba(60, 48, 32, 0.06);
+  --qq-shadow-2: 0 2px 6px rgba(60, 48, 32, 0.08), 0 1px 2px rgba(60, 48, 32, 0.06);
+  --qq-shadow-3: 0 8px 20px rgba(60, 48, 32, 0.12), 0 2px 6px rgba(60, 48, 32, 0.08);
+  --qq-shadow-4: 0 20px 48px rgba(60, 48, 32, 0.18), 0 6px 14px rgba(60, 48, 32, 0.10);
+  --qq-shadow-pet: 0 10px 26px rgba(60, 48, 32, 0.22);
+  --qq-shadow-inset: inset 0 1px 2px rgba(60, 48, 32, 0.06);
+
+  /* ---------- 丘丘本体（明暗两套取值相同，角色不跟随主题） ---------- */
+  --qq-ball-body: #F2E7D3;
+  --qq-ball-eye: #2A2621;
+  /* 奶油球体与暖色背景的对比只有 1.15:1，必须靠投影分离轮廓。
+     用 drop-shadow 不用 box-shadow：前者跟随 SVG 轮廓，后者只画方框。 */
+  --qq-ball-drop: drop-shadow(0 6px 14px rgba(60, 48, 32, 0.20));
+  --qq-ball-size-pet: 200px;
+  --qq-ball-size-main: 120px;
+  --qq-ball-size-web: 160px;
+
+  /* ---------- 动效 ---------- */
+  --qq-duration-instant: 100ms;
+  --qq-duration-fast: 160ms;
+  --qq-duration-base: 240ms;
+  --qq-duration-slow: 400ms;
+  --qq-duration-state-min: 500ms;      /* 状态表情最短停留 */
+  --qq-duration-event-emotion: 1600ms; /* 事件表情持续时间 */
+
+  --qq-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --qq-ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --qq-ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --qq-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ---------- 发声脉动（design/state-machine.md § 4） ---------- */
+  --qq-voice: 0;                 /* 运行时由 feedEnvelope 每帧写入，0–1 */
+  --qq-voice-scale-gain: 0.055;
+  --qq-voice-lift: -3px;
+  --qq-voice-origin: 50% 62%;
+
+  /* ---------- 层级 ---------- */
+  --qq-z-base: 0;
+  --qq-z-sticky: 100;
+  --qq-z-dropdown: 200;
+  --qq-z-overlay: 300;
+  --qq-z-modal: 400;
+  --qq-z-toast: 500;
+  --qq-z-pet-input: 600;
+
+  /* ---------- 布局 ---------- */
+  --qq-sidebar-left: 260px;
+  --qq-sidebar-left-collapsed: 56px;
+  --qq-sidebar-right: 340px;
+  --qq-main-min: 480px;
+  --qq-header-h: 48px;
+  --qq-composer-min-h: 52px;
+  --qq-composer-max-h: 200px;
+  --qq-event-card-min-h: 56px;
+
+  /* 断点。CSS 的 @media 不吃变量，媒体查询里写死同样的数字；
+     这几个令牌只给 JS 用（matchMedia / 响应式钩子）。 */
+  --qq-bp-sm: 720px;
+  --qq-bp-md: 1024px;
+  --qq-bp-lg: 1280px;
+
+  /* ---------- 桌宠窗口 ---------- */
+  --qq-pet-window: 200px;
+  --qq-pet-input-w: 320px;
+  --qq-pet-input-h: 40px;
+  --qq-pet-gap: 8px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---------- 颜色 · 底与面 ---------- */
+  --qq-color-bg: #17140F;
+  --qq-color-bg-subtle: #1E1A15;
+  --qq-color-surface: #221D17;
+  --qq-color-surface-hover: #2A241C;
+  --qq-color-surface-sunken: #120F0B;
+  --qq-color-overlay: rgba(0, 0, 0, 0.60);
+
+  /* ---------- 颜色 · 描边 ---------- */
+  --qq-color-border: #372F26;
+  --qq-color-border-strong: #55493B;
+  --qq-color-focus: #E0904F;
+
+  /* ---------- 颜色 · 文字 ---------- */
+  --qq-color-text: #F2E9DC;
+  --qq-color-text-secondary: #BFB2A0;
+  --qq-color-text-muted: #948877;
+  --qq-color-text-inverse: #17140F;
+  --qq-color-text-link: #E8A469;
+
+  /* ---------- 颜色 · 品牌 ---------- */
+  --qq-color-brand: #D9834A;
+  --qq-color-brand-hover: #E7955D;
+  --qq-color-brand-active: #C4713B;
+  --qq-color-brand-subtle: #3A2718;
+  --qq-color-on-brand: #17140F;
+
+  /* ---------- 颜色 · 记忆事件五色 ---------- */
+  --qq-color-reject: #8E8474;
+  --qq-color-reject-bg: #26211B;
+  --qq-color-reject-border: #3B3229;
+
+  --qq-color-uncertain: #E0B33C;
+  --qq-color-uncertain-bg: #33290F;
+  --qq-color-uncertain-border: #4E3F18;
+
+  --qq-color-write: #63BC8B;
+  --qq-color-write-bg: #172C20;
+  --qq-color-write-border: #27452F;
+
+  --qq-color-merge: #939ED9;
+  --qq-color-merge-bg: #1F2340;
+  --qq-color-merge-border: #333A5E;
+
+  --qq-color-recall: #4FB5B5;
+  --qq-color-recall-bg: #122C2C;
+  --qq-color-recall-border: #1F4444;
+
+  --qq-color-danger: #E9776A;
+  --qq-color-danger-bg: #331915;
+  --qq-color-danger-border: #4E2721;
+
+  /* ---------- 阴影 ---------- */
+  --qq-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.50);
+  --qq-shadow-2: 0 2px 6px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.40);
+  --qq-shadow-3: 0 8px 20px rgba(0, 0, 0, 0.60), 0 2px 6px rgba(0, 0, 0, 0.45);
+  --qq-shadow-4: 0 20px 48px rgba(0, 0, 0, 0.70), 0 6px 14px rgba(0, 0, 0, 0.50);
+  --qq-shadow-pet: 0 10px 30px rgba(0, 0, 0, 0.65);
+  --qq-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+
+  /* 丘丘本体在暗色下取值不变，写出来是为了防止有人以为漏了 */
+  --qq-ball-body: #F2E7D3;
+  --qq-ball-eye: #2A2621;
+  --qq-ball-drop: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.55));
+}
+
+/* ============================================================
+ * 组件基元
+ * 只有两条：丘丘的舞台容器与全局 focus 环。
+ * 其余组件样式归 frontend，不放在令牌文件里。
+ * ============================================================ */
+
+/* 丘丘舞台：EmotionBall 的 SVG 挂在内层 .qq-ball，
+   发声脉动写外层 .qq-stage 的 --qq-voice，两条通路互不干扰。 */
+.qq-stage {
+  display: block;
+  transform: scale(calc(1 + var(--qq-voice-scale-gain) * var(--qq-voice)))
+             translateY(calc(var(--qq-voice-lift) * var(--qq-voice)));
+  transform-origin: var(--qq-voice-origin);
+  filter: var(--qq-ball-drop);
+  will-change: transform;
+}
+
+.qq-stage > .qq-ball {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qq-stage[data-surface="pet"] { width: var(--qq-ball-size-pet); height: var(--qq-ball-size-pet); }
+.qq-stage[data-surface="main"] { width: var(--qq-ball-size-main); height: var(--qq-ball-size-main); }
+.qq-stage[data-surface="web"] { width: var(--qq-ball-size-web); height: var(--qq-ball-size-web); }
+
+.qq-focusable:focus-visible {
+  outline: var(--qq-focus-ring-width) solid var(--qq-color-focus);
+  outline-offset: var(--qq-focus-ring-offset);
+  border-radius: var(--qq-radius-sm);
+}
+
+/* 降低动效偏好：关掉发声脉动与所有过渡，表情切换本身保留
+   （表情是信息不是装饰，关掉就看不出丘丘在做什么了）。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --qq-voice-scale-gain: 0;
+    --qq-voice-lift: 0px;
+    --qq-duration-instant: 1ms;
+    --qq-duration-fast: 1ms;
+    --qq-duration-base: 1ms;
+    --qq-duration-slow: 1ms;
+  }
+  .qq-stage {
+    transform: none;
+    will-change: auto;
+  }
+}
