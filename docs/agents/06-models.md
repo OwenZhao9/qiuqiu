@@ -1,6 +1,6 @@
 # 模型 Agent · `models`
 
-五种能力的统一适配层。上层只 import 抽象接口，供应商实现可替换。
+模型能力的统一适配层。上层只 import 抽象接口，供应商实现可替换。
 
 ## 目录
 
@@ -8,7 +8,7 @@
 
 ## 先读
 
-- `docs/ARCHITECTURE.md` § 6 模型
+- `docs/ARCHITECTURE.md` § 3 系统边界、§ 4 模型选型表
 - `docs/CONTRACTS.md` § 4 模型适配接口
 
 ## 功能清单
@@ -89,8 +89,22 @@
 - edge-tts 合成 20 字中文，`AudioChunk` 的 `rms` 序列非零且随语音起伏
 - `pytest` 通过
 
+## 受哪些 AD 约束
+
+AD-8、AD-13、AD-16
+
+## 未解决的问题
+
+**开工前必须定**：
+- mock 是否记 `run_metrics`。已定：记，`provider` 字段为 `mock`
+- 权重下载源。已定：SenseVoice 与 silero 各自从 GitHub releases 下载，校验 sha256
+
+**边做边定，定完回报**：
+- SenseVoice 流式分段长度
+- edge-tts 输出 mp3 转 pcm 的解码库
+
 ## 与其他分支
 
-- `memory` 用 Chat 与 Vision
-- `backend` 用全部五种
+- `memory` 用 Chat
+- `backend` 用全部能力
 - `data` 无依赖

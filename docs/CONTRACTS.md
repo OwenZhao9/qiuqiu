@@ -2,6 +2,8 @@
 
 各分支并行开发靠这份文件。**改契约必须先改这里，再改代码，PR 里两者一起。** 主调度 Agent 审契约改动。
 
+**契约地位。** 本文全部是契约，不是快照。七个分支并行开发期间，跨块共享的接口签名与数据表字段以本文为准，代码服从文档。全部分支合入 main 之后，跨块接口的改动在同一个 PR 里同时改代码与本文。
+
 ## 1 · HTTP 与 SSE
 
 后端 `services/api`，监听 `127.0.0.1:8000`。所有响应 JSON，错误统一 `{ "error": { "code": string, "message": string, "hint": string } }`。
@@ -26,6 +28,9 @@ data: { "text": string }
 event: done
 data: { "message_id": string, "tokens_in": number, "tokens_out": number, "latency_ms": number }
 
+event: audio
+data: { "pcm_b64": string, "sample_rate": number, "rms": 0–1 }     有 TTS 时才发，前端解码播放，rms 喂口型
+
 event: error
 data: { "code": string, "message": string, "hint": string }
 ```
@@ -48,6 +53,8 @@ Response: text/event-stream，断线用 since 续传
   "payload": { ... }
 }
 ```
+
+`id` 为 `evt_` 加 `event_log` 自增 id；`since` 游标是该自增 id。
 
 payload 按类型：
 
@@ -107,6 +114,24 @@ type Learned = { nickname?: string; humor_tolerance?: number; topics?: string[];
 ```
 
 `preset: null` 表示真空——`sliders` 不注入 prompt。
+
+### 语音
+
+```
+POST /voice/session   Body: { "session_id": string }
+Response: { "voice_session_id": string, "mode": "cascade"|"realtime" }
+
+WS /voice/stream?voice_session_id=<id>
+上行：二进制帧，pcm16 单声道 16k
+下行 JSON 帧：
+  { "type": "partial", "role": "user", "text": string }
+  { "type": "final",   "role": "user"|"assistant", "text": string }
+  { "type": "audio",   "pcm_b64": string, "sample_rate": number, "rms": 0–1 }    仅 realtime
+  { "type": "turn_end" }
+  { "type": "error",   "code": string, "message": string, "hint": string }
+```
+
+级联：前端收到 `final(role=user)` 后自行 `POST /chat`，回复与 TTS 走 SSE。端到端：回复文字与音频都从这条连接下行，`final(role=assistant)` 即回复全文，后端按 role 各调一次 `ingest()`。
 
 ### 其他
 
@@ -174,7 +199,8 @@ class RecallResult:
 class MemoryFacade:
     def ingest(self, text: str, *, source: Source, speaker: str, ts: datetime,
                blob_id: str | None = None) -> IngestResult: ...
-    def recall(self, query: str, *, budget: Budget) -> RecallResult: ...
+    def recall(self, query: str, *, budget: Budget,
+               now: datetime | None = None) -> RecallResult: ...   # now 缺省为当前时间，场景回放传偏移后的时间
     def list_visible(self, layer: str | None = None) -> list[VisibleMemory]: ...
     def edit_visible(self, mid: str, **fields) -> VisibleMemory: ...
     def subscribe(self) -> AsyncIterator[MemoryEvent]: ...
@@ -298,4 +324,4 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.1**（增 `RealtimeVoice` 接口）
+当前：**v0.1.2**（契约地位说明；`/chat` 增 `audio` 事件；增 `/voice/session` 与 `WS /voice/stream`；事件 `id` 与游标的对应；`recall()` 增 `now`）

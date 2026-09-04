@@ -6,6 +6,8 @@
 
 ## 技术栈
 
+> 快照：写于 2026-09-05，代码存在后以代码为准。
+
 | 层 | 技术 |
 |---|---|
 | 桌面壳 | Electron 33 |
@@ -18,9 +20,13 @@
 | 语音识别 | sherpa-onnx + SenseVoice（本地，离线） |
 | 语音活动检测 | silero-vad（本地） |
 | 语音合成 | edge-tts（demo）→ 火山引擎（正式） |
+| 嵌入 | Qwen/Qwen3-Embedding-0.6B（本地，1024 维） |
+| 实时语音（可选） | 豆包端到端实时语音 |
 | 生图（可选） | Seedream |
 
 ## 目录
+
+> 快照：写于 2026-09-05，代码存在后以代码为准。
 
 ```
 qiuqiu/
@@ -53,7 +59,7 @@ qiuqiu/
 | `models` | `packages/models/` | [06-models.md](docs/agents/06-models.md) |
 | `character` | `packages/character/` | [07-character.md](docs/agents/07-character.md) |
 
-先读 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 看整体，再读 [docs/CONTRACTS.md](docs/CONTRACTS.md) 看接口，最后读自己的任务书。
+先读 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 第 4、5 节看分层与自己的块，再读 [docs/CONTRACTS.md](docs/CONTRACTS.md) 看接口，最后读自己的任务书。
 
 ## 本地跑
 
@@ -66,4 +72,4 @@ pnpm dev                    # 同时起后端 8000、前端 5173、Electron
 
 ## 授权约束
 
-丘丘的**视觉形象**引用自 Emotion Ball，仅供个人学习研究，**禁止商业用途且永不提供商业授权**。表情引擎代码与配置数据为双许可（非商业免费，商业可授权）。本项目当前为非商业 demo；若转为产品，形象必须替换，引擎需另行取得授权。详见 [docs/ARCHITECTURE.md § 约束](docs/ARCHITECTURE.md#约束)。
+丘丘的**视觉形象**引用自 Emotion Ball，仅供个人学习研究，**禁止商业用途且永不提供商业授权**。表情引擎代码与配置数据为双许可（非商业免费，商业可授权）。本项目当前为非商业 demo；若转为产品，形象必须替换，引擎需另行取得授权。详见 [docs/ARCHITECTURE.md § 2 约束](docs/ARCHITECTURE.md#2--约束)。

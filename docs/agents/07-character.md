@@ -63,6 +63,19 @@ export type { QiuqiuInstance, CharacterState, EmotionId };
 - `inferEmotion("太好了！")` 返回 `10`，`inferEmotion("抱歉我做不到")` 返回 `12` 或 `18`（按设计文档）
 - `vitest` 通过，含 CONTRACTS § 6 契约测试
 
+## 受哪些 AD 约束
+
+AD-1、AD-14
+
+## 未解决的问题
+
+**开工前必须定**：
+- 事件表情与状态表情冲突时谁优先。已定：事件表情优先，持续时间到后回当前状态的表情；`speaking` 期间的口型不受事件表情影响
+
+**边做边定，定完回报**：
+- `feedEnvelope` 的包络平滑窗口
+- 未知 emotionId 回退 `02` 时是否记 warn
+
 ## 与其他分支
 
 - 依赖 `design` 的三份文档

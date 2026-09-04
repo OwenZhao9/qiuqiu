@@ -8,7 +8,7 @@
 
 ## 先读
 
-- `docs/ARCHITECTURE.md` § 4 记忆中间件、§ 7 人格
+- `docs/ARCHITECTURE.md` § 4 解决方案策略、§ 6 运行时视图、§ 8 架构决策
 - `docs/CONTRACTS.md` § 3 MemoryFacade、§ 5 数据模型、§ 7 人格合成
 - SimpleMem 的 `docs/text-memory.md` 与 `simplemem/multimodal/triggers/`
 - `packages/data` 的接口
@@ -20,7 +20,7 @@
 五个方法签名严格按 CONTRACTS § 3。
 
 - [ ] `ingest()`：按 `source` 分流——`DIALOGUE` / `JOURNAL` 跳过筛选直接压缩；`AMBIENT_*` 先过筛选
-- [ ] `recall()`：调检索规划 → 先热后冷 → 命中冷条目调 `data.tiering.promote()` → 返回 `cold_promoted`
+- [ ] `recall()`：`now` 缺省为当前时间；调检索规划 → 先热后冷 → 命中冷条目调 `data.tiering.promote()` → 返回 `cold_promoted`
 - [ ] `list_visible / edit_visible`：读写 SQLite `visible_memory`，删除级联 `mark_superseded`
 - [ ] `subscribe()`：异步生成器，从事件总线取
 
@@ -36,7 +36,7 @@
 ### 事件总线（`qiuqiu_memory/bus.py`）
 
 - [ ] 进程内 `asyncio.Queue`，`publish(event)` 不阻塞主流程
-- [ ] 每条事件同时写 `data.sqlite.event_log`
+- [ ] 每条事件先写 `data.sqlite.event_log` 取自增 id，信封 `id` 为 `evt_` 加该 id，再发布
 - [ ] 信封与 payload 格式严格按 CONTRACTS § 1
 
 ### 人格（`qiuqiu_memory/persona.py`）
@@ -55,7 +55,7 @@
 - [ ] 与上一版 `persona_learned.latest()` 做增量合并（新值覆盖，缺失沿用）
 - [ ] 写 `persona_learned` 新版本，写冷存储性格档案
 - [ ] 触发 `PersonaService` 重算快照
-- [ ] 触发条件：累积对话轮数达阈值（`settings.consolidate_every`，默认 20）
+- [ ] 触发方是后端定时任务（轮数达 `settings.consolidate_every`，默认 20），本层不自带调度器
 
 ## 约束
 
@@ -74,7 +74,23 @@
 - 50 轮对话后 `run_consolidation()` 产出 `Learned`，快照重算，`current()` 输出变化
 - `pytest` 通过，含 CONTRACTS 契约测试
 
+## 受哪些 AD 约束
+
+AD-2、AD-3、AD-4、AD-6、AD-7、AD-8、AD-9、AD-10、AD-11、AD-12、AD-13、AD-14、AD-15、AD-16
+
+## 未解决的问题
+
+**开工前必须定**：
+- SimpleMem 文本路径没有筛选器，被动采集怎么筛。已定：`AMBIENT_AUDIO` 用其多模态路径的 `AudioEntropyTrigger`，`AMBIENT_IMAGE` 用 `VisualEntropyTrigger`，转写文本再过 Jaccard 去重；三者的 `TriggerResult` 统一映射为 `FilterDecision`
+- 性格沉淀由谁触发。已定：后端定时任务调 `run_consolidation()`，本层不自带调度器
+- 场景回放的时间偏移怎么进来。已定：`ingest()` 的 `ts` 与 `recall()` 的 `now`，见 CONTRACTS § 3
+
+**边做边定，定完回报**：
+- 检索规划器的 prompt
+- `Budget` 截断时三路的配额比例
+- 嵌入模型的加载时机，`HF_ENDPOINT` 镜像透传
+
 ## 与其他分支
 
-- 依赖 `data` 全部接口、`models` 的 Chat 与 Vision
+- 依赖 `data` 全部接口、`models` 的 Chat
 - `backend` 依赖你的 `MemoryFacade` 与 `PersonaService`

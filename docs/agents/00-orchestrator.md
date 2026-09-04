@@ -7,18 +7,25 @@
 1. **契约唯一维护者**：`docs/CONTRACTS.md` 的任何改动由你合并，升版本号，通知受影响分支
 2. **合并顺序**：按依赖图合并，不让上游没就绪的下游 PR 进 main
 3. **集成测试**：每次合并后跑全链路冒烟（`scripts/smoke.sh`），失败回滚
-4. **冲突仲裁**：两个分支对同一接口有不同理解时，你按 ARCHITECTURE.md 的设计决策裁决，写进 CONTRACTS.md
+4. **冲突仲裁**：两个分支对同一接口有不同理解时，你按 ARCHITECTURE.md 第 8 节的 AD 编号裁决，结果写进 CONTRACTS.md，PR 里引用编号
 5. **进度看板**：维护 `docs/PROGRESS.md`，每个分支当前里程碑、阻塞项、需要谁配合
+6. **AD 编号唯一维护者**：新增决策取下一个编号，编号永不重编，废弃留空号并注明被哪条取代
 
 ## 依赖图与合并顺序
 
+```mermaid
+graph LR
+  design --> character
+  design --> frontend
+  models --> memory
+  data --> memory
+  memory --> backend
+  models --> backend
+  backend --> frontend
+  character --> frontend
 ```
-design ──┐
-         ├──▶ models ──┐
-data ────┘             ├──▶ memory ──▶ backend ──▶ frontend
-                       │                  ▲
-character ─────────────┘──────────────────┘
-```
+
+箭头从被依赖方指向依赖方，也是合并顺序。与 ARCHITECTURE.md 第 5 节是同一张图。
 
 - `design` 最先合并，它定的状态机与表情映射是 `character` 和 `frontend` 的输入
 - `models` 与 `data` 无相互依赖，可并行
@@ -31,7 +38,7 @@ character ─────────────┘─────────�
 
 | # | 名称 | 完成标准 | 涉及分支 |
 |---|---|---|---|
-| M1 | 契约冻结 | CONTRACTS.md v0.1.0 各分支确认无异议 | 全部 |
+| M1 | 契约冻结 | CONTRACTS.md v0.1.2 各分支确认无异议 | 全部 |
 | M2 | 骨架可跑 | 后端起得来、前端起得来、丘丘在页面上会眨眼、mock 模型能对话 | backend frontend character models |
 | M3 | 记忆闭环 | 一句话进去 → 事实写入 LanceDB → 下一轮能召回 → 侧栏显示四类事件 | memory data backend frontend |
 | M4 | 人格闭环 | 选预设生效 → 性格沉淀跑通 → 快照重算 → 对话语气可感知变化 | memory backend |

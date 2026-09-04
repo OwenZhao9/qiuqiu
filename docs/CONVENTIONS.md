@@ -69,6 +69,9 @@ docs(contracts): recall 事件增加 cold_promoted 字段
 
 改了行为就改文档。`docs/ARCHITECTURE.md`、`docs/product-map.html`、`docs/architecture.html` 三者说同一件事，改一个同步另外两个。
 
+- 架构决策编号 AD-n 永不重编；废弃的决策留空号，注明被哪条取代
+- 快照性质的表格（技术栈、目录树、模型选型）上方必须有一行「快照：写于日期，代码存在后以代码为准」
+
 ## PR 检查清单
 
 - [ ] 只改了自己目录

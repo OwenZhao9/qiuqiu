@@ -8,7 +8,7 @@
 
 ## 先读
 
-- `docs/ARCHITECTURE.md` § 5 存储
+- `docs/ARCHITECTURE.md` § 4 解决方案策略「存储分冷热」、§ 7 数据归属表
 - `docs/CONTRACTS.md` § 5 数据模型
 
 ## 功能清单
@@ -16,7 +16,7 @@
 ### LanceDB（`qiuqiu_data/lance.py`）
 
 - [ ] 两张表 `facts_hot` `facts_cold`，schema 严格按 CONTRACTS § 5
-- [ ] 热表建三层索引：向量（IVF-PQ 或 HNSW）、全文（`tokens`）、标量（`entities` `speaker` `valid_from`）
+- [ ] 热表建三层索引：向量（HNSW，条数过万后建，之前全扫）、全文（`tokens`）、标量（`entities` `speaker` `valid_from`）
 - [ ] 冷表只建向量索引，标量字段可过滤
 - [ ] `upsert / get / query_vector / query_fts / query_scalar / mark_superseded`
 - [ ] `valid_to` 更新不删行
@@ -60,7 +60,20 @@
 - `promote` 后条目在热表可查且冷表已删
 - `pytest` 通过
 
+## 受哪些 AD 约束
+
+AD-7、AD-9、AD-10
+
+## 未解决的问题
+
+**开工前必须定**：
+- 热表向量索引类型。已定：条数不足 1 万时不建向量索引，LanceDB 全扫；过万后建 HNSW，`query_vector` 对外行为不变
+
+**边做边定，定完回报**：
+- 迁移文件编号起点与命名
+- blob 目录按 kind 分层的命名
+
 ## 与其他分支
 
 - `memory` 依赖你的全部接口
-- `backend` 依赖 `sqlite.py` 的 `sessions` `messages` `event_log` `settings`
+- `backend` 依赖 `sqlite.py` 的 `sessions` `messages` `settings` `providers` `run_metrics`，以及 `event_log` 的 `since` 游标查询

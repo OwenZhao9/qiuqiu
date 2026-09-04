@@ -36,6 +36,8 @@ Electron 壳 + React 界面。两端共用一套 React 代码。
 - [ ] 阈值面板：滑块拖动实时 `PUT /config/thresholds`
 - [ ] 场景控制台：列出 `scenarios/*.json`，一键回放
 - [ ] 状态机驱动：发送时切 `thinking`，首 delta 切 `speaking`，done 后回 `idle`——**本地切换，不等后端**
+- [ ] 语音输入：按住说话经 `WS /voice/stream` 上传 pcm，`partial` 显示在输入条，`final` 后 `POST /chat`；端到端模式下直接渲染下行的 `final` 与 `audio`
+- [ ] TTS 播放：解码 `/chat` 的 `audio` 事件并播放，`rms` 喂 `feedEnvelope`
 - [ ] 网页端适配：无 `window.qiuqiu` 时降级，丘丘嵌在页面里
 
 ## 约束
@@ -51,6 +53,20 @@ Electron 壳 + React 界面。两端共用一套 React 代码。
 - 断网重连后 `/events` 从上次游标续传，侧栏不丢事件
 - 网页端在无 Electron 环境下全部功能可用（桌宠功能除外）
 - `pnpm test` 通过；SSE 解析有单测
+
+## 受哪些 AD 约束
+
+AD-1、AD-5、AD-11、AD-13、AD-14
+
+## 未解决的问题
+
+**开工前必须定**：
+- 网页端没有 IPC 时状态机与回复流怎么走。已定：走前端内存事件总线，同一份状态机代码，`window.qiuqiu` 缺失时切换到内存总线
+
+**边做边定，定完回报**：
+- 主窗口三栏的响应式断点
+- Windows 透明窗口的验证方式
+- `audio` 事件的解码与播放队列实现
 
 ## 与其他分支
 
