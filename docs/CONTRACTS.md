@@ -142,6 +142,22 @@ POST /blobs  (multipart)   → { "blob_id": string }
 GET  /health
 ```
 
+`GET /providers` 直接透传 `qiuqiu_models.registry.list_providers()`，一个能力一项：
+
+```ts
+interface ProviderInfo {
+  capability: "chat"|"vision"|"asr"|"vad"|"tts"|"realtime";
+  provider: string;          // deepseek / edge / sensevoice / silero / volc / doubao / mock
+  model: string | null;
+  base_url: string | null;
+  has_key: boolean;          // 只报有没有，永远不回 key 本身
+  available: boolean;        // 现在能不能用
+  local: boolean;            // 本地跑还是出网
+  hint?: string;             // available 为 false 时说明下一步做什么
+  voice_mode?: "cascade"|"realtime";   // 仅 capability=realtime
+}
+```
+
 ## 2 · Electron IPC
 
 `preload.js` 经 `contextBridge` 暴露 `window.qiuqiu`：
@@ -220,6 +236,14 @@ class PersonaService:
 
 `packages/models/qiuqiu_models/`。每个能力一个抽象基类，供应商实现放 `providers/`。
 
+**异步形状。** `stream()` 与 `synthesize()` 是 **async 函数，返回异步迭代器**，不是 async generator。调用方必须先 `await` 再 `async for`：
+
+```python
+async for delta in await chat.stream(messages): ...
+async for chunk in await tts.synthesize(text, voice=v): ...
+async for ev in rv.events(): ...          # events() 是普通 def，不 await
+```
+
 ```python
 class ChatModel(Protocol):
     async def stream(self, messages: list[Message], *, temperature: float = 0.7) -> AsyncIterator[str]: ...
@@ -229,7 +253,7 @@ class VisionModel(Protocol):
     async def describe(self, image: bytes | str, prompt: str) -> str: ...   # bytes 或 URL
 
 class ASR(Protocol):
-    def transcribe(self, pcm16k: bytes) -> Transcript: ...                   # { text, lang, confidence }
+    def transcribe(self, pcm16k: bytes) -> Transcript: ...
     def stream(self, chunks: Iterator[bytes]) -> Iterator[PartialTranscript]: ...
 
 class VAD(Protocol):
@@ -251,6 +275,39 @@ class RealtimeVoice(Protocol):
 #   { "type": "transcript", "role": "user"|"assistant", "text": str, "final": bool }
 #   { "type": "turn_end" }
 ```
+
+数据类字段：
+
+```python
+@dataclass
+class Message:            role: str; content: str            # role: system / user / assistant
+
+@dataclass
+class Transcript:         text: str; lang: str; confidence: float
+
+@dataclass
+class PartialTranscript:  text: str; final: bool; lang: str; confidence: float
+
+@dataclass
+class VadResult:          has_speech: bool; energy: float; confidence: float
+
+@dataclass
+class AudioChunk:         pcm: bytes; rms: float; sample_rate: int = 16000
+
+@dataclass
+class RealtimeEvent:
+    type: str                                    # audio / transcript / turn_end
+    pcm: bytes | None = None                     # type=audio
+    rms: float | None = None                     # type=audio
+    sample_rate: int | None = None               # type=audio
+    role: str | None = None                      # type=transcript
+    text: str | None = None                      # type=transcript
+    final: bool | None = None                    # type=transcript
+```
+
+`RealtimeEvent.to_dict()` 只输出非 `None` 字段，产出上面注释里的三种形状。
+
+**错误。** 模型层异常统一带 `hint`，`to_dict()` 产出 § 1 的 `{ code, message, hint }`，上层可直接当错误体返回。key 在 `message` 与 `hint` 里必须已脱敏。
 
 调用方只 import 抽象类，实现由 `qiuqiu_models.registry.get("chat")` 按 `.env` 返回。
 
@@ -283,7 +340,7 @@ event_log(id, ts, trace_id, type, payload_json)
 persona_learned(id, version, learned_json, consolidated_at)                -- 性格档案历史版本
 settings(key, value)                                                       -- preset、sliders、thresholds
 providers(id, name, base_url, api_key, models_json, enabled)
-run_metrics(trace_id, stage, tokens_in, tokens_out, latency_ms, ts)
+run_metrics(trace_id, stage, provider, tokens_in, tokens_out, latency_ms, ts)  -- provider 例如 mock / deepseek / edge
 ```
 
 ## 6 · 表情映射
@@ -324,4 +381,8 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.2**（契约地位说明；`/chat` 增 `audio` 事件；增 `/voice/session` 与 `WS /voice/stream`；事件 `id` 与游标的对应；`recall()` 增 `now`）
+当前：**v0.1.3**（`run_metrics` 增 `provider` 列；补 `GET /providers` 响应体；§ 4 定死 `stream()` / `synthesize()` 的异步形状为「await 后 async for」；§ 4 补齐六个数据类的字段与错误约定）
+
+历史：
+
+- v0.1.2 — 契约地位说明；`/chat` 增 `audio` 事件；增 `/voice/session` 与 `WS /voice/stream`；事件 `id` 与游标的对应；`recall()` 增 `now`
