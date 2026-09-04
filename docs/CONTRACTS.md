@@ -211,6 +211,19 @@ class VAD(Protocol):
 
 class TTS(Protocol):
     async def synthesize(self, text: str, *, voice: str) -> AsyncIterator[AudioChunk]: ...  # chunk 含 pcm 与 rms
+
+class RealtimeVoice(Protocol):
+    """端到端语音对话。一次会话一个连接；send 推用户音频，events 收模型输出。"""
+    async def open(self, *, system_prompt: str, voice: str) -> None: ...
+    async def send(self, pcm16k: bytes) -> None: ...
+    async def interrupt(self) -> None: ...                                   # 用户开口打断
+    def events(self) -> AsyncIterator[RealtimeEvent]: ...
+    async def close(self) -> None: ...
+
+# RealtimeEvent 三类：
+#   { "type": "audio", "pcm": bytes, "rms": float }              模型输出音频，rms 驱动口型
+#   { "type": "transcript", "role": "user"|"assistant", "text": str, "final": bool }
+#   { "type": "turn_end" }
 ```
 
 调用方只 import 抽象类，实现由 `qiuqiu_models.registry.get("chat")` 按 `.env` 返回。
@@ -285,4 +298,4 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.0**
+当前：**v0.1.1**（增 `RealtimeVoice` 接口）

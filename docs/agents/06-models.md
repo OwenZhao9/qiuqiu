@@ -61,13 +61,21 @@
 - [ ] 火山方舟 `/images/generations`
 - [ ] 只在 `VOLC_ARK_API_KEY` 存在时注册
 
+**RealtimeVoice · 豆包**（`doubao_realtime.py`，可选）
+- [ ] 火山引擎端到端实时语音 WebSocket 接入，签名按 CONTRACTS § 4 `RealtimeVoice`
+- [ ] `open()` 时把系统提示（含人格与召回）传入；`events()` 分发 audio / transcript / turn_end
+- [ ] `interrupt()` 发打断信号并清空本地播放队列
+- [ ] 只在 `VOLC_ARK_API_KEY` 存在且 `VOICE_MODE=realtime` 时注册
+- [ ] 计量音频 token 到 `run_metrics`
+
 **Mock**（`mock.py`）
-- [ ] 五种能力各一个 mock，固定输出，零延迟
+- [ ] 六种能力各一个 mock，固定输出，零延迟；`RealtimeVoice` 的 mock 把输入音频原样回放并给固定转写
 - [ ] `MODELS_MOCK=1` 时 `registry` 全部返回 mock，供其他分支离线开发
 
 ## 约束
 
 - 上层不能 import `providers/` 下任何东西，只能经 `registry`
+- `VOICE_MODE=cascade` 时 `registry.get("realtime")` 返回 None，编排走级联
 - 真实供应商测试标 `@pytest.mark.live`，CI 不跑
 - 密钥只从环境变量读，不写日志
 - ASR 与 VAD 必须能完全离线运行

@@ -36,6 +36,7 @@ FastAPI 服务：路由、对话编排、SSE、事件总线出口、被动采集
 - [ ] 附件处理：`image` 类型先调 `VisionModel.describe()` 得描述，描述与原话一起进 prompt 和 ingest
 - [ ] 有 TTS 时并行合成，音量包络经 `meta` 之外的 `audio` 事件推给前端
 - [ ] 每次调用记 `run_metrics`
+- [ ] `VOICE_MODE=realtime` 时走语音分支：`POST /voice/session` 开连接，前端经 WebSocket 推 pcm；编排把人格与召回拼进 `system_prompt`；收到 `transcript(final)` 时按 role 各调一次 `ingest()`；`audio` 事件的 `rms` 经 `/events` 之外的 `/voice/stream` 推给前端驱动口型
 
 ### 事件总线出口
 

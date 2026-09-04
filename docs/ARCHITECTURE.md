@@ -80,10 +80,19 @@
 |---|---|---|---|
 | Chat | DeepSeek `deepseek-v4-flash` | 编排（生成回复）· 中间件（压缩、合成、规划、性格归纳） | 远程，按 token |
 | Vision | DeepSeek `deepseek-v4-flash-vision-exp` | 中间件（图片 → 描述） | 远程，同一个 key |
-| ASR | sherpa-onnx + SenseVoice int8 | 输入层（语音 → 文字） | 本地，免费 |
+| ASR | sherpa-onnx + SenseVoice int8 | 输入层（语音 → 文字），流式 | 本地，免费 |
 | VAD | silero-vad | 输入层（静音与噪音过滤） | 本地，免费 |
 | TTS | edge-tts（demo）/ 火山引擎（正式） | 编排（回复 → 语音 → 口型包络） | demo 免费，正式按量 |
 | Image Gen | Seedream（可选） | 编排（「画一张」场景） | 远程，按张 |
+| RealtimeVoice | 豆包端到端实时语音（可选） | 编排（语音直进直出，替代 ASR→Chat→TTS 链） | 远程，按音频 token |
+
+### 语音链路的两种方案
+
+**级联（默认）**：VAD → ASR → Chat → TTS，四段各自流式。全本地零成本（Chat 除外），但延迟叠加约 2–3 秒，不能打断，语气在转文字时丢失。适合 demo 与文字为主的场景。
+
+**端到端（可选）**：`RealtimeVoice` 适配器，音频直进直出，延迟几百毫秒，支持打断，保留语气。记忆与人格照样以文本注入系统提示；模型同时返回输入与输出的文字转写，供写入记忆。口型直接吃输出音频的包络。默认实现豆包端到端实时语音，按音频 token 计费。
+
+两种方案在 `.env` 里 `VOICE_MODE=cascade|realtime` 切换，编排按模式选路，记忆中间件不感知差异。
 
 ### 7 · 人格
 
