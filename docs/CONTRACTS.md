@@ -67,11 +67,12 @@ write  → { "raw": string, "speaker": "user"|"assistant",
            "dropped_spans": string[] }
 
 merge  → { "result_id": string, "result_text": string,
-           "absorbed": string[], "invalidated": [{ "id": string, "valid_to": iso }] }
+           "absorbed": [{ "id": string, "text": string }],
+           "invalidated": [{ "id": string, "text": string, "valid_to": iso }] }
 
 recall → { "query": string,
            "plan": { "paths": ("semantic"|"lexical"|"symbolic")[], "depth": number, "rewritten": string },
-           "hits": [{ "id": string, "path": string, "score": number }],
+           "hits": [{ "id": string, "text": string, "path": string, "score": number }],
            "skipped_paths": string[], "tokens_injected": number, "cold_promoted": string[] }
 ```
 
@@ -141,6 +142,14 @@ GET  /providers  POST /current-model
 POST /blobs  (multipart)   → { "blob_id": string }
 GET  /health
 ```
+
+`/config/thresholds` 的 body 是筛选阈值，读写同一形状：
+
+```ts
+type Thresholds = { accept: number; uncertain: number };   // 0–1，默认 0.72 / 0.45
+```
+
+判定：`score >= accept` 为 `accept`，`score >= uncertain` 为 `uncertain`，否则 `reject`。`PUT` 后热生效，落 SQLite `settings`。
 
 `GET /providers` 直接透传 `qiuqiu_models.registry.list_providers()`，一个能力一项：
 
@@ -384,6 +393,10 @@ init()   一次建齐目录、表与索引，可重复调用
 
 情绪推断（回复文本 → `10–21` 区间）由 `packages/character/emotion.ts` 负责，规则见 `design/emotion-rules.md`。
 
+**`feedEnvelope(rms)` 驱动的是容器级「发声脉动」，不是嘴巴张合。** Emotion Ball 的形象没有嘴，引擎也不暴露逐帧姿态写入口；`design/state-machine.md` 给出的映射曲线作用在容器 `transform` 上。签名不变，语义以本条为准。
+
+**主题色不能走 `opts.color`。** 引擎每帧无条件覆写体色，会废掉 `21` 生气变红、`14` 害羞变粉、`34` 出错红白闪。改用公开 API `EmotionBall.config.register()` 打纯数据主题补丁，不改 `vendor/` 任何文件，补丁表见 `design/character.md`。
+
 ## 7 · 人格合成规则
 
 ```
@@ -401,9 +414,11 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.4**（补齐 `facts` 的 `speaker` `source` 与 `visible_memory.layer` 取值域；点明向量维度是破坏性契约；新增「数据层接口」小节）
+当前：**v0.1.5**（`recall.hits[]` 与 `merge.absorbed[]` `invalidated[]` 增 `text`，否则侧栏只能显示 id，「记忆过程看得见」这条第一质量属性落空；补 `/config/thresholds` 的 body schema；§ 6 写明 `feedEnvelope` 是容器脉动不是嘴巴，以及主题色不能走 `opts.color`）
 
 历史：
+
+- v0.1.4 — 补齐 `facts` 的 `speaker` `source` 与 `visible_memory.layer` 取值域；点明向量维度是破坏性契约；新增「数据层接口」小节
 
 - v0.1.3 — `run_metrics` 增 `provider` 列；补 `GET /providers` 响应体；§ 4 定死 `stream()` / `synthesize()` 的异步形状为「await 后 async for」；§ 4 补齐六个数据类的字段与错误约定
 - v0.1.2 — 契约地位说明；`/chat` 增 `audio` 事件；增 `/voice/session` 与 `WS /voice/stream`；事件 `id` 与游标的对应；`recall()` 增 `now`
