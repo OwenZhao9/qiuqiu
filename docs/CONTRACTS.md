@@ -319,11 +319,11 @@ class RealtimeEvent:
 |---|---|---|
 | `id` | string | 事实主键 |
 | `text` | string | 自包含事实 |
-| `vector` | float32[1024] | 语义路 |
+| `vector` | float32[1024] | 语义路。**维度是破坏性契约**，改维度要重建两张表并升主版本 |
 | `tokens` | string[] | 字面路 |
 | `entities` | string[] | 标签路 |
-| `speaker` | string | 归属人 |
-| `source` | string | 来源 Source |
+| `speaker` | string | 归属人，取值 `user` \| `assistant`，与 § 1 `write` 事件一致 |
+| `source` | string | 来源，取值为 § 3 `Source` 枚举的 value：`dialogue` \| `journal` \| `ambient_audio` \| `ambient_image` |
 | `valid_from` | timestamp | |
 | `valid_to` | timestamp? | 空 = 当前有效 |
 | `superseded_by` | string? | 被哪条取代 |
@@ -335,13 +335,33 @@ class RealtimeEvent:
 ```sql
 sessions(id, title, archived, created_at, updated_at)
 messages(id, session_id, role, content, model, favorite, created_at)      -- 原始会话，性格沉淀读这里
-visible_memory(id, layer, content, source, enabled, fact_ids_json, updated_at)
+visible_memory(id, layer, content, source, enabled, fact_ids_json, updated_at)  -- layer: L0|L1|L2；source: auto|manual
 event_log(id, ts, trace_id, type, payload_json)
 persona_learned(id, version, learned_json, consolidated_at)                -- 性格档案历史版本
 settings(key, value)                                                       -- preset、sliders、thresholds
 providers(id, name, base_url, api_key, models_json, enabled)
 run_metrics(trace_id, stage, provider, tokens_in, tokens_out, latency_ms, ts)  -- provider 例如 mock / deepseek / edge
 ```
+
+### 数据层接口 · `qiuqiu_data`
+
+调用方 memory（全部）与 backend（只 `sqlite` 的后端归属表，见 ARCHITECTURE 第 7 节）。
+
+```
+lance    upsert / get / get_many / query_vector / query_fts / query_scalar
+         mark_superseded(ids, valid_to, superseded_by)     写 valid_to，不删行
+         touch(ids, at)                                    更新 last_hit_at
+         delete_rows(ids, tier)                            只给冷热搬运用，AD-9 允许的唯一删行场景
+         count / ensure_indexes / optimize / table_names
+sqlite   migrate() 幂等；八张表的读写；event_log 按自增 id 的 since 游标查询；
+         persona_learned.latest()；record_metric(trace_id, stage, provider, ...)
+tiering  promote(fact_ids) / demote_stale(days=30) / nightly()，时钟可注入
+blobs    put(bytes, kind) -> blob_id / get(blob_id) -> bytes / path(blob_id)
+         blob_id 形如 "{kind}/{sha256}"，自带 kind；kind 取值 image | text | audio
+init()   一次建齐目录、表与索引，可重复调用
+```
+
+`blob_id` 内容寻址，同字节重复 `put` 幂等。向量索引在热表条数不足 1 万时不建、全扫，过万后建，`query_vector` 对外行为不变。
 
 ## 6 · 表情映射
 
@@ -381,8 +401,9 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.3**（`run_metrics` 增 `provider` 列；补 `GET /providers` 响应体；§ 4 定死 `stream()` / `synthesize()` 的异步形状为「await 后 async for」；§ 4 补齐六个数据类的字段与错误约定）
+当前：**v0.1.4**（补齐 `facts` 的 `speaker` `source` 与 `visible_memory.layer` 取值域；点明向量维度是破坏性契约；新增「数据层接口」小节）
 
 历史：
 
+- v0.1.3 — `run_metrics` 增 `provider` 列；补 `GET /providers` 响应体；§ 4 定死 `stream()` / `synthesize()` 的异步形状为「await 后 async for」；§ 4 补齐六个数据类的字段与错误约定
 - v0.1.2 — 契约地位说明；`/chat` 增 `audio` 事件；增 `/voice/session` 与 `WS /voice/stream`；事件 `id` 与游标的对应；`recall()` 增 `now`
