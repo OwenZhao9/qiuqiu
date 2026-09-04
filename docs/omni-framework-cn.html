@@ -1,0 +1,372 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omni-SimpleMem 框架图 · 中文版</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#fff; --sub:#f1f3f7; --line:#d8dde5;
+    --ink:#1a1f28; --dim:#5a6472; --faint:#8b94a3;
+    --z1:#3b6fd4; --z2:#0f9070; --z3:#c47a12; --z4:#8e44c7;
+    --z1bg:#eaf1fc; --z2bg:#e8f6f1; --z3bg:#fdf3e4; --z4bg:#f5ecfb;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1218; --panel:#171d26; --sub:#1e2531; --line:#2c3441;
+    --ink:#e8ebf1; --dim:#98a2b3; --faint:#6b7688;
+    --z1:#7c9cff; --z2:#4ec9a8; --z3:#e0a458; --z4:#c77dff;
+    --z1bg:#161d2c; --z2bg:#132420; --z3bg:#241d10; --z4bg:#201628;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1218; --panel:#171d26; --sub:#1e2531; --line:#2c3441;
+      --ink:#e8ebf1; --dim:#98a2b3; --faint:#6b7688;
+      --z1:#7c9cff; --z2:#4ec9a8; --z3:#e0a458; --z4:#c77dff;
+      --z1bg:#161d2c; --z2bg:#132420; --z3bg:#241d10; --z4bg:#201628;
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);margin:0;padding:34px 20px 80px;
+    font:15px/1.65 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:23px;margin:0 0 4px}
+  .src{color:var(--faint);font-size:13px;margin:0 0 24px}
+  .src a{color:var(--z1);text-decoration:none;border-bottom:1px solid currentColor}
+  h2{font-size:16px;margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h2 .n{color:var(--faint);font-weight:400;margin-right:9px;font-variant-numeric:tabular-nums}
+  h3{font-size:14px;margin:20px 0 8px;font-weight:600}
+  p{margin:0 0 11px}
+  .dim{color:var(--dim);font-size:14px}
+  code{background:var(--sub);padding:1px 5px;border-radius:4px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:13.5px}
+  th,td{text-align:left;padding:8px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--faint);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+  td:first-child{white-space:nowrap}
+  .tblwrap{overflow-x:auto}
+  .figbox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:12px 10px;margin:10px 0 8px}
+  .figbox svg{display:block;min-width:1120px;width:100%;height:auto}
+  .cap{font-size:12px;color:var(--faint);margin:0 0 18px}
+  .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--z3);
+    border-radius:0 8px 8px 0;padding:12px 15px;margin:14px 0;font-size:14px}
+</style>
+
+<div class="wrap">
+<h1>Omni-SimpleMem 框架图 · 中文版</h1>
+<p class="src">原图出自论文 <a href="https://arxiv.org/abs/2604.01007">arXiv 2604.01007</a> 仓库中的 <code>OmniSimpleMem/assets/framework.png</code>，这里按原图结构逐块重绘并翻译，未改动任何环节。</p>
+
+<div class="figbox">
+<svg viewBox="0 0 1160 620" role="img" aria-label="Omni-SimpleMem 三段式框架：选择性摄入、存储与知识图谱、检索">
+<defs>
+  <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="2.2" orient="auto">
+    <path d="M0,0 L0,4.4 L6,2.2 z" fill="currentColor"/></marker>
+</defs>
+<g font-family="-apple-system,PingFang SC,system-ui,sans-serif">
+
+<!-- ============ 左区：选择性摄入 ============ -->
+<rect x="12" y="16" width="330" height="580" rx="12" fill="var(--z1bg)" stroke="var(--z1)" stroke-opacity=".3"/>
+<text x="177" y="42" fill="var(--z1)" font-size="14.5" font-weight="700" text-anchor="middle">① 选择性摄入</text>
+<text x="177" y="60" fill="var(--faint)" font-size="10.5" text-anchor="middle">Selective Ingestion</text>
+
+<g font-size="12">
+  <rect x="30" y="76" width="128" height="38" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="94" y="100" fill="var(--ink)" text-anchor="middle">文字</text>
+  <rect x="182" y="76" width="140" height="38" rx="7" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="252" y="94" fill="var(--dim)" font-size="10.5" text-anchor="middle">词汇重合度去重</text>
+  <text x="252" y="108" fill="var(--faint)" font-size="9.5" text-anchor="middle">Jaccard</text>
+
+  <rect x="30" y="124" width="128" height="38" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="94" y="148" fill="var(--ink)" text-anchor="middle">图片</text>
+  <rect x="182" y="124" width="140" height="38" rx="7" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="252" y="142" fill="var(--dim)" font-size="10.5" text-anchor="middle">画面相似度比对</text>
+  <text x="252" y="156" fill="var(--faint)" font-size="9.5" text-anchor="middle">CLIP</text>
+
+  <rect x="30" y="172" width="128" height="38" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="94" y="196" fill="var(--ink)" text-anchor="middle">音频</text>
+  <rect x="182" y="172" width="140" height="38" rx="7" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="252" y="190" fill="var(--dim)" font-size="10.5" text-anchor="middle">语音活动检测</text>
+  <text x="252" y="204" fill="var(--faint)" font-size="9.5" text-anchor="middle">VAD</text>
+
+  <rect x="30" y="220" width="128" height="38" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="94" y="244" fill="var(--ink)" text-anchor="middle">视频</text>
+  <rect x="182" y="220" width="140" height="38" rx="7" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="252" y="238" fill="var(--dim)" font-size="10.5" text-anchor="middle">抽帧</text>
+  <text x="252" y="252" fill="var(--faint)" font-size="9.5" text-anchor="middle">Frame sampling</text>
+</g>
+
+<!-- 模态 → 各自的过滤方式 -->
+<g stroke="var(--z1)" stroke-width="1.3" fill="none" color="var(--z1)" opacity=".8">
+  <path d="M158,95 L178,95" marker-end="url(#ar)"/>
+  <path d="M158,143 L178,143" marker-end="url(#ar)"/>
+  <path d="M158,191 L178,191" marker-end="url(#ar)"/>
+  <path d="M158,239 L178,239" marker-end="url(#ar)"/>
+</g>
+
+<!-- 四路过滤汇成一路，进漏斗 -->
+<g stroke="var(--z1)" stroke-width="1.4" fill="none" color="var(--z1)" opacity=".85">
+  <path d="M322,95 L332,95 L332,278 L177,278 L177,296" marker-end="url(#ar)"/>
+  <path d="M322,143 L332,143"/>
+  <path d="M322,191 L332,191"/>
+  <path d="M322,239 L332,239"/>
+</g>
+
+<!-- 判为冗余的从漏斗旁边漏出去 -->
+<g stroke="var(--z1)" stroke-width="1.2" fill="none" color="var(--z1)" opacity=".55" stroke-dasharray="3 3">
+  <path d="M246,316 L268,334"/>
+</g>
+<text x="274" y="342" fill="var(--z1)" font-size="12" font-weight="700">✕</text>
+<text x="240" y="364" fill="var(--faint)" font-size="9.5">判为冗余，丢掉</text>
+
+<!-- 漏斗形状 -->
+<path d="M96,302 L258,302 L192,376 L192,412 L162,412 L162,376 z"
+      fill="var(--panel)" stroke="var(--z1)" stroke-width="1.4" opacity=".92"/>
+<path d="M120,318 L234,318" stroke="var(--z1)" stroke-width="1" opacity=".35"/>
+<path d="M134,332 L220,332" stroke="var(--z1)" stroke-width="1" opacity=".35"/>
+<path d="M148,346 L206,346" stroke="var(--z1)" stroke-width="1" opacity=".35"/>
+<text x="177" y="440" fill="var(--z1)" font-size="12.5" font-weight="700" text-anchor="middle">新颖度过滤器</text>
+<text x="177" y="456" fill="var(--faint)" font-size="10" text-anchor="middle">Novelty Filter</text>
+
+<g stroke="var(--z1)" stroke-width="1.4" fill="none" color="var(--z1)">
+  <path d="M177,462 L177,486" marker-end="url(#ar)"/>
+</g>
+
+<rect x="34" y="492" width="286" height="76" rx="8" fill="var(--panel)" stroke="var(--z1)"/>
+<text x="177" y="514" fill="var(--z1)" font-size="12.5" font-weight="700" text-anchor="middle">生成记忆原子单元</text>
+<text x="177" y="531" fill="var(--faint)" font-size="10" text-anchor="middle">MAU Creation</text>
+<text x="177" y="549" fill="var(--dim)" font-size="11" text-anchor="middle">大模型产出摘要 + 向量</text>
+<text x="177" y="563" fill="var(--faint)" font-size="10" text-anchor="middle">留下来的才进这一步，省的就是这里的钱</text>
+
+<!-- ============ 中区：存储与知识图谱 ============ -->
+<rect x="358" y="16" width="440" height="580" rx="12" fill="var(--z2bg)" stroke="var(--z2)" stroke-opacity=".3"/>
+<text x="578" y="42" fill="var(--z2)" font-size="14.5" font-weight="700" text-anchor="middle">② 存储与知识图谱</text>
+<text x="578" y="60" fill="var(--faint)" font-size="10.5" text-anchor="middle">MAU Storage + Knowledge Graph</text>
+
+<!-- 热存储 -->
+<rect x="374" y="76" width="408" height="104" rx="9" fill="var(--panel)" stroke="var(--z3)" stroke-opacity=".8"/>
+<text x="392" y="97" fill="var(--z3)" font-size="12" font-weight="700">热存储</text>
+<text x="766" y="97" fill="var(--faint)" font-size="10" text-anchor="end">常驻，随时可取</text>
+<g font-size="9">
+  <rect x="392" y="106" width="106" height="62" rx="6" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="401" y="121" fill="var(--ink)" font-size="10" font-weight="600">记忆原子单元</text>
+  <text x="401" y="135" fill="var(--dim)">摘要：…</text>
+  <text x="401" y="147" fill="var(--dim)">向量：[…]</text>
+  <text x="401" y="159" fill="var(--dim)">时间 · 模态</text>
+
+  <rect x="508" y="106" width="106" height="62" rx="6" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="517" y="121" fill="var(--ink)" font-size="10" font-weight="600">记忆原子单元</text>
+  <text x="517" y="135" fill="var(--dim)">摘要：…</text>
+  <text x="517" y="147" fill="var(--dim)">向量：[…]</text>
+  <text x="517" y="159" fill="var(--dim)">时间 · 模态</text>
+
+  <rect x="624" y="106" width="106" height="62" rx="6" fill="var(--sub)" stroke="var(--line)"/>
+  <text x="633" y="121" fill="var(--ink)" font-size="10" font-weight="600">记忆原子单元</text>
+  <text x="633" y="135" fill="var(--dim)">摘要：…</text>
+  <text x="633" y="147" fill="var(--dim)">向量：[…]</text>
+  <text x="633" y="159" fill="var(--dim)">时间 · 模态</text>
+  <text x="748" y="142" fill="var(--faint)" font-size="14">⋯</text>
+</g>
+
+<!-- 指针 -->
+<g stroke="var(--z2)" stroke-width="1.3" fill="none" color="var(--z2)" stroke-dasharray="4 3">
+  <path d="M578,182 L578,208" marker-end="url(#ar)"/>
+</g>
+<text x="590" y="200" fill="var(--z2)" font-size="10">指针 p</text>
+
+<!-- 冷存储 -->
+<rect x="374" y="214" width="408" height="104" rx="9" fill="var(--sub)" stroke="var(--line)"/>
+<text x="392" y="235" fill="var(--dim)" font-size="12" font-weight="700">冷存储</text>
+<text x="766" y="235" fill="var(--faint)" font-size="10" text-anchor="end">归档，按需加载</text>
+<g font-size="9">
+  <rect x="392" y="244" width="106" height="62" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="401" y="259" fill="var(--dim)" font-size="10" font-weight="600">记忆原子单元</text>
+  <text x="401" y="273" fill="var(--faint)">摘要：…</text>
+  <text x="401" y="285" fill="var(--faint)">向量：[…]</text>
+  <text x="401" y="297" fill="var(--faint)">时间 · 模态</text>
+
+  <rect x="508" y="244" width="106" height="62" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="517" y="259" fill="var(--dim)" font-size="10" font-weight="600">记忆原子单元</text>
+  <text x="517" y="273" fill="var(--faint)">摘要：…</text>
+  <text x="517" y="285" fill="var(--faint)">向量：[…]</text>
+  <text x="517" y="297" fill="var(--faint)">时间 · 模态</text>
+
+  <rect x="624" y="244" width="106" height="62" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="633" y="259" fill="var(--dim)" font-size="10" font-weight="600">记忆原子单元</text>
+  <text x="633" y="273" fill="var(--faint)">摘要：…</text>
+  <text x="633" y="285" fill="var(--faint)">向量：[…]</text>
+  <text x="633" y="297" fill="var(--faint)">时间 · 模态</text>
+  <text x="748" y="280" fill="var(--faint)" font-size="14">⋯</text>
+</g>
+
+<g stroke="var(--z2)" stroke-width="1.3" fill="none" color="var(--z2)">
+  <path d="M470,320 L470,346 L556,346 L556,358" marker-end="url(#ar)"/>
+  <path d="M578,320 L578,358"/>
+  <path d="M686,320 L686,346 L600,346"/>
+</g>
+
+<rect x="450" y="362" width="256" height="42" rx="8" fill="var(--panel)" stroke="var(--z2)"/>
+<text x="578" y="380" fill="var(--z2)" font-size="12" font-weight="700" text-anchor="middle">实体抽取</text>
+<text x="578" y="396" fill="var(--faint)" font-size="10" text-anchor="middle">Entity Extraction</text>
+
+<g stroke="var(--z2)" stroke-width="1.3" fill="none" color="var(--z2)">
+  <path d="M578,406 L578,424" marker-end="url(#ar)"/>
+</g>
+
+<!-- 知识图谱 -->
+<rect x="374" y="428" width="408" height="152" rx="9" fill="var(--z4bg)" stroke="var(--z4)" stroke-opacity=".5"/>
+<text x="766" y="448" fill="var(--z4)" font-size="11" font-weight="700" text-anchor="end">实体归并</text>
+<text x="766" y="462" fill="var(--faint)" font-size="9.5" text-anchor="end">Entity Resolution</text>
+<g font-size="10">
+  <ellipse cx="440" cy="470" rx="52" ry="19" fill="var(--panel)" stroke="var(--z4)"/>
+  <text x="440" y="467" fill="var(--ink)" text-anchor="middle" font-size="9.5">人物</text>
+  <text x="440" y="479" fill="var(--dim)" text-anchor="middle" font-size="9.5">张三</text>
+
+  <ellipse cx="604" cy="470" rx="52" ry="19" fill="var(--panel)" stroke="var(--z4)"/>
+  <text x="604" y="467" fill="var(--ink)" text-anchor="middle" font-size="9.5">事件</text>
+  <text x="604" y="479" fill="var(--dim)" text-anchor="middle" font-size="9.5">研讨会</text>
+
+  <ellipse cx="440" cy="548" rx="52" ry="19" fill="var(--panel)" stroke="var(--z4)"/>
+  <text x="440" y="545" fill="var(--ink)" text-anchor="middle" font-size="9.5">人物</text>
+  <text x="440" y="557" fill="var(--dim)" text-anchor="middle" font-size="9.5">李四</text>
+
+  <ellipse cx="640" cy="548" rx="52" ry="19" fill="var(--panel)" stroke="var(--z4)"/>
+  <text x="640" y="545" fill="var(--ink)" text-anchor="middle" font-size="9.5">地点</text>
+  <text x="640" y="557" fill="var(--dim)" text-anchor="middle" font-size="9.5">上海</text>
+
+  <g stroke="var(--z4)" stroke-width="1.1" fill="none" color="var(--z4)" opacity=".85">
+    <path d="M492,470 L550,470" marker-end="url(#ar)"/>
+    <path d="M604,489 L604,516 L692,516 L692,540 L694,540" marker-end="url(#ar)"/>
+    <path d="M440,489 L440,528" marker-end="url(#ar)"/>
+    <path d="M492,548 L586,548" marker-end="url(#ar)"/>
+  </g>
+  <text x="521" y="464" fill="var(--z4)" font-size="9" text-anchor="middle">参加</text>
+  <text x="656" y="508" fill="var(--z4)" font-size="9" text-anchor="middle">举办于</text>
+  <text x="452" y="512" fill="var(--z4)" font-size="9">同事</text>
+  <text x="539" y="542" fill="var(--z4)" font-size="9" text-anchor="middle">在此演讲</text>
+</g>
+
+<!-- ============ 右区：检索 ============ -->
+<rect x="814" y="16" width="334" height="580" rx="12" fill="var(--z3bg)" stroke="var(--z3)" stroke-opacity=".3"/>
+<text x="981" y="42" fill="var(--z3)" font-size="14.5" font-weight="700" text-anchor="middle">③ 检索</text>
+<text x="981" y="60" fill="var(--faint)" font-size="10.5" text-anchor="middle">Retrieval</text>
+
+<rect x="890" y="74" width="180" height="32" rx="16" fill="var(--panel)" stroke="var(--line)"/>
+<text x="980" y="95" fill="var(--ink)" font-size="11.5" text-anchor="middle">用户提问 q</text>
+
+<g stroke="var(--z3)" stroke-width="1.3" fill="none" color="var(--z3)">
+  <path d="M980,108 L980,122"/>
+  <path d="M868,122 L1094,122"/>
+  <path d="M868,122 L868,138" marker-end="url(#ar)"/>
+  <path d="M981,122 L981,138" marker-end="url(#ar)"/>
+  <path d="M1094,122 L1094,138" marker-end="url(#ar)"/>
+</g>
+
+<g font-size="10.5">
+  <rect x="830" y="142" width="100" height="58" rx="7" fill="var(--panel)" stroke="var(--z1)"/>
+  <text x="880" y="162" fill="var(--z1)" font-size="11" text-anchor="middle" font-weight="600">稠密检索</text>
+  <text x="880" y="177" fill="var(--dim)" font-size="9.5" text-anchor="middle">按意思</text>
+  <text x="880" y="191" fill="var(--faint)" font-size="9" text-anchor="middle">FAISS 向量</text>
+
+  <rect x="936" y="142" width="90" height="58" rx="7" fill="var(--panel)" stroke="var(--z3)"/>
+  <text x="981" y="162" fill="var(--z3)" font-size="11" text-anchor="middle" font-weight="600">稀疏检索</text>
+  <text x="981" y="177" fill="var(--dim)" font-size="9.5" text-anchor="middle">按字面</text>
+  <text x="981" y="191" fill="var(--faint)" font-size="9" text-anchor="middle">BM25 关键词</text>
+
+  <rect x="1032" y="142" width="100" height="58" rx="7" fill="var(--panel)" stroke="var(--z4)"/>
+  <text x="1082" y="162" fill="var(--z4)" font-size="11" text-anchor="middle" font-weight="600">图检索</text>
+  <text x="1082" y="177" fill="var(--dim)" font-size="9.5" text-anchor="middle">按关系</text>
+  <text x="1082" y="191" fill="var(--faint)" font-size="9" text-anchor="middle">h 跳邻居</text>
+</g>
+
+<g stroke="var(--z3)" stroke-width="1.3" fill="none" color="var(--z3)">
+  <path d="M880,202 L880,222 L981,222"/>
+  <path d="M981,202 L981,222"/>
+  <path d="M1082,202 L1082,222 L981,222"/>
+  <path d="M981,222 L981,238" marker-end="url(#ar)"/>
+</g>
+
+<circle cx="981" cy="262" r="24" fill="var(--panel)" stroke="var(--z3)" stroke-width="1.4"/>
+<text x="981" y="259" fill="var(--z3)" font-size="10" text-anchor="middle" font-weight="700">并集</text>
+<text x="981" y="271" fill="var(--z3)" font-size="10" text-anchor="middle" font-weight="700">合并</text>
+<text x="1018" y="266" fill="var(--faint)" font-size="10">去重后得 R(q)</text>
+
+<g stroke="var(--z3)" stroke-width="1.3" fill="none" color="var(--z3)">
+  <path d="M981,288 L981,310" marker-end="url(#ar)"/>
+</g>
+
+<!-- 预算金字塔 -->
+<text x="852" y="352" fill="var(--z3)" font-size="11" font-weight="700">token</text>
+<text x="852" y="367" fill="var(--z3)" font-size="11" font-weight="700">预算 B</text>
+<path d="M930,318 L1032,318 L1024,348 L938,348 z" fill="var(--z3bg)" stroke="var(--z3)"/>
+<text x="981" y="338" fill="var(--ink)" font-size="10.5" text-anchor="middle">摘要</text>
+<path d="M936,352 L1026,352 L1018,384 L944,384 z" fill="var(--z3bg)" stroke="var(--z3)" opacity=".85"/>
+<text x="981" y="372" fill="var(--ink)" font-size="10.5" text-anchor="middle">全文</text>
+<path d="M942,388 L1020,388 L1012,420 L950,420 z" fill="var(--z3bg)" stroke="var(--z3)" opacity=".7"/>
+<text x="981" y="408" fill="var(--ink)" font-size="10.5" text-anchor="middle">原始内容</text>
+<text x="1042" y="360" fill="var(--faint)" font-size="9.5">先给摘要</text>
+<text x="1042" y="376" fill="var(--faint)" font-size="9.5">不够再展开</text>
+<text x="1042" y="392" fill="var(--faint)" font-size="9.5">预算内为止</text>
+
+<g stroke="var(--z3)" stroke-width="1.3" fill="none" color="var(--z3)">
+  <path d="M981,424 L981,452" marker-end="url(#ar)"/>
+</g>
+<rect x="900" y="456" width="162" height="40" rx="8" fill="var(--panel)" stroke="var(--z3)" stroke-width="1.4"/>
+<text x="981" y="481" fill="var(--z3)" font-size="13" text-anchor="middle" font-weight="700">答案</text>
+
+<!-- 跨区箭头 -->
+<g stroke="var(--z2)" stroke-width="1.6" fill="none" color="var(--z2)">
+  <path d="M320,530 L338,530 L338,128 L356,128" marker-end="url(#ar)"/>
+</g>
+<text x="348" y="330" fill="var(--z2)" font-size="9.5" text-anchor="middle" transform="rotate(-90 348 330)">写入热存储</text>
+
+<g stroke="var(--z3)" stroke-width="1.6" fill="none" color="var(--z3)" stroke-dasharray="5 4">
+  <path d="M784,128 L800,128 L800,171 L828,171" marker-end="url(#ar)"/>
+  <path d="M784,266 L796,266 L796,171"/>
+  <path d="M784,504 L806,504 L806,171"/>
+</g>
+<text x="806" y="112" fill="var(--z3)" font-size="9.5" text-anchor="middle">读取</text>
+
+</g>
+</svg>
+</div>
+<p class="cap">三段依次是：把进来的东西筛一遍再存 · 存成可检索的结构并连成关系网 · 提问时分三路取回、按预算装配成答案。</p>
+
+<h2><span class="n">01</span>三段各自在做什么</h2>
+
+<h3>① 选择性摄入 —— 决定什么值得存</h3>
+<p>四种模态各有各的廉价判据：文字比词汇重合度，图片比画面相似度，音频先过语音活动检测，视频抽帧后再比。四路汇进同一个「新颖度过滤器」，判为重复或无信息的直接丢弃（图中那个 ✕）。</p>
+<p class="dim">留下来的才进入最后一格「生成记忆原子单元」——那一步要调大模型产出摘要和向量，是整条链路上最贵的环节。<strong>前面所有过滤存在的意义，就是少调这一步。</strong></p>
+
+<h3>② 存储与知识图谱 —— 决定怎么放</h3>
+<p>每条记忆存成一个<strong>记忆原子单元</strong>（MAU，Multimodal Atomic Unit），四个字段：摘要、向量、时间、模态。同一套结构同时用在热存储和冷存储，两者之间用指针关联——热存储里放的可以只是一个指向冷存储的引用。</p>
+<p>另一条线是从记忆里抽出实体（人、事件、地点），归并同一个实体的不同说法，连成一张关系网。<strong>这张网是第三路检索的基础</strong>：问「张三那个同事在哪儿演讲的」，靠向量和关键词都摸不到，得顺着关系跳过去。</p>
+
+<h3>③ 检索 —— 决定取哪些、给多少</h3>
+<p>提问同时进三路：按意思（向量）、按字面（关键词）、按关系（图上跳 h 步）。三路结果做并集去重，得到候选集。</p>
+<p>最后一步是<strong>按 token 预算装配</strong>：先只给摘要，预算还有富余就展开全文，再有富余才给原始内容。<strong>预算花完就停</strong>，不会为了一个简单问题把整段历史塞进去。</p>
+
+<h2><span class="n">02</span>这张图里三个值得留意的设计</h2>
+
+<div class="tblwrap"><table>
+<tr><th>设计</th><th>怎么做的</th><th>解决什么</th></tr>
+<tr><td>过滤放在大模型之前</td><td>四种模态各用廉价的本地判据先筛一遍，判为冗余的连摘要都不生成</td><td>调用成本。最贵的是生成摘要和向量，能不进这一步就省一次</td></tr>
+<tr><td>统一的原子单元</td><td>不管来源是文字、图片还是音频，都归一成同样四个字段的结构</td><td>检索时不用区分模态，一套索引通吃</td></tr>
+<tr><td>预算驱动的渐进装配</td><td>摘要 → 全文 → 原始内容三档，按剩余预算逐层展开</td><td>简单问题不浪费上下文，复杂问题也不会一次性撑爆</td></tr>
+</table></div>
+
+<div class="note">
+<strong>图上没有画的一件事：</strong>过滤器丢掉一条内容时，判断依据不会被记录下来，也没有任何出口暴露给使用者。这一段在论文正文里也没有讨论——原文对这一步只有功能性描述（「轻量感知编码器评估新颖度，丢弃冗余内容」），给了阈值，但没有记录或暴露原因的机制。
+</div>
+
+<h2><span class="n">03</span>术语对照</h2>
+<div class="tblwrap"><table>
+<tr><th>中文</th><th>原文</th><th>说明</th></tr>
+<tr><td>选择性摄入</td><td>Selective Ingestion</td><td>进库之前的筛选阶段</td></tr>
+<tr><td>新颖度过滤器</td><td>Novelty Filter</td><td>四路过滤的汇总判定</td></tr>
+<tr><td>记忆原子单元</td><td>MAU · Multimodal Atomic Unit</td><td>存储的基本单位，含摘要、向量、时间、模态</td></tr>
+<tr><td>实体抽取 / 实体归并</td><td>Entity Extraction / Resolution</td><td>从记忆里找出人事物，并把同一实体的不同说法合并</td></tr>
+<tr><td>稠密检索</td><td>Dense Search · FAISS</td><td>按意思找，向量相似度</td></tr>
+<tr><td>稀疏检索</td><td>Sparse Search · BM25</td><td>按字面找，关键词匹配</td></tr>
+<tr><td>图检索</td><td>Graph Search · h-hop</td><td>在关系网上跳 h 步找关联实体</td></tr>
+<tr><td>并集合并</td><td>Set-Union Merge</td><td>三路结果合并去重</td></tr>
+<tr><td>token 预算</td><td>Token Budget B</td><td>本次能塞进上下文的额度上限</td></tr>
+</table></div>
+
+</div>

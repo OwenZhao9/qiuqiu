@@ -1,0 +1,274 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 陪伴体 · 产品图</title>
+<style>
+  :root{
+    --bg:#fbfbf9; --ink:#1b1b1b; --dim:#5a5a5a; --faint:#8a8a8a;
+    --line:#1b1b1b; --p:#8e44c7; --m:#0c8f6e; --s:#b5730f; --o:#3b5bdb;
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161a; --ink:#e9ebef; --dim:#a6adb8; --faint:#7a8290;
+    --line:#c9cfd8; --p:#c77dff; --m:#4ec9a8; --s:#e0a458; --o:#7c9cff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161a; --ink:#e9ebef; --dim:#a6adb8; --faint:#7a8290;
+      --line:#c9cfd8; --p:#c77dff; --m:#4ec9a8; --s:#e0a458; --o:#7c9cff;
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);margin:0;padding:30px 18px 70px;
+    font:15px/1.6 "HanziPen SC","Hannotate SC",-apple-system,"PingFang SC",system-ui,sans-serif}
+  .wrap{max-width:1300px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px;font-weight:600}
+  .sub{color:var(--dim);font-size:14px;margin:0 0 22px}
+  .figbox{overflow-x:auto;padding:4px 0 10px}
+  .figbox svg{display:block;min-width:1180px;width:100%;height:auto}
+  .note{color:var(--dim);font-size:13.5px;margin:14px 0 0;line-height:1.75}
+  .note b{color:var(--ink);font-weight:600}
+</style>
+
+<div class="wrap">
+<h1>AI 陪伴体 · 产品图</h1>
+<p class="sub">人格 · 形象 · 对话编排 · 记忆中间件 · 冷热存储 · 主动输入与被动采集</p>
+
+<div class="figbox">
+<svg viewBox="0 0 1240 950" role="img" aria-label="AI 陪伴体产品图">
+<defs>
+  <filter id="rough" x="-12%" y="-12%" width="124%" height="124%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="3" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="3.4" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="rough2" x="-12%" y="-12%" width="124%" height="124%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.021" numOctaves="3" seed="23" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="rough3" x="-14%" y="-14%" width="128%" height="128%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.017" numOctaves="3" seed="41" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="4.2" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <marker id="a" markerWidth="15" markerHeight="15" refX="11.5" refY="5.4" orient="auto">
+    <path d="M0.6,0.4 L12,5.4 L1.4,10.2 L3.4,5.6 z" fill="currentColor"/></marker>
+  <marker id="as" markerWidth="13" markerHeight="13" refX="9.8" refY="4.6" orient="auto">
+    <path d="M0.5,0.4 L10.2,4.6 L1.2,8.7 L2.9,4.8 z" fill="currentColor"/></marker>
+</defs>
+<g font-family='"HanziPen SC","Hannotate SC",-apple-system,"PingFang SC",sans-serif'>
+
+<!-- ===================== 人格（左上） ===================== -->
+<text x="54" y="72" fill="var(--p)" font-size="19" font-weight="700">人格：</text>
+
+<text x="82" y="102" fill="var(--p)" font-size="16">安全边界 —— 关不掉</text>
+<text x="252" y="102" fill="var(--faint)" font-size="11.5">代码常量，不入库</text>
+<text x="104" y="126" fill="var(--dim)" font-size="14">不模拟恋爱</text>
+<text x="104" y="148" fill="var(--dim)" font-size="14">不诱导依赖</text>
+<text x="104" y="170" fill="var(--dim)" font-size="14">不替代医疗法律心理建议</text>
+
+<text x="82" y="208" fill="var(--ink)" font-size="16">人格预设 —— 只是起点</text>
+<text x="292" y="208" fill="var(--faint)" font-size="11.5">存设置表，是配置不是记忆</text>
+<text x="104" y="232" fill="var(--dim)" font-size="14">热情 · 安静 · 可爱 · 毒舌</text>
+<text x="104" y="254" fill="var(--faint)" font-size="13">四选一，或手调四个滑块</text>
+<text x="104" y="278" fill="var(--p)" font-size="14">或者不设 —— 真空，什么都不注入</text>
+
+<text x="82" y="316" fill="var(--p)" font-size="16">相处性格 —— 持续迭代</text>
+<text x="104" y="340" fill="var(--dim)" font-size="14">称呼习惯 · 玩笑尺度</text>
+<text x="104" y="362" fill="var(--dim)" font-size="14">话题偏好 · 回应长度</text>
+<text x="104" y="384" fill="var(--faint)" font-size="13">从冷存储「性格档案」读回</text>
+
+<text x="72" y="422" fill="var(--p)" font-size="15">当前人格</text>
+<text x="104" y="444" fill="var(--dim)" font-size="13">预设打底 → 相处覆盖 → 边界否决</text>
+<text x="104" y="464" fill="var(--faint)" font-size="12.5">相处得越久，预设的影子越淡</text>
+<text x="104" y="484" fill="var(--faint)" font-size="12.5">合成结果缓存进热存储，改了预设才重算</text>
+
+<!-- ===================== 形象层（中上） ===================== -->
+<text x="452" y="112" fill="var(--ink)" font-size="19" font-weight="700">形象层</text>
+<text x="452" y="136" fill="var(--dim)" font-size="14">live2d 实现</text>
+<text x="452" y="158" fill="var(--faint)" font-size="13">表情 · 动作 · 口型 · 视线</text>
+<text x="452" y="178" fill="var(--faint)" font-size="13">状态机：闲置 / 听 / 想 / 说</text>
+<text x="452" y="198" fill="var(--faint)" font-size="12.5">口型由语音合成的音量包络驱动</text>
+
+<!-- 两个端 -->
+<text x="792" y="80" fill="var(--ink)" font-size="17">桌面端</text>
+<text x="792" y="102" fill="var(--faint)" font-size="12.5">常驻置顶 · 气泡 · 内联输入</text>
+<text x="792" y="150" fill="var(--ink)" font-size="17">网页端</text>
+<text x="792" y="172" fill="var(--faint)" font-size="12.5">免安装 · 相册与日记 · 记忆库</text>
+<text x="792" y="196" fill="var(--faint)" font-size="12.5">两端共用同一形象与同一记忆</text>
+
+<!-- ===================== 对话窗口 ===================== -->
+<text x="430" y="266" fill="var(--ink)" font-size="17">对话窗口 / 输入条</text>
+<text x="430" y="288" fill="var(--dim)" font-size="12.5">用户在这里打字 · 说话 · 传图 · 写日记</text>
+<text x="430" y="308" fill="var(--faint)" font-size="12.5">桌面端显示为气泡，网页端显示为窗口</text>
+<text x="430" y="328" fill="var(--faint)" font-size="12.5">想 / 说 / 闲置的状态本地转发给形象层</text>
+
+<!-- ===================== 对话编排（新） ===================== -->
+<text x="430" y="392" fill="var(--o)" font-size="17">对话编排</text>
+<text x="430" y="414" fill="var(--dim)" font-size="13">拼 prompt：当前人格 + 召回结果 + 会话历史</text>
+<text x="430" y="434" fill="var(--dim)" font-size="13">调模型生成，流式收回复，分发给窗口和气泡</text>
+<text x="430" y="454" fill="var(--dim)" font-size="13">用户说的和 AI 说的，都送去记</text>
+
+<!-- ===================== 记忆中间件（中心） ===================== -->
+<text x="428" y="508" fill="var(--m)" font-size="20" font-weight="700">记忆中间件</text>
+<text x="428" y="532" fill="var(--faint)" font-size="12.5">唯一读写存储的地方</text>
+<text x="452" y="560" fill="var(--dim)" font-size="14.5">① 筛选 —— 留 / 丢 / 拿不准，都给理由</text>
+<text x="472" y="577" fill="var(--faint)" font-size="11">只筛被动采集；主动说的跳过筛选，照样压缩</text>
+<text x="452" y="600" fill="var(--dim)" font-size="14.5">② 压缩 —— 拆成一句话能读懂的事实</text>
+<text x="452" y="624" fill="var(--dim)" font-size="14.5">③ 合成 —— 同义合并，旧的作废不删除</text>
+<text x="452" y="648" fill="var(--dim)" font-size="14.5">④ 检索 —— 按意思 / 按字面 / 按标签</text>
+<text x="452" y="672" fill="var(--dim)" font-size="14.5">⑤ 冷热调度 —— 按多久没被问起</text>
+<text x="452" y="696" fill="var(--p)" font-size="14.5">⑥ 性格沉淀 —— 归纳相处特征，写回冷存储</text>
+<text x="472" y="713" fill="var(--faint)" font-size="11">读原始会话记录，不读记忆库——压缩会把语气丢掉</text>
+
+<!-- ===================== 被动采集（左下） ===================== -->
+<text x="60" y="580" fill="var(--ink)" font-size="17">被动采集</text>
+<text x="150" y="580" fill="var(--faint)" font-size="12">设备自己在听 / 看，用户没触发</text>
+<text x="82" y="612" fill="var(--dim)" font-size="15">环境语音</text>
+<text x="104" y="634" fill="var(--faint)" font-size="12.5">静音与噪音先过掉</text>
+<text x="104" y="654" fill="var(--faint)" font-size="12.5">留下的才转文字</text>
+<text x="82" y="690" fill="var(--dim)" font-size="15">环境画面</text>
+<text x="104" y="712" fill="var(--faint)" font-size="12.5">重复画面不重复记</text>
+<text x="104" y="732" fill="var(--faint)" font-size="12.5">原图进冷存储相册</text>
+<text x="60" y="770" fill="var(--m)" font-size="13">99% 是废话，必须筛</text>
+
+<!-- ===================== 热存储（右上） ===================== -->
+<text x="906" y="286" fill="var(--s)" font-size="19" font-weight="700">热存储：</text>
+<text x="934" y="314" fill="var(--dim)" font-size="15">近 30 天的事实</text>
+<text x="934" y="338" fill="var(--dim)" font-size="15">当前待办</text>
+<text x="934" y="362" fill="var(--dim)" font-size="15">活跃话题</text>
+<text x="934" y="386" fill="var(--dim)" font-size="15">当前人格快照</text>
+<text x="934" y="412" fill="var(--faint)" font-size="12.5">索引全建，毫秒级</text>
+
+<!-- ===================== 冷存储（右中） ===================== -->
+<text x="906" y="472" fill="var(--s)" font-size="19" font-weight="700">冷存储：</text>
+<text x="934" y="500" fill="var(--dim)" font-size="15">个人相册</text>
+<text x="934" y="524" fill="var(--dim)" font-size="15">随笔文章</text>
+<text x="934" y="548" fill="var(--dim)" font-size="15">日记</text>
+<text x="934" y="572" fill="var(--dim)" font-size="15">历史待办</text>
+<text x="934" y="596" fill="var(--p)" font-size="15">性格档案</text>
+<text x="934" y="620" fill="var(--dim)" font-size="15">全部旧事实与作废版本</text>
+<text x="934" y="646" fill="var(--faint)" font-size="12.5">只建摘要索引，原图原文按需取</text>
+
+<text x="906" y="684" fill="var(--s)" font-size="15">什么时候写进来：</text>
+<text x="934" y="708" fill="var(--dim)" font-size="13.5">每天扫一次，30 天没被问起的降下来</text>
+<text x="934" y="730" fill="var(--dim)" font-size="13.5">相册原图、随笔全文，写入时直接进</text>
+<text x="934" y="752" fill="var(--dim)" font-size="13.5">性格档案，每攒够若干轮对话归纳一次</text>
+
+<text x="906" y="784" fill="var(--faint)" font-size="12.5">冷热按「多久没被问起」分，不按内容分——</text>
+<text x="906" y="802" fill="var(--faint)" font-size="12.5">同一个相册，本周的在热，三年前的在冷</text>
+<text x="906" y="820" fill="var(--faint)" font-size="12.5">一被问起就整个回热</text>
+
+<!-- ===================== 模型层（下中） ===================== -->
+<text x="470" y="768" fill="var(--ink)" font-size="17">模型层</text>
+<text x="546" y="768" fill="var(--faint)" font-size="12">被编排和中间件共同调用</text>
+<text x="492" y="794" fill="var(--dim)" font-size="14">对话模型 —— 编排调它生成回复</text>
+<text x="576" y="812" fill="var(--faint)" font-size="12.5">中间件调它压缩 / 合成 / 规划 / 性格归纳</text>
+<text x="492" y="836" fill="var(--dim)" font-size="14">语音识别 —— 语音转文字</text>
+<text x="492" y="860" fill="var(--dim)" font-size="14">视觉理解 —— 图片转描述</text>
+<text x="492" y="884" fill="var(--faint)" font-size="14">语音合成 —— 文字转语音，驱动口型（可选）</text>
+
+<!-- ===================== 箭头 ===================== -->
+<!-- 人格 → 对话编排：注入 prompt -->
+<g stroke="var(--p)" stroke-width="2.1" fill="none" color="var(--p)" filter="url(#rough)">
+  <path d="M300,438 C350,432 390,420 422,410" marker-end="url(#a)"/>
+</g>
+<text x="322" y="404" fill="var(--p)" font-size="12.5">当前人格注入 prompt</text>
+
+<!-- 形象层 → 桌面端 / 网页端 -->
+<g stroke="var(--line)" stroke-width="2.1" fill="none" color="var(--line)" filter="url(#rough)">
+  <path d="M648,120 C700,110 742,92 780,77" marker-end="url(#a)"/>
+  <path d="M648,152 C700,150 742,148 780,147" marker-end="url(#a)"/>
+</g>
+
+<!-- 对话窗口 → 对话编排：用户说的 -->
+<g stroke="var(--line)" stroke-width="2.1" fill="none" color="var(--line)" filter="url(#rough2)">
+  <path d="M462,334 C459,350 457,368 455,384" marker-end="url(#a)"/>
+</g>
+<text x="474" y="362" fill="var(--dim)" font-size="12">用户说的，送去编排</text>
+
+<!-- 对话编排 → 对话窗口：回复文字 -->
+<g stroke="var(--m)" stroke-width="2.3" fill="none" color="var(--m)" filter="url(#rough)">
+  <path d="M700,386 C703,370 705,352 707,334" marker-end="url(#a)"/>
+</g>
+<text x="718" y="360" fill="var(--m)" font-size="12.5">回复文字，逐字流</text>
+<text x="718" y="376" fill="var(--faint)" font-size="11">附带这次引用了哪几条</text>
+
+<!-- 对话编排 → 记忆中间件：检索请求 + 写入 -->
+<g stroke="var(--m)" stroke-width="2.1" fill="none" color="var(--m)" filter="url(#rough2)">
+  <path d="M470,460 C467,474 465,488 463,502" marker-end="url(#a)"/>
+</g>
+<text x="336" y="482" fill="var(--m)" font-size="12">检索请求 · 写入请求</text>
+
+<!-- 记忆中间件 → 对话编排：召回结果 -->
+<g stroke="var(--m)" stroke-width="2.3" fill="none" color="var(--m)" filter="url(#rough)">
+  <path d="M700,502 C703,488 705,474 707,460" marker-end="url(#a)"/>
+</g>
+<text x="718" y="482" fill="var(--m)" font-size="12.5">召回结果</text>
+<text x="718" y="498" fill="var(--faint)" font-size="11">中间件查到的记忆，送回编排拼 prompt</text>
+
+<!-- 对话窗口 → 形象层：状态信号 -->
+<g stroke="var(--line)" stroke-width="1.7" fill="none" color="var(--line)" filter="url(#rough3)" stroke-dasharray="5 4">
+  <path d="M486,250 C482,238 480,226 478,214" marker-end="url(#a)"/>
+</g>
+<text x="502" y="236" fill="var(--faint)" font-size="11.5">状态：想 / 说 / 闲置</text>
+
+<!-- 记忆中间件 → 形象层：记忆事件信号 -->
+<g stroke="var(--m)" stroke-width="2" fill="none" color="var(--m)" filter="url(#rough3)" stroke-dasharray="7 5">
+  <path d="M786,540 C866,440 862,238 690,182" marker-end="url(#a)"/>
+</g>
+<text x="668" y="296" fill="var(--m)" font-size="13">记忆事件 → 表情</text>
+<text x="668" y="314" fill="var(--faint)" font-size="11.5">记住了 · 没记 · 想起了</text>
+
+<!-- 被动采集 → 记忆中间件 -->
+<g stroke="var(--line)" stroke-width="2.1" fill="none" color="var(--line)" filter="url(#rough)">
+  <path d="M222,616 C296,600 368,580 440,564" marker-end="url(#a)"/>
+  <path d="M222,694 C306,664 374,620 440,592" marker-end="url(#a)"/>
+</g>
+
+<!-- 记忆中间件 → 热存储 -->
+<g stroke="var(--s)" stroke-width="2.3" fill="none" color="var(--s)" filter="url(#rough)">
+  <path d="M770,560 C820,500 862,410 892,340" marker-end="url(#a)"/>
+</g>
+<!-- 记忆中间件 → 冷存储 -->
+<g stroke="var(--s)" stroke-width="2.3" fill="none" color="var(--s)" filter="url(#rough2)">
+  <path d="M770,620 C818,590 860,530 892,498" marker-end="url(#a)"/>
+</g>
+<text x="812" y="560" fill="var(--s)" font-size="13">读写</text>
+<text x="812" y="580" fill="var(--s)" font-size="13">与迁移</text>
+
+<!-- 性格档案 → 人格（回流，传内容，实线） -->
+<g stroke="var(--p)" stroke-width="2" fill="none" color="var(--p)" filter="url(#rough3)">
+  <path d="M1002,592 L1186,592 Q1200,592 1200,606 L1200,880 Q1200,892 1186,892 L52,892 Q38,892 38,878 L38,448 Q38,432 54,429 L62,427" marker-end="url(#a)"/>
+</g>
+<text x="820" y="884" fill="var(--p)" font-size="13">性格档案回流，形成闭环</text>
+
+<!-- 记忆中间件 → 模型层 -->
+<g stroke="var(--faint)" stroke-width="1.9" fill="none" color="var(--faint)" filter="url(#rough)">
+  <path d="M540,722 C536,736 532,748 528,758" marker-end="url(#as)"/>
+</g>
+
+<!-- 图例 -->
+<g font-size="12.5">
+  <path d="M60,912 C74,910.4 90,913.4 104,911.6" stroke="var(--ink)" stroke-width="2.1" fill="none" filter="url(#rough)"/>
+  <text x="112" y="916" fill="var(--dim)">实线：传内容 —— 文字、事实、prompt、回复、性格档案</text>
+  <path d="M520,912 C534,910.6 550,913.2 564,911.5" stroke="var(--ink)" stroke-width="2" fill="none" stroke-dasharray="8 6" filter="url(#rough3)"/>
+  <text x="572" y="916" fill="var(--dim)">虚线：传信号 —— 状态切换、记忆事件通知</text>
+
+  <text x="60" y="940" fill="var(--faint)" font-size="11.5">颜色只表示归属：</text>
+  <text x="176" y="940" fill="var(--p)" font-size="11.5">紫 = 人格</text>
+  <text x="256" y="940" fill="var(--o)" font-size="11.5">蓝 = 编排</text>
+  <text x="336" y="940" fill="var(--m)" font-size="11.5">绿 = 记忆</text>
+  <text x="412" y="940" fill="var(--s)" font-size="11.5">橙 = 存储</text>
+  <text x="492" y="940" fill="var(--faint)" font-size="11.5">灰 = 模型</text>
+  <text x="572" y="940" fill="var(--ink)" font-size="11.5">黑 = 输入与界面</text>
+</g>
+
+</g>
+</svg>
+</div>
+
+<p class="note">
+<b>线型的规则：</b>实线传内容（文字、事实、prompt、回复、性格档案），虚线传信号（状态切换、记忆事件通知）。颜色只表示归属。<br><br>
+<b>对话编排是新加的一块。</b>拼 prompt、调模型、分发回复、把用户说的和 AI 说的都送去记——这四件事之前没有归属，记忆中间件被迫背了「生成回复」，现在归位。人格注入的目标也从形象层改到了编排：人格决定的是说什么、怎么说，表情只是回复文字出来之后的间接结果。<br><br>
+<b>人格的合成顺序：</b>预设打底，相处覆盖，边界否决。预设只是起点，相处得越久它的影子越淡；边界不贡献语气，只做否决。「不设」是真空——不往 prompt 里注任何滑块值，让模型用默认行为，性格完全由相处长出来。<br><br>
+<b>性格沉淀读的是原始会话记录，不是记忆库。</b>称呼习惯、玩笑尺度、回应长度是对话的风格，压缩成事实之后语气就没了。
+</p>
+
+</div>

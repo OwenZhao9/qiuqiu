@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+.vite/
+out/
+
+# 运行数据（本地库、模型权重、缓存）
+/data/
+*.db
+*.lance/
+models/weights/
+.cache/
+
+# 密钥与本地配置
+.env
+.env.*
+!.env.example
+config.local.*
+
+# 系统
+.DS_Store
+Thumbs.db

@@ -1,0 +1,463 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 陪伴体 · 系统架构</title>
+<style>
+  :root{
+    --bg:#0f1218; --panel:#171d26; --sub:#1e2531; --line:#2c3441;
+    --ink:#e8ebf1; --dim:#98a2b3; --faint:#6b7688;
+    --persona:#c77dff; --face:#7c9cff; --mem:#4ec9a8; --store:#e0a458; --io:#8b95a6; --orch:#5aa0ff;
+    --pbg:rgba(199,125,255,.07); --fbg:rgba(124,156,255,.07);
+    --mbg:rgba(78,201,168,.07); --sbg:rgba(224,164,88,.07); --ibg:rgba(139,149,166,.07);
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --panel:#fff; --sub:#f1f3f7; --line:#dce1e8;
+    --ink:#1a1f28; --dim:#57606e; --faint:#8b94a3;
+    --persona:#8e44c7; --face:#3b5bdb; --mem:#0c8f6e; --store:#a5690f; --io:#5f6875; --orch:#2b6cd9;
+    --pbg:rgba(142,68,199,.06); --fbg:rgba(59,91,219,.06);
+    --mbg:rgba(12,143,110,.06); --sbg:rgba(165,105,15,.06); --ibg:rgba(95,104,117,.06);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f6f7f9; --panel:#fff; --sub:#f1f3f7; --line:#dce1e8;
+      --ink:#1a1f28; --dim:#57606e; --faint:#8b94a3;
+      --persona:#8e44c7; --face:#3b5bdb; --mem:#0c8f6e; --store:#a5690f; --io:#5f6875; --orch:#2b6cd9;
+      --pbg:rgba(142,68,199,.06); --fbg:rgba(59,91,219,.06);
+      --mbg:rgba(12,143,110,.06); --sbg:rgba(165,105,15,.06); --ibg:rgba(95,104,117,.06);
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);margin:0;
+    font:15px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    padding:34px 20px 80px}
+  .wrap{max-width:1300px;margin:0 auto}
+  h1{font-size:23px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:13.5px;margin:0 0 24px}
+  h2{font-size:16px;margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h2 .n{color:var(--faint);font-weight:400;margin-right:9px;font-variant-numeric:tabular-nums}
+  h3{font-size:13.5px;margin:18px 0 7px;color:var(--dim);font-weight:600}
+  p{margin:0 0 11px}
+  .dim{color:var(--dim);font-size:13.5px}
+  code{background:var(--sub);padding:1px 5px;border-radius:4px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:13.5px}
+  th,td{text-align:left;padding:8px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--faint);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+  td:first-child{white-space:nowrap}
+  td code{white-space:nowrap}
+  .tblwrap{overflow-x:auto}
+  .figbox{overflow-x:auto;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:10px 8px;margin:10px 0 8px}
+  .figbox svg{display:block;min-width:1200px;width:100%;height:auto}
+  .cap{font-size:12px;color:var(--faint);margin:0 0 16px}
+</style>
+
+<div class="wrap">
+<h1>AI 陪伴体 · 系统架构</h1>
+<p class="sub">人格 · 界面 · 对话编排 · 记忆中间件 · 冷热存储 · 主动输入与被动采集</p>
+
+<h2><span class="n">01</span>系统全景</h2>
+
+<div class="figbox">
+<svg viewBox="0 0 1240 1000" role="img" aria-label="AI 陪伴体系统全景">
+<defs>
+  <marker id="ah" markerWidth="7" markerHeight="7" refX="6.2" refY="2.2" orient="auto">
+    <path d="M0,0 L0,4.4 L6.2,2.2 z" fill="currentColor"/></marker>
+  <marker id="ahs" markerWidth="6" markerHeight="6" refX="5.2" refY="1.9" orient="auto">
+    <path d="M0,0 L0,3.8 L5.2,1.9 z" fill="currentColor"/></marker>
+</defs>
+<g font-family="-apple-system,PingFang SC,system-ui,sans-serif">
+
+<!-- ======================= 端 ======================= -->
+<rect x="286" y="28" width="584" height="120" rx="11" fill="var(--fbg)" stroke="var(--face)" stroke-opacity=".35"/>
+<text x="578" y="50" fill="var(--face)" font-size="13" font-weight="700" text-anchor="middle">端 · 两种形态共用同一形象与同一记忆</text>
+<rect x="302" y="60" width="272" height="74" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+<text x="438" y="82" fill="var(--ink)" font-size="12.5" text-anchor="middle" font-weight="600">桌面端</text>
+<text x="438" y="100" fill="var(--dim)" font-size="10.5" text-anchor="middle">透明置顶常驻 · 托盘 · 全局唤起</text>
+<text x="438" y="117" fill="var(--dim)" font-size="10.5" text-anchor="middle">桌宠气泡 + 内联输入条 · 两个渲染进程</text>
+<rect x="586" y="60" width="272" height="74" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+<text x="722" y="82" fill="var(--ink)" font-size="12.5" text-anchor="middle" font-weight="600">网页端</text>
+<text x="722" y="100" fill="var(--dim)" font-size="10.5" text-anchor="middle">对话窗口 · 记忆库 · 相册与日记</text>
+<text x="722" y="117" fill="var(--dim)" font-size="10.5" text-anchor="middle">免安装 · 移动端可访问 · 单页面</text>
+
+<!-- ======================= 界面层 ======================= -->
+<rect x="286" y="176" width="584" height="132" rx="11" fill="var(--fbg)" stroke="var(--face)" stroke-opacity=".55"/>
+<text x="300" y="198" fill="var(--face)" font-size="13" font-weight="700">界面层 · Live2D 形象 + 对话窗口，两端复用</text>
+<rect x="302" y="208" width="182" height="86" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="393" y="228" fill="var(--ink)" font-size="11.5" text-anchor="middle">渲染与参数驱动</text>
+<text x="393" y="245" fill="var(--dim)" font-size="10" text-anchor="middle">PIXI + Cubism4</text>
+<text x="393" y="261" fill="var(--dim)" font-size="10" text-anchor="middle">表情 · 动作 · 物理</text>
+<text x="393" y="277" fill="var(--dim)" font-size="10" text-anchor="middle">口型同步 · 视线跟随</text>
+<rect x="494" y="208" width="182" height="86" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="585" y="228" fill="var(--ink)" font-size="11.5" text-anchor="middle">角色状态机</text>
+<text x="585" y="245" fill="var(--dim)" font-size="10" text-anchor="middle">闲置 / 听 / 想 / 说</text>
+<text x="585" y="261" fill="var(--dim)" font-size="10" text-anchor="middle">记忆事件 → 表情</text>
+<text x="585" y="277" fill="var(--dim)" font-size="10" text-anchor="middle">记住了 · 想起了 · 没记</text>
+<rect x="686" y="208" width="170" height="86" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="771" y="228" fill="var(--ink)" font-size="11.5" text-anchor="middle">对话窗口 / 输入条</text>
+<text x="771" y="245" fill="var(--dim)" font-size="10" text-anchor="middle">用户主动输入的入口</text>
+<text x="771" y="261" fill="var(--dim)" font-size="10" text-anchor="middle">流式回复 · 记忆引用标注</text>
+<text x="771" y="277" fill="var(--dim)" font-size="10" text-anchor="middle">状态本地转发给状态机</text>
+
+<!-- ======================= 人格层（左） ======================= -->
+<rect x="16" y="176" width="246" height="396" rx="11" fill="var(--pbg)" stroke="var(--persona)" stroke-opacity=".55"/>
+<text x="139" y="198" fill="var(--persona)" font-size="13" font-weight="700" text-anchor="middle">人格层</text>
+
+<rect x="32" y="206" width="214" height="76" rx="7" fill="var(--panel)" stroke="var(--persona)"/>
+<text x="139" y="226" fill="var(--persona)" font-size="11.5" text-anchor="middle" font-weight="600">安全边界 · 关不掉</text>
+<text x="238" y="216" fill="var(--faint)" font-size="9" text-anchor="end">代码常量</text>
+<text x="139" y="244" fill="var(--dim)" font-size="10.5" text-anchor="middle">不模拟恋爱关系</text>
+<text x="139" y="260" fill="var(--dim)" font-size="10.5" text-anchor="middle">不诱导依赖</text>
+<text x="139" y="276" fill="var(--dim)" font-size="10.5" text-anchor="middle">不替代医疗法律心理建议</text>
+
+<rect x="32" y="294" width="214" height="102" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="139" y="314" fill="var(--ink)" font-size="11.5" text-anchor="middle" font-weight="600">人格预设 · 只是起点</text>
+<text x="238" y="310" fill="var(--faint)" font-size="9" text-anchor="end">存设置表</text>
+<text x="139" y="332" fill="var(--dim)" font-size="10.5" text-anchor="middle">热情 · 安静 · 可爱 · 毒舌</text>
+<text x="139" y="350" fill="var(--dim)" font-size="10.5" text-anchor="middle">四选一，或手调同一组滑块</text>
+<text x="139" y="366" fill="var(--dim)" font-size="10" text-anchor="middle">主动性 · 话量 · 情绪浓度 · 玩笑尺度</text>
+<text x="139" y="384" fill="var(--persona)" font-size="10.5" text-anchor="middle">或不设 —— 真空，什么都不注入</text>
+
+<rect x="32" y="408" width="214" height="84" rx="7" fill="var(--panel)" stroke="var(--persona)" stroke-dasharray="4 3"/>
+<text x="139" y="428" fill="var(--persona)" font-size="11.5" text-anchor="middle" font-weight="600">相处性格 · 持续迭代</text>
+<text x="238" y="424" fill="var(--faint)" font-size="9" text-anchor="end">存冷存储</text>
+<text x="139" y="446" fill="var(--dim)" font-size="10.5" text-anchor="middle">称呼习惯 · 玩笑尺度</text>
+<text x="139" y="462" fill="var(--dim)" font-size="10.5" text-anchor="middle">话题偏好 · 回应长度</text>
+<text x="139" y="480" fill="var(--dim)" font-size="10" text-anchor="middle">从冷存储「性格档案」读回</text>
+
+<rect x="32" y="504" width="214" height="58" rx="7" fill="var(--sub)" stroke="var(--persona)"/>
+<text x="139" y="524" fill="var(--persona)" font-size="11" text-anchor="middle" font-weight="600">预设打底 → 相处覆盖 → 边界否决</text>
+<text x="139" y="542" fill="var(--dim)" font-size="10" text-anchor="middle">相处得越久，预设的影子越淡</text>
+<text x="139" y="556" fill="var(--dim)" font-size="10" text-anchor="middle">合成结果缓存进热存储，预设变了才重算</text>
+
+<!-- ======================= 中间一排：对话编排 + 事件总线 ======================= -->
+<rect x="302" y="328" width="258" height="64" rx="8" fill="var(--panel)" stroke="var(--orch)" stroke-width="1.5"/>
+<text x="431" y="348" fill="var(--orch)" font-size="12.5" text-anchor="middle" font-weight="700">对话编排</text>
+<text x="431" y="365" fill="var(--dim)" font-size="10" text-anchor="middle">拼 prompt（人格 + 召回 + 历史）· 调模型 · 分发回复</text>
+<text x="431" y="380" fill="var(--dim)" font-size="10" text-anchor="middle">用户说的与 AI 说的都送去写入</text>
+
+<rect x="576" y="328" width="278" height="64" rx="8" fill="var(--panel)" stroke="var(--mem)" stroke-width="1.5"/>
+<text x="715" y="348" fill="var(--mem)" font-size="12.5" text-anchor="middle" font-weight="700">事件总线</text>
+<text x="715" y="365" fill="var(--dim)" font-size="10" text-anchor="middle">filter / write / merge / recall</text>
+<text x="715" y="380" fill="var(--dim)" font-size="10" text-anchor="middle">每次判断带理由外发 → 侧栏 + 角色表情</text>
+
+<!-- ======================= 记忆中间件（中心） ======================= -->
+<rect x="286" y="410" width="584" height="250" rx="11" fill="var(--mbg)" stroke="var(--mem)" stroke-width="1.6"/>
+<text x="300" y="432" fill="var(--mem)" font-size="13.5" font-weight="700">记忆中间件 · 系统枢纽</text>
+<text x="856" y="432" fill="var(--dim)" font-size="10" text-anchor="end">唯一读写存储的组件</text>
+
+<rect x="302" y="444" width="270" height="60" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="437" y="464" fill="var(--ink)" font-size="11.5" text-anchor="middle">① 筛选</text>
+<text x="437" y="481" fill="var(--dim)" font-size="10" text-anchor="middle">留 / 丢 / 拿不准 + 分数 + 理由</text>
+<text x="437" y="496" fill="var(--dim)" font-size="10" text-anchor="middle">只筛被动采集；主动输入跳过筛选，仍压缩</text>
+
+<rect x="584" y="444" width="270" height="60" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="719" y="464" fill="var(--ink)" font-size="11.5" text-anchor="middle">② 压缩</text>
+<text x="719" y="481" fill="var(--dim)" font-size="10" text-anchor="middle">拆成自包含事实 · 代词解析 · 时间绝对化</text>
+<text x="719" y="496" fill="var(--dim)" font-size="10" text-anchor="middle">日记随笔另出一段摘要，全文入冷</text>
+
+<rect x="302" y="516" width="270" height="60" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="437" y="536" fill="var(--ink)" font-size="11.5" text-anchor="middle">③ 合成</text>
+<text x="437" y="553" fill="var(--dim)" font-size="10" text-anchor="middle">同义合并 · 旧事实作废</text>
+<text x="437" y="568" fill="var(--dim)" font-size="10" text-anchor="middle">写 valid_to 而非删除</text>
+
+<rect x="584" y="516" width="270" height="60" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="719" y="536" fill="var(--ink)" font-size="11.5" text-anchor="middle">④ 检索规划</text>
+<text x="719" y="553" fill="var(--dim)" font-size="10" text-anchor="middle">按意思 / 按字面 / 按标签</text>
+<text x="719" y="568" fill="var(--dim)" font-size="10" text-anchor="middle">选路径与深度，非全跑；热未命中再下探冷</text>
+
+<rect x="302" y="588" width="270" height="56" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="437" y="608" fill="var(--ink)" font-size="11.5" text-anchor="middle">⑤ 冷热调度</text>
+<text x="437" y="625" fill="var(--dim)" font-size="10" text-anchor="middle">按访问频率与时效迁移</text>
+<text x="437" y="639" fill="var(--dim)" font-size="10" text-anchor="middle">冷条目命中即回热</text>
+
+<rect x="584" y="588" width="270" height="56" rx="7" fill="var(--panel)" stroke="var(--persona)"/>
+<text x="719" y="608" fill="var(--persona)" font-size="11.5" text-anchor="middle">⑥ 性格沉淀</text>
+<text x="719" y="625" fill="var(--dim)" font-size="10" text-anchor="middle">周期归纳相处特征，写回冷存储「性格档案」</text>
+<text x="719" y="639" fill="var(--dim)" font-size="10" text-anchor="middle">读原始会话记录，不读记忆库</text>
+
+<!-- ======================= 存储（右） ======================= -->
+<rect x="894" y="176" width="330" height="488" rx="11" fill="var(--sbg)" stroke="var(--store)" stroke-opacity=".55"/>
+<text x="1059" y="198" fill="var(--store)" font-size="13" font-weight="700" text-anchor="middle">存储 · 按访问频率与时效分层</text>
+<text x="1059" y="214" fill="var(--faint)" font-size="9.5" text-anchor="middle">LanceDB 存事实与向量 · SQLite 存会话与配置 · 大文件落磁盘</text>
+
+<rect x="910" y="224" width="298" height="112" rx="7" fill="var(--panel)" stroke="var(--store)"/>
+<text x="924" y="245" fill="var(--store)" font-size="12" font-weight="600">热存储</text>
+<text x="1194" y="245" fill="var(--dim)" font-size="9.5" text-anchor="end">LanceDB 常驻索引 · 毫秒级</text>
+<text x="924" y="265" fill="var(--dim)" font-size="10.5">近 30 天事实 · 当前待办 · 活跃话题</text>
+<text x="924" y="282" fill="var(--dim)" font-size="10.5">当前人格快照 · 最近会话</text>
+<text x="924" y="302" fill="var(--faint)" font-size="10">进入：新写入，或冷条目被命中后回热</text>
+<text x="924" y="318" fill="var(--faint)" font-size="10">迁出：30 天未命中 → 降为冷</text>
+<text x="924" y="331" fill="var(--faint)" font-size="10">向量 + 关键词 + 标签三层索引全建</text>
+
+<rect x="910" y="350" width="298" height="232" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="924" y="371" fill="var(--ink)" font-size="12" font-weight="600">冷存储</text>
+<text x="1194" y="371" fill="var(--dim)" font-size="9.5" text-anchor="end">LanceDB 归档表 + 磁盘文件</text>
+<text x="924" y="392" fill="var(--dim)" font-size="10.5">个人相册（原图 + 图片理解摘要）</text>
+<text x="924" y="410" fill="var(--dim)" font-size="10.5">随笔文章 · 日记（全文 + 摘要）</text>
+<text x="924" y="428" fill="var(--dim)" font-size="10.5">历史待办与完成记录</text>
+<text x="924" y="446" fill="var(--persona)" font-size="10.5">性格档案 → 回流人格层</text>
+<text x="924" y="464" fill="var(--dim)" font-size="10.5">全部历史事实与作废版本</text>
+<text x="924" y="485" fill="var(--faint)" font-size="10">只建摘要索引，原文与原图按需取</text>
+<text x="924" y="501" fill="var(--faint)" font-size="10">保留 valid_to 与 superseded_by，可回溯</text>
+<text x="924" y="521" fill="var(--store)" font-size="10.5" font-weight="600">写入时机</text>
+<text x="924" y="537" fill="var(--faint)" font-size="10">每日定时扫描：30 天未命中的条目降冷</text>
+<text x="924" y="551" fill="var(--faint)" font-size="10">大件直落：相册原图与随笔全文，摘要另入热</text>
+<text x="924" y="565" fill="var(--faint)" font-size="10">性格档案：每累积若干轮对话归纳一次后写回</text>
+
+<rect x="910" y="594" width="298" height="56" rx="7" fill="var(--sub)" stroke="var(--line)"/>
+<text x="1059" y="614" fill="var(--ink)" font-size="11" text-anchor="middle">分层依据是访问频率，不是内容类型</text>
+<text x="1059" y="632" fill="var(--dim)" font-size="10" text-anchor="middle">同一相册本周的在热、三年前的在冷；一被问起整体回热</text>
+
+<!-- ======================= 输入（下） ======================= -->
+<rect x="16" y="700" width="560" height="150" rx="11" fill="var(--ibg)" stroke="var(--io)" stroke-opacity=".5"/>
+<text x="296" y="722" fill="var(--io)" font-size="13" font-weight="700" text-anchor="middle">输入 · 主动经界面进来，被动直连中间件</text>
+<rect x="32" y="734" width="170" height="98" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="117" y="755" fill="var(--ink)" font-size="11.5" text-anchor="middle">文字</text>
+<text x="117" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">对话输入 · 日记与随笔</text>
+<text x="117" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">AI 的回复也进这一路</text>
+<text x="117" y="808" fill="var(--face)" font-size="9.5" text-anchor="middle">主动 · 经界面输入条</text>
+<text x="117" y="823" fill="var(--faint)" font-size="9.5" text-anchor="middle">跳过筛选，仍压缩</text>
+
+<rect x="212" y="734" width="170" height="98" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="297" y="755" fill="var(--ink)" font-size="11.5" text-anchor="middle">实时语音</text>
+<text x="297" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">语音活动检测先过</text>
+<text x="297" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">静音与噪音直接丢</text>
+<text x="297" y="808" fill="var(--io)" font-size="9.5" text-anchor="middle">被动 · 设备自己在听</text>
+<text x="297" y="823" fill="var(--faint)" font-size="9.5" text-anchor="middle">必须筛，留下的才转文字</text>
+
+<rect x="392" y="734" width="170" height="98" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="477" y="755" fill="var(--ink)" font-size="11.5" text-anchor="middle">图片识别</text>
+<text x="477" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">画面变化度先过</text>
+<text x="477" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">重复画面不重复记</text>
+<text x="477" y="808" fill="var(--io)" font-size="9.5" text-anchor="middle">上传经界面 · 摄像头被动</text>
+<text x="477" y="823" fill="var(--faint)" font-size="9.5" text-anchor="middle">原图进冷存储相册</text>
+
+<!-- ======================= 模型层（右下） ======================= -->
+<rect x="606" y="700" width="618" height="150" rx="11" fill="var(--ibg)" stroke="var(--io)" stroke-opacity=".5"/>
+<text x="915" y="722" fill="var(--io)" font-size="13" font-weight="700" text-anchor="middle">模型层 · 被编排器与中间件共同调用</text>
+<rect x="622" y="734" width="142" height="98" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="693" y="755" fill="var(--ink)" font-size="11.5" text-anchor="middle">对话模型</text>
+<text x="693" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">编排：生成回复</text>
+<text x="693" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">中间件：压缩 · 合成 · 规划</text>
+<text x="693" y="806" fill="var(--dim)" font-size="10" text-anchor="middle">性格沉淀的归纳</text>
+<text x="693" y="823" fill="var(--faint)" font-size="9.5" text-anchor="middle">远程 · 唯一网络依赖</text>
+
+<rect x="774" y="734" width="142" height="98" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="845" y="755" fill="var(--ink)" font-size="11.5" text-anchor="middle">语音识别</text>
+<text x="845" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">语音 → 文字</text>
+<text x="845" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">含活动检测</text>
+<text x="845" y="814" fill="var(--faint)" font-size="9.5" text-anchor="middle">本地</text>
+
+<rect x="926" y="734" width="142" height="98" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+<text x="997" y="755" fill="var(--ink)" font-size="11.5" text-anchor="middle">视觉理解</text>
+<text x="997" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">图片 → 描述</text>
+<text x="997" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">相似度比对</text>
+<text x="997" y="814" fill="var(--faint)" font-size="9.5" text-anchor="middle">本地 / 远程可切</text>
+
+<rect x="1078" y="734" width="130" height="98" rx="7" fill="var(--panel)" stroke="var(--line)" stroke-dasharray="4 3"/>
+<text x="1143" y="755" fill="var(--dim)" font-size="11.5" text-anchor="middle">语音合成</text>
+<text x="1143" y="774" fill="var(--dim)" font-size="10" text-anchor="middle">文字 → 语音</text>
+<text x="1143" y="790" fill="var(--dim)" font-size="10" text-anchor="middle">驱动口型参数</text>
+<text x="1143" y="814" fill="var(--faint)" font-size="9.5" text-anchor="middle">可选</text>
+
+<!-- ======================= 连线 ======================= -->
+<!-- 界面 ↔ 对话编排：用户输入下行，回复上行 -->
+<g stroke="var(--orch)" stroke-width="1.7" fill="none" color="var(--orch)">
+  <path d="M420,308 L420,328" marker-end="url(#ah)"/>
+  <path d="M442,328 L442,308" marker-end="url(#ah)"/>
+</g>
+<text x="404" y="322" fill="var(--orch)" font-size="9" text-anchor="end">用户输入 ↓</text>
+<text x="458" y="322" fill="var(--orch)" font-size="9">↑ 回复文字流</text>
+
+<!-- 对话编排 ↔ 记忆中间件：检索请求与写入下行，召回结果上行 -->
+<g stroke="var(--mem)" stroke-width="1.7" fill="none" color="var(--mem)">
+  <path d="M420,392 L420,410" marker-end="url(#ah)"/>
+  <path d="M442,410 L442,392" marker-end="url(#ah)"/>
+</g>
+<text x="404" y="405" fill="var(--mem)" font-size="9" text-anchor="end">检索 · 写入 ↓</text>
+<text x="458" y="405" fill="var(--mem)" font-size="9">↑ 召回结果</text>
+
+<!-- 记忆中间件 → 事件总线 → 界面层（信号） -->
+<g stroke="var(--mem)" stroke-width="1.5" fill="none" color="var(--mem)" stroke-dasharray="4 3">
+  <path d="M715,410 L715,392" marker-end="url(#ah)"/>
+  <path d="M715,328 L715,308" marker-end="url(#ah)"/>
+</g>
+<text x="728" y="322" fill="var(--mem)" font-size="9">记忆事件 → 状态机 + 侧栏</text>
+
+<!-- 人格 → 对话编排 -->
+<g stroke="var(--persona)" stroke-width="1.7" fill="none" color="var(--persona)">
+  <path d="M262,458 L276,458 L276,360 L302,360" marker-end="url(#ah)"/>
+</g>
+<text x="286" y="420" fill="var(--persona)" font-size="9.5" text-anchor="middle" transform="rotate(-90 286 420)">注入 prompt</text>
+
+<!-- 界面 → 端 -->
+<g stroke="var(--face)" stroke-width="1.8" fill="none" color="var(--face)">
+  <path d="M438,176 L438,148" marker-end="url(#ah)"/>
+  <path d="M722,176 L722,148" marker-end="url(#ah)"/>
+</g>
+
+<!-- 记忆中间件 ↔ 存储 -->
+<g stroke="var(--store)" stroke-width="1.7" fill="none" color="var(--store)">
+  <path d="M870,474 L882,474 L882,280 L894,280" marker-end="url(#ah)"/>
+  <path d="M870,546 L882,546 L882,466 L894,466" marker-end="url(#ah)"/>
+  <path d="M894,320 L878,320 L878,616 L870,616" marker-end="url(#ah)"/>
+</g>
+
+<!-- 性格档案 → 人格层（回流，传内容） -->
+<g stroke="var(--persona)" stroke-width="1.6" fill="none" color="var(--persona)">
+  <path d="M894,446 L890,446 L890,688 L139,688 L139,572" marker-end="url(#ah)"/>
+</g>
+<text x="520" y="682" fill="var(--persona)" font-size="10" text-anchor="middle">性格档案回流</text>
+
+<!-- 输入 → 记忆中间件 -->
+<g stroke="var(--io)" stroke-width="1.7" fill="none" color="var(--io)">
+  <path d="M117,700 L117,676 L294,676 L294,660" marker-end="url(#ah)"/>
+  <path d="M297,700 L297,676"/>
+  <path d="M477,700 L477,676 L298,676"/>
+</g>
+<text x="150" y="668" fill="var(--io)" font-size="10">被动这一路必须过筛选</text>
+
+<!-- 模型层 ↔ 记忆中间件 -->
+<g stroke="var(--io)" stroke-width="1.5" fill="none" color="var(--io)">
+  <path d="M693,700 L693,672 L578,672 L578,660" marker-end="url(#ah)"/>
+  <path d="M600,660 L600,680 L705,680 L705,700" marker-end="url(#ah)"/>
+</g>
+
+<!-- 图例 -->
+<g font-size="10.5">
+  <line x1="300" y1="924" x2="330" y2="924" stroke="var(--ink)" stroke-width="1.8"/>
+  <text x="336" y="928" fill="var(--dim)">实线：传内容</text>
+  <line x1="440" y1="924" x2="470" y2="924" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="5 3"/>
+  <text x="476" y="928" fill="var(--dim)">虚线：传信号</text>
+  <text x="590" y="928" fill="var(--faint)">颜色表示归属：紫 人格 · 蓝 编排 · 绿 记忆 · 橙 存储 · 灰 输入与模型</text>
+</g>
+
+</g>
+</svg>
+</div>
+<p class="cap">对话编排是新加的组件：拼 prompt、调模型、分发回复、把用户说的和 AI 说的都送去写入。人格注入的目标从界面层改到编排；界面与编排之间补了用户输入的下行线；事件总线单独成块，只传信号。</p>
+
+<h2><span class="n">02</span>对话编排 · 之前没有归属的四件事</h2>
+<div class="tblwrap"><table>
+<tr><th>动作</th><th>输入</th><th>输出</th><th>说明</th></tr>
+<tr><td>拼 prompt</td><td>当前人格快照 + 中间件召回结果 + 本会话历史</td><td>一份完整的模型请求</td><td>人格在这里注入，不在界面层</td></tr>
+<tr><td>调模型</td><td>上一步的 prompt</td><td>流式回复</td><td>唯一直接调对话模型生成回复的地方</td></tr>
+<tr><td>分发回复</td><td>流式回复</td><td>对话窗口 + 桌宠气泡</td><td>桌面端：主窗口收流，经 IPC 转发给桌宠窗口，只维护一条 SSE</td></tr>
+<tr><td>送去写入</td><td>用户这句话 + AI 这句回复</td><td>交给中间件 ingest</td><td>两者都记。AI 说的承诺、建议，不记就丢了</td></tr>
+</table></div>
+<p class="dim">桌面端的两个渲染进程共享一份流，实现上是主窗口拿到每个 delta 后经 IPC 转发给桌宠窗口——不让桌宠自己再开一条 SSE，避免断线重连时两边状态不一致。</p>
+
+<h2><span class="n">03</span>人格的三段结构</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>安全边界</th><th>人格预设</th><th>相处性格</th></tr>
+<tr><td>内容</td><td>不模拟恋爱关系、不诱导依赖、不替代医疗法律心理建议</td><td>四个预设任选，或手调四个滑块，或不设</td><td>称呼习惯、玩笑尺度、话题偏好、回应长度</td></tr>
+<tr><td>来源</td><td>产品硬性规则</td><td>首次使用时用户选择，之后可改</td><td>相处过程中归纳，写入冷存储</td></tr>
+<tr><td>可变性</td><td>不可关闭、不可绕过</td><td>用户可换可清空</td><td>随使用演化，用户可查看可重置</td></tr>
+<tr><td>合成顺序</td><td colspan="3">预设打底 → 相处覆盖 → 边界否决。预设只是起点，相处得越久它的影子越淡；边界不贡献语气，只做否决</td></tr>
+</table></div>
+
+<h3>四个预设与四个滑块</h3>
+<p>预设是四个滑块的快捷方式——选预设等于一次性把滑块拨到某个组合，选完还能继续手调。相处性格会逐步覆盖这些初始值。</p>
+<div class="tblwrap"><table>
+<tr><th>预设</th><th>主动性</th><th>话量</th><th>情绪浓度</th><th>玩笑尺度</th><th>适合</th></tr>
+<tr><td>热情</td><td>高</td><td>多</td><td>高</td><td>中</td><td>想被陪着说话，怕冷场</td></tr>
+<tr><td>安静</td><td>低</td><td>少</td><td>低</td><td>低</td><td>怕被打扰，需要时才开口</td></tr>
+<tr><td>可爱</td><td>中</td><td>中</td><td>高</td><td>高</td><td>要轻松感，能软化情绪</td></tr>
+<tr><td>毒舌</td><td>高</td><td>中</td><td>中</td><td>很高</td><td>觉得一味温柔太腻</td></tr>
+<tr><td>不设</td><td colspan="4">真空。不往 prompt 里注任何滑块值，模型用默认行为</td><td>让它自己长出性格</td></tr>
+</table></div>
+<p class="dim">四个滑块的含义：<strong>主动性</strong>决定它多久主动开一次话题；<strong>话量</strong>决定回应长度；<strong>情绪浓度</strong>决定用不用感叹号、语气词；<strong>玩笑尺度</strong>决定能不能拆台和调侃。安全边界与滑块无关——毒舌拉满也不会突破那三条。</p>
+
+<h3>不设预设这条路</h3>
+<p>「不设」是真空，不是「全居中」：prompt 里不出现任何滑块描述，模型按自己的默认行为回应。这时当前人格只剩安全边界和相处性格，而相处性格一开始是空的——所以最初它是一个没有语气倾向的中性回应者，性格完全从后面的相处里长出来。</p>
+<div class="tblwrap"><table>
+<tr><th></th><th>选了预设</th><th>不设预设</th></tr>
+<tr><td>第一次对话</td><td>已经有明确语气，符合所选人格</td><td>模型默认行为，不带倾向</td></tr>
+<tr><td>性格来源</td><td>预设打底，相处逐步覆盖</td><td>全部来自相处沉淀</td></tr>
+<tr><td>收敛速度</td><td>立刻可用</td><td>需要一段时间才有辨识度</td></tr>
+<tr><td>适合谁</td><td>想要一个设定好的角色</td><td>想要一个长成自己样子的伙伴</td></tr>
+<tr><td>风险</td><td>预设与用户期待不符时要手动换，或等相处覆盖</td><td>早期体验平淡，可能留不住人</td></tr>
+</table></div>
+
+<h2><span class="n">04</span>性格沉淀读什么</h2>
+<p>性格沉淀归纳的是「称呼习惯、玩笑尺度、话题偏好、回应长度」——这些是对话的<strong>风格</strong>，不是事实。压缩步骤会把「我叫赵宁，我喜欢美式」变成「用户名字是赵宁」，语气在这一步就没了。所以性格沉淀<strong>读原始会话记录，不读记忆库</strong>。</p>
+<div class="tblwrap"><table>
+<tr><th>项</th><th>说明</th></tr>
+<tr><td>触发</td><td>周期任务。累积若干轮对话后跑一次，不在请求路径上</td></tr>
+<tr><td>输入</td><td>SQLite 里最近 N 轮的原始会话记录（用户与 AI 双方的原话）</td></tr>
+<tr><td>处理</td><td>调对话模型归纳四个维度的当前值，与上一版性格档案做增量合并</td></tr>
+<tr><td>输出</td><td>写回冷存储「性格档案」，触发当前人格快照重算</td></tr>
+<tr><td>用户可见</td><td>记忆库页面能看到归纳结果，可重置</td></tr>
+</table></div>
+
+<h2><span class="n">05</span>界面层收到的两路数据</h2>
+<div class="tblwrap"><table>
+<tr><th>路径</th><th>传什么</th><th>谁消费</th><th>怎么用</th></tr>
+<tr><td>编排 → 对话窗口 + 桌宠气泡</td><td>SSE 文本增量，每个 delta 几个字；done 事件带本次引用的记忆 id</td><td>两处消费同一份流</td><td>网页端打进对话窗口；桌面端主窗口收流，经 IPC 转发给桌宠窗口</td></tr>
+<tr><td>事件总线 → 角色状态机</td><td>SSE 记忆事件（filter / write / merge / recall）</td><td>Live2D 形象 + 事件流侧栏</td><td>按事件类型查表得到表情索引，调 <code>model.expression(idx)</code></td></tr>
+<tr><td>对话窗口 → 角色状态机</td><td>想 / 说 / 闲置的状态切换</td><td>Live2D 形象</td><td>不经后端：桌面端走 IPC，网页端走前端事件总线</td></tr>
+<tr><td>语音合成 → 渲染层</td><td>音频音量包络</td><td>Live2D 形象</td><td>逐帧驱动嘴巴张合参数</td></tr>
+<tr><td>输入条 → 对话编排</td><td>用户打的字、录的音、传的图</td><td>编排器</td><td>桌宠内联输入条与对话窗口走同一个 <code>/chat</code> 接口</td></tr>
+</table></div>
+<p class="dim">状态切换那一路刻意不走后端——首字到达就要立刻切「说」，多绕一趟服务端会让表情比文字慢半拍。</p>
+
+<h2><span class="n">06</span>人格数据存在哪</h2>
+<div class="tblwrap"><table>
+<tr><th>段</th><th>存储位置</th><th>性质</th><th>什么时候写</th></tr>
+<tr><td>安全边界</td><td>代码常量，不入库</td><td>产品硬性规则</td><td>随版本发布</td></tr>
+<tr><td>人格预设</td><td>SQLite <code>settings</code> 表</td><td>用户配置，不是记忆</td><td>用户选择或改动时</td></tr>
+<tr><td>相处性格</td><td>冷存储「性格档案」</td><td>归纳产物</td><td>每累积若干轮对话，性格沉淀跑一次</td></tr>
+<tr><td>当前人格</td><td>热存储「当前人格快照」</td><td>三者的合成缓存</td><td>预设改动或性格沉淀完成后重算</td></tr>
+</table></div>
+<p class="dim">每次对话直接读热存储里的快照，不重新合成——合成要读三处、还要做覆盖裁决，放在请求路径上会拖慢首字延迟。</p>
+
+<h2><span class="n">07</span>冷热分层规则</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>热存储</th><th>冷存储</th></tr>
+<tr><td>引擎</td><td>LanceDB 常驻索引表</td><td>LanceDB 归档表 + 相册原图、随笔全文落磁盘文件</td></tr>
+<tr><td>装什么</td><td>近 30 天事实、当前待办、活跃话题、人格快照</td><td>全量历史事实与作废版本、相册原图、随笔、日记、历史待办、性格档案</td></tr>
+<tr><td>索引</td><td>向量 + 关键词 + 标签三层全建</td><td>仅摘要索引，原文与原图按需取</td></tr>
+<tr><td>进入</td><td>新写入，或冷条目被命中后整体回热</td><td>热存储中 30 天未命中的条目降级</td></tr>
+<tr><td>延迟</td><td>毫秒级</td><td>可接受一次加载开销</td></tr>
+<tr><td>写入时机</td><td>实时，事实一压缩完就写</td><td>三种：每日定时扫描把 30 天未命中的降冷；相册原图与随笔全文写入时直落；性格档案每累积若干轮对话归纳一次后写回</td></tr>
+</table></div>
+<p class="dim">会话记录、用户可见的记忆分层、事件日志、设置，这些不是记忆事实，放 SQLite。分层依据是访问频率与时效，不是内容类型——同一个相册里，本周的照片在热、三年前的在冷。一旦被问起就整体回热，避免同一话题反复穿透到冷存储。</p>
+
+<h2><span class="n">08</span>三种输入的差别</h2>
+<div class="tblwrap"><table>
+<tr><th>输入</th><th>从哪进来</th><th>筛选</th><th>压缩</th><th>原始数据</th></tr>
+<tr><td>文字 · 对话（用户与 AI 双方）</td><td>界面输入条 → 编排 → 中间件</td><td>跳过</td><td>拆成自包含事实</td><td>会话记录入 SQLite</td></tr>
+<tr><td>文字 · 日记随笔</td><td>界面编辑器 → 中间件</td><td>跳过</td><td>拆事实 + 另出一段摘要</td><td>全文落磁盘，摘要入冷存储索引</td></tr>
+<tr><td>实时语音</td><td>常开麦克风，设备被动采集</td><td>能量阈值 + 语音活动检测</td><td>转写后同对话处理</td><td>音频指针入冷存储</td></tr>
+<tr><td>图片</td><td>上传为主动，摄像头为被动</td><td>被动才筛：画面变化度比对</td><td>视觉描述压缩成事实</td><td>原图入冷存储相册</td></tr>
+</table></div>
+<p class="dim">「不筛选」不等于「原样存」。主动输入跳过的是①筛选这一步，②压缩照做——「我叫赵宁，我喜欢美式咖啡。用一句话介绍你自己。」这句里的指令部分仍然会被剔掉。区别在于筛选器不会因为它「像废话」就整条丢弃。</p>
+
+<h2><span class="n">09</span>记忆事件到角色表现</h2>
+<div class="tblwrap"><table>
+<tr><th>事件</th><th>侧栏显示</th><th>角色表现</th></tr>
+<tr><td><code>filter · reject</code></td><td>灰色行 + 丢弃理由</td><td>无反应，维持闲置</td></tr>
+<tr><td><code>filter · uncertain</code></td><td>黄色行 + 分数</td><td>疑惑表情，短暂歪头</td></tr>
+<tr><td><code>write</code></td><td>高亮行 + 拆出的事实</td><td>记忆气泡浮出，开心表情</td></tr>
+<tr><td><code>merge</code></td><td>旧条目划线 + 新条目</td><td>旧气泡划掉，新气泡浮出</td></tr>
+<tr><td><code>recall</code></td><td>命中条目 + 走的路径</td><td>星星眼，气泡标注引用条数</td></tr>
+</table></div>
+
+<h2><span class="n">10</span>一次对话的完整链路</h2>
+<div class="tblwrap"><table>
+<tr><th>#</th><th>发生在</th><th>动作</th></tr>
+<tr><td>1</td><td>界面</td><td>用户说话，桌面端走内联输入条，网页端走对话窗口，送到编排</td></tr>
+<tr><td>2</td><td>界面</td><td>状态机进「想」，缓慢歪头（本地，不等后端）</td></tr>
+<tr><td>3</td><td>编排</td><td>向中间件发检索请求</td></tr>
+<tr><td>4</td><td>中间件</td><td>检索规划选路径，先查热存储；未命中且问题涉及久远内容时下探冷存储，命中的冷条目整体回热</td></tr>
+<tr><td>5</td><td>编排</td><td>读热存储里的当前人格快照，与召回结果、会话历史一起拼成 prompt</td></tr>
+<tr><td>6</td><td>模型层</td><td>生成回复，流式返回给编排</td></tr>
+<tr><td>7</td><td>编排 → 界面</td><td>分发流式回复：网页端进对话窗口；桌面端主窗口收流，IPC 转发给桌宠气泡</td></tr>
+<tr><td>8</td><td>界面</td><td>状态机进「说」，气泡逐字显示，有语音合成时驱动口型</td></tr>
+<tr><td>9</td><td>编排 → 中间件</td><td>回复结束后，把用户这句和 AI 这句一起送去写入</td></tr>
+<tr><td>10</td><td>中间件</td><td>主动输入跳过筛选 → 压缩 → 合成 → 写入热存储</td></tr>
+<tr><td>11</td><td>事件总线</td><td>write / merge 事件外发，侧栏追加，角色切表情</td></tr>
+<tr><td>12</td><td>中间件</td><td>达到周期阈值时触发性格沉淀：读 SQLite 里的原始会话，归纳后写回冷存储，触发人格快照重算</td></tr>
+</table></div>
+
+</div>
