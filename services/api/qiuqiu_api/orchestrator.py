@@ -495,7 +495,12 @@ async def run_once(
         recall_ms = 0
         if use_memory:
             hits, paths, recall_ms = await _recall(state, query, trace_id=trace_id, now=now)
-        persona_text = await state.off_loop(state.persona.current) if use_memory else ""
+        # 人格**不受 use_memory 影响**。`use_memory=False` 关掉的是「记得住」
+        # ——召回与会话历史，不是「它是谁」。跟着一起丢的话有两个后果：
+        # 一是安全边界（不模拟恋爱关系、不诱导依赖、不替代专业建议）在这条路上没了；
+        # 二是成本对照那个演示不公平——无记忆那一侧连身份都不一样，
+        # 量出来的差距里混进了「换了个助手」，不再只是记忆的功劳。
+        persona_text = await state.off_loop(state.persona.current)
         history = (
             state.sqlite.list_messages(session_id, limit=state.config.history_limit)
             if (session_id and use_memory)

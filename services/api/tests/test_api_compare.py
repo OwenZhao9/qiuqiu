@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from qiuqiu_api.state import AppState
 from starlette.testclient import TestClient
 
@@ -64,3 +66,43 @@ def test_custom_configs(client: TestClient) -> None:
 
 def test_empty_query_is_422(client: TestClient) -> None:
     assert client.post("/compare", json={"query": ""}).status_code == 422
+
+
+
+def test_persona_survives_use_memory_false(
+    state: AppState, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`use_memory=False` 关掉的是「记得住」，不是「它是谁」。
+
+    人格跟着一起丢有两个后果：一是安全边界（不模拟恋爱关系、不诱导依赖、
+    不替代专业建议）在这条路上没了；二是成本对照那个演示不公平——无记忆那一侧
+    连身份都不一样，量出来的差距里混进了「换了个助手」，不再只是记忆的功劳。
+    """
+    import anyio
+
+    from qiuqiu_api import orchestrator
+
+    seen: list[str] = []
+    original = orchestrator.build_messages
+
+    def spy(state_: AppState, *, persona_text: str, **kwargs: object) -> object:
+        seen.append(persona_text)
+        return original(state_, persona_text=persona_text, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(orchestrator, "build_messages", spy)
+
+    async def run() -> None:
+        await orchestrator.run_once(
+            state,
+            name="no-memory",
+            query="你叫什么",
+            session_id=None,
+            use_memory=False,
+            trace_id="trc_test",
+        )
+
+    anyio.run(run)
+
+    assert seen, "build_messages 没被调到"
+    assert "【身份】" in seen[0], "身份段丢了，模型不知道自己叫丘丘"
+    assert "【边界】" in seen[0], "安全边界丢了——这条路上三条硬约束全没了"

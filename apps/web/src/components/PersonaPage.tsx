@@ -17,12 +17,27 @@ import {
   type Sliders
 } from '../api.js';
 
+/**
+ * 四个预设。名字与说明**必须跟后端的滑块值对得上**
+ * （`packages/memory/qiuqiu_memory/persona.py::PRESETS`），不然卡片说的和实际
+ * 表现是两回事——`warm` 的滑块是主动 80、话量 70，卡片却写过「话不多、不追问」，
+ * 正好说反。`test/persona.test.tsx` 拿滑块值守着这四行。
+ */
 const PRESETS: Array<{ id: PresetId; name: string; desc: string }> = [
-  { id: 'warm', name: '温和', desc: '话不多，接得住情绪，不追问' },
+  // 主动 80 · 话量 70 · 情绪 85 · 玩笑 55
+  { id: 'warm', name: '热情', desc: '主动开话题，会追问，情绪跟得紧' },
+  // 主动 20 · 话量 25 · 情绪 35 · 玩笑 20
   { id: 'quiet', name: '安静', desc: '只在被问到时开口，回复短' },
-  { id: 'cute', name: '软萌', desc: '语气轻，爱用短句和语气词' },
-  { id: 'sassy', name: '毒舌', desc: '直接，偶尔戳一下，不绕弯' }
+  // 主动 65 · 话量 55 · 情绪 80 · 玩笑 75
+  { id: 'cute', name: '可爱', desc: '语气轻，爱用短句和语气词，爱开小玩笑' },
+  // 主动 70 · 话量 40 · 情绪 50 · 玩笑 90
+  { id: 'sassy', name: '毒舌', desc: '话不长但直接，玩笑尺度大，不绕弯' }
 ];
+
+/** 只给测试用：id → 说明。测试拿它跟后端的滑块值比对方向。 */
+export const PRESET_DESCRIPTIONS: Record<string, string> = Object.fromEntries(
+  PRESETS.map((p) => [p.id, p.desc])
+);
 
 const SLIDERS: Array<{ key: keyof Sliders; label: string; low: string; high: string }> = [
   { key: 'initiative', label: '主动', low: '等你开口', high: '常常先说' },

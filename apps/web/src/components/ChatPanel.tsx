@@ -60,27 +60,31 @@ export function ChatPanel({ messages, recallTexts }: ChatPanelProps): React.JSX.
   return (
     <div className="qq-thread" data-testid="thread">
       {messages.map((m) => (
-        <div
-          key={m.id}
-          className={'qq-msg qq-msg--' + m.role}
-          data-testid={'msg-' + m.role}
-          data-streaming={m.streaming ? 'true' : undefined}
-        >
-          {m.content}
-          {m.streaming && m.content === '' ? <span className="qq-muted">丘丘在想…</span> : null}
-          {m.streaming && m.content !== '' ? (
-            <span className="qq-msg__caret" aria-hidden="true" />
-          ) : null}
-          {m.attachments.length > 0 ? (
-            <div className="qq-card__foot">带了 {m.attachments.length} 张图</div>
-          ) : null}
-          {m.error ? (
-            <div className="qq-error">
-              {m.error.message}
-              <span className="qq-error__hint">{m.error.hint}</span>
-            </div>
-          ) : null}
-          {m.role === 'assistant' ? <RecallNote ids={m.recallIds} texts={recallTexts} /> : null}
+        // 外面这层是「一行」，占满阅读栏并决定左右；气泡在里面，按内容自己收窄。
+        // 少了这层的话，`.qq-thread > *` 的 width: 100% 会直接落在气泡上，
+        // 一句「Hello.」也被撑成一整条
+        <div key={m.id} className={'qq-msg-row qq-msg-row--' + m.role}>
+          <div
+            className={'qq-msg qq-msg--' + m.role}
+            data-testid={'msg-' + m.role}
+            data-streaming={m.streaming ? 'true' : undefined}
+          >
+            {m.content}
+            {m.streaming && m.content === '' ? <span className="qq-muted">丘丘在想…</span> : null}
+            {m.streaming && m.content !== '' ? (
+              <span className="qq-msg__caret" aria-hidden="true" />
+            ) : null}
+            {m.attachments.length > 0 ? (
+              <div className="qq-card__foot">带了 {m.attachments.length} 张图</div>
+            ) : null}
+            {m.error ? (
+              <div className="qq-error">
+                {m.error.message}
+                <span className="qq-error__hint">{m.error.hint}</span>
+              </div>
+            ) : null}
+            {m.role === 'assistant' ? <RecallNote ids={m.recallIds} texts={recallTexts} /> : null}
+          </div>
         </div>
       ))}
     </div>

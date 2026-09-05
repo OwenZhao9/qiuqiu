@@ -268,7 +268,21 @@ select {
   max-width: var(--qq-thread-max-w);
 }
 
+/* 一行。占满阅读栏，只负责决定气泡靠左还是靠右。 */
+.qq-msg-row {
+  display: flex;
+}
+
+.qq-msg-row--user {
+  justify-content: flex-end;
+}
+
+.qq-msg-row--assistant {
+  justify-content: flex-start;
+}
+
 .qq-msg {
+  /* 按内容收窄，不占满一行——一句「Hello.」不该是一整条 */
   max-width: 82%;
   padding: var(--qq-space-5) var(--qq-space-6);
   border-radius: var(--qq-radius-lg);
@@ -279,13 +293,11 @@ select {
 }
 
 .qq-msg--user {
-  align-self: flex-end;
   background: var(--qq-color-brand);
   color: var(--qq-color-on-brand);
 }
 
 .qq-msg--assistant {
-  align-self: flex-start;
   background: var(--qq-color-surface);
   border: var(--qq-border-thin) solid var(--qq-color-border);
   box-shadow: var(--qq-shadow-1);
@@ -339,8 +351,11 @@ select {
   position: relative;
 }
 
+/* 允许换行：通话状态是 flex-basis: 100% 的整行元素，不换行的话它会跟输入框、
+   发送按钮挤在同一行，把输入框压成一条缝——那就是「通话时 UI 乱了」。 */
 .qq-composer__row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--qq-space-4);
 }
@@ -1358,9 +1373,11 @@ select {
   color: var(--qq-color-recall);
 }
 
+/* 排到输入框那一行**上面**去（order: -1），不然换行之后「发送」会被挤到第三行 */
 .qq-voice-status {
+  order: -1;
   flex-basis: 100%;
-  margin-top: var(--qq-space-2);
+  margin-bottom: var(--qq-space-1);
   font-size: var(--qq-text-sm);
   line-height: 1.4;
 }
@@ -1485,15 +1502,21 @@ select {
   overflow-x: auto;
 }
 
+/* 图是 1160 宽的 viewBox。缩到 980 以下时字号跟着等比缩，10 px 的注就糊了，
+   所以给个下限，宁可横向滚动也不糊。 */
 .qq-map svg {
-  min-width: 980px;
+  min-width: 1060px;
+  /* 斜角与细线在非整数缩放下会发虚，让浏览器按几何精度渲染 */
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
 }
 
 /* 三段分区底 */
 .qq-map__zone {
   fill: var(--qq-color-bg-subtle);
-  stroke: var(--qq-color-border);
-  stroke-opacity: 0.5;
+  stroke: var(--qq-color-border-strong);
+  stroke-opacity: 0.8;
+  stroke-width: 1.2;
 }
 
 .qq-map__zone[data-tone='1'] {
@@ -1509,7 +1532,7 @@ select {
 }
 
 .qq-map__zone-t {
-  font-size: 14.5px;
+  font-size: 16px;
   font-weight: var(--qq-weight-bold);
   text-anchor: middle;
   fill: var(--qq-color-text);
@@ -1529,30 +1552,31 @@ select {
 
 .qq-map__zone-en,
 .qq-map__s {
-  font-size: 9.5px;
+  font-size: 10.5px;
   text-anchor: middle;
-  fill: var(--qq-color-text-muted);
+  /* 原来用 muted，在浅色分区底上几乎看不清。降一档到 secondary */
+  fill: var(--qq-color-text-secondary);
 }
 
 /* 方块 */
 .qq-map__box rect {
   fill: var(--qq-color-surface);
   stroke: var(--qq-color-border-strong);
-  stroke-width: 1;
+  stroke-width: 1.3;
   transition:
     fill var(--qq-duration-base) var(--qq-ease-out),
     stroke var(--qq-duration-base) var(--qq-ease-out);
 }
 
 .qq-map__t {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: var(--qq-weight-semibold);
   text-anchor: middle;
   fill: var(--qq-color-text);
 }
 
 .qq-map__lg {
-  font-size: 12.5px;
+  font-size: 14px;
 }
 
 /* 靠左 / 靠右 / 竖排的文字，覆盖默认的居中 */
@@ -1571,7 +1595,7 @@ select {
 
 /* 丘丘跟论文不一样的地方，写在块里面，用强调色 */
 .qq-map__note-in {
-  font-size: 9px;
+  font-size: 10px;
   text-anchor: middle;
   fill: var(--qq-color-uncertain);
 }
@@ -1642,7 +1666,8 @@ select {
 .qq-map__shelf {
   fill: var(--qq-color-surface);
   stroke: var(--qq-color-recall);
-  stroke-opacity: 0.6;
+  stroke-opacity: 0.85;
+  stroke-width: 1.3;
 }
 
 .qq-map__shelf--cold {
@@ -1652,7 +1677,7 @@ select {
 
 .qq-map__mau rect {
   fill: var(--qq-color-bg-subtle);
-  stroke: var(--qq-color-border);
+  stroke: var(--qq-color-border-strong);
   transition: fill var(--qq-duration-base) var(--qq-ease-out);
 }
 
@@ -1666,14 +1691,14 @@ select {
 }
 
 .qq-map__mau-h {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: var(--qq-weight-semibold);
   fill: var(--qq-color-text);
 }
 
 .qq-map__mau-l {
-  font-size: 9px;
-  fill: var(--qq-color-text-muted);
+  font-size: 10px;
+  fill: var(--qq-color-text-secondary);
 }
 
 /* 并集圆与预算金字塔 */
@@ -1704,7 +1729,7 @@ select {
 .qq-map__arrow {
   fill: none;
   stroke: var(--qq-color-border-strong);
-  stroke-width: 1.3;
+  stroke-width: 1.5;
 }
 
 .qq-map__arrow.qq-map--on {

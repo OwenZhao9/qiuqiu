@@ -251,8 +251,9 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
         <text className={cls('qq-map__x', on(rejected))} x={274} y={342}>
           ✕
         </text>
-        <text className="qq-map__s" x={240} y={364} textAnchor="start">
-          {rejected ? clip(p.reason, 12) : '判为冗余，丢掉'}
+        {/* 排在 ✕ 正下方、漏斗右边。原来放 x=240，被漏斗的斜边压掉了半个字 */}
+        <text className="qq-map__s" x={266} y={362} textAnchor="start">
+          {rejected ? clip(p.reason, 7) : '冗余，丢掉'}
         </text>
 
         {/* 漏斗本体 */}
