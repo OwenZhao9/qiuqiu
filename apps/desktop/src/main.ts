@@ -26,6 +26,7 @@ import {
 import { TO_MAIN, TO_RENDERER } from './channels.js';
 import {
   defaultPetBounds,
+  gazeDelta,
   MAIN_WINDOW,
   moveBy,
   petBounds,
@@ -79,6 +80,65 @@ function deliverFromPet(text: string): void {
   ensureMain();
   if (!mainWindow || mainWindow.isDestroyed() || petInbox.hold(text)) return;
   mainWindow.webContents.send(TO_RENDERER.submitFromPet, text);
+}
+
+/* ------------------------------------------------------------------ *
+ * 眼神跟随
+ * ------------------------------------------------------------------ */
+
+/**
+ * 轮询系统光标的间隔。33 ms ≈ 30 Hz。
+ *
+ * 为什么要轮询：桌宠窗口是鼠标穿透的，而且只有 200 px 见方，渲染进程只在光标
+ * 压在丘丘身上时才收得到 `pointermove`——「鼠标在屏幕另一头」这件事它根本不知道。
+ * Electron 没有全局鼠标事件，只有 `screen.getCursorScreenPoint()` 这个同步查询，
+ * 所以只能自己按节拍问。
+ *
+ * 30 Hz 是够的：眼球本来就有平滑跟随（引擎每帧向目标逼近），再快也看不出来。
+ */
+const GAZE_POLL_MS = 33;
+
+/** 偏移变化小于这个数就不发，省掉手不动时每秒 30 条 IPC。 */
+const GAZE_EPSILON_PX = 2;
+
+let gazeTimer: ReturnType<typeof setInterval> | null = null;
+let lastGaze: { dx: number; dy: number } | null = null;
+
+function pollGaze(): void {
+  if (!petWindow || petWindow.isDestroyed() || !petWindow.isVisible()) {
+    // 桌宠看不见时把眼睛收回去，免得下次显示出来还瞪着上一次的方向
+    if (lastGaze) {
+      lastGaze = null;
+      petWindow?.webContents.send(TO_RENDERER.petGaze, 0, 0);
+    }
+    return;
+  }
+  const next = gazeDelta(
+    petWindow.getBounds(),
+    { expanded: petExpanded, bubble: petBubble },
+    screen.getCursorScreenPoint()
+  );
+  if (
+    lastGaze &&
+    Math.abs(next.dx - lastGaze.dx) < GAZE_EPSILON_PX &&
+    Math.abs(next.dy - lastGaze.dy) < GAZE_EPSILON_PX
+  ) {
+    return;
+  }
+  lastGaze = next;
+  petWindow.webContents.send(TO_RENDERER.petGaze, next.dx, next.dy);
+}
+
+function startGaze(): void {
+  if (gazeTimer) return;
+  gazeTimer = setInterval(pollGaze, GAZE_POLL_MS);
+}
+
+function stopGaze(): void {
+  if (!gazeTimer) return;
+  clearInterval(gazeTimer);
+  gazeTimer = null;
+  lastGaze = null;
 }
 
 /** `moved` 停下来多久算一次拖动结束。Electron 没有拖动结束事件，只能等它安静。 */
@@ -187,6 +247,11 @@ function createPetWindow(): BrowserWindow {
   // 默认穿透，渲染进程判断指针落在实心轮廓上时再关掉（design/interaction.md § 1）
   win.setIgnoreMouseEvents(true, { forward: true });
   loadPage(win, 'pet');
+  // 眼神跟随靠主进程轮询系统光标，桌宠自己拿不到窗口外的指针
+  win.on('show', startGaze);
+  win.on('hide', stopGaze);
+  win.on('closed', stopGaze);
+  if (win.isVisible()) startGaze();
   return win;
 }
 

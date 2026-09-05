@@ -299,6 +299,13 @@ graph LR
 - 规则：主窗口订阅自己那只丘丘的 `onEmotion`，每换一次就 `setPetState(state, emotionId)` 发一次；桌宠收到只照做，不推断。表情映射表只在主窗口跑一遍
 - 状态：已采纳
 
+### AD-5c — 桌宠的注视由主进程轮询全局光标
+
+- 约束范围：frontend、desktop、character
+- 防止的分歧：桌宠自己监听 `pointermove` 算注视——那只在光标压在丘丘身上时才有事件（窗口鼠标穿透且只有 200 px），于是「眼神跟随」实际是不跟的；或者两条通路一起开，互相覆盖
+- 规则：桌宠窗口 `createQiuqiu` 传 `gaze: false`，主进程按 30 Hz 轮询 `screen.getCursorScreenPoint()`，减去球心后经 `onPetGaze` 推给渲染进程；网页端与主窗口仍走本地 `pointermove`，那里窗口够大、事件是全的
+- 状态：已采纳
+
 ### AD-6 — AI 回复也写入记忆
 
 - 约束范围：backend、memory

@@ -183,6 +183,22 @@ export const GAZE_RADIUS_PX = 320;
  * 「丘丘会看鼠标」这件事由本包接上：在 document 上挂一个 `pointermove`，
  * 把光标相对球心的偏移归一化到 [-1, 1] 喂进去。
  */
+/**
+ * 像素偏移 → 归一化注视量。
+ *
+ * `dx` / `dy` 是光标相对球心的偏移，正方向右下。`radius` 是饱和半径：
+ * 差这么远时注视到满幅（引擎再乘成 ±24 / ±15 个 viewBox 单位）。
+ * 超出去不用自己夹，引擎按轴 clamp 到 [-1, 1]——远处的光标方向照样是对的。
+ */
+export function gazeFromDelta(
+  dx: number,
+  dy: number,
+  radius = GAZE_RADIUS_PX
+): { nx: number; ny: number } {
+  const r = radius > 0 ? radius : GAZE_RADIUS_PX;
+  return { nx: dx / r, ny: dy / r };
+}
+
 function attachGaze(
   ball: EmotionBallEngine,
   mount: HTMLElement,
@@ -194,8 +210,8 @@ function attachGaze(
     if (!rect.width || !rect.height) return; // 还没布局或已隐藏
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    const r = radius > 0 ? radius : GAZE_RADIUS_PX;
-    ball.setGaze((ev.clientX - cx) / r, (ev.clientY - cy) / r);
+    const { nx, ny } = gazeFromDelta(ev.clientX - cx, ev.clientY - cy, radius);
+    ball.setGaze(nx, ny);
   };
   const onLeave = (): void => {
     ball.clearGaze();
@@ -340,6 +356,13 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
     onEmotion(cb: (id: EmotionId) => void) {
       emotionSubs.add(cb);
       return () => emotionSubs.delete(cb);
+    },
+
+    setGaze(nx: number, ny: number) {
+      ball.setGaze(nx, ny);
+    },
+    clearGaze() {
+      ball.clearGaze();
     },
 
     getLook: () => look,

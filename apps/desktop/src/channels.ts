@@ -37,7 +37,8 @@ export const TO_RENDERER = {
   callFromPet: 'qq:on-call-from-pet',
   petFocus: 'qq:on-pet-focus',
   ambientToggle: 'qq:on-ambient-toggle',
-  skin: 'qq:on-skin'
+  skin: 'qq:on-skin',
+  petGaze: 'qq:on-pet-gaze'
 } as const;
 
 export type ToMainChannel = (typeof TO_MAIN)[keyof typeof TO_MAIN];

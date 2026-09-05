@@ -115,6 +115,22 @@ export function ballCenter(
   };
 }
 
+/**
+ * 光标相对球心的偏移，屏幕像素。注视用。
+ *
+ * 桌宠窗口只有 200 px 又是鼠标穿透的，渲染进程只在光标压在丘丘身上时才收得到
+ * `pointermove`，自己算不出「鼠标在屏幕另一头」。所以由主进程轮询系统光标，
+ * 减去球心，把这个偏移送下去。
+ */
+export function gazeDelta(
+  rect: Rect,
+  layout: PetLayout,
+  cursor: { x: number; y: number }
+): { dx: number; dy: number } {
+  const c = ballCenter(rect, layout);
+  return { dx: cursor.x - c.x, dy: cursor.y - c.y };
+}
+
 /** 拖动：增量是相对上一次 move，主进程累加到窗口位置。 */
 export function moveBy(rect: Rect, dx: number, dy: number): Rect {
   return { ...rect, x: Math.round(rect.x + dx), y: Math.round(rect.y + dy) };

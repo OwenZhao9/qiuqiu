@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mountCostume, findBodyGroup, parseEyeTransform, EYE_HALF } from '../src/costume.js';
-import { createQiuqiu } from '../src/engine.js';
+import { createQiuqiu, gazeFromDelta } from '../src/engine.js';
 import {
   applyQiuqiuTheme,
   currentLook,
@@ -357,6 +357,44 @@ describe('onEmotion', () => {
     // stub 的 setEmotion 对未知 id 会回退到 02，所以直接推一发 change
     eb.instances.at(-1)!.emitChange('nope');
     expect(seen).toEqual([]);
+    q.destroy();
+    host.remove();
+  });
+});
+
+describe('gazeFromDelta', () => {
+  it('半径处正好到满幅', () => {
+    expect(gazeFromDelta(320, 0)).toEqual({ nx: 1, ny: 0 });
+    expect(gazeFromDelta(0, -320)).toEqual({ nx: 0, ny: -1 });
+  });
+
+  it('超出半径不自己夹，交给引擎按轴 clamp——远处的方向照样是对的', () => {
+    expect(gazeFromDelta(960, 0)).toEqual({ nx: 3, ny: 0 });
+  });
+
+  it('半径给 0 或负数就落回默认，不产生 Infinity', () => {
+    expect(gazeFromDelta(160, 0, 0)).toEqual({ nx: 0.5, ny: 0 });
+    expect(gazeFromDelta(160, 0, -5)).toEqual({ nx: 0.5, ny: 0 });
+  });
+
+  it('桌宠用的大半径下，同样的偏移看得更「温和」', () => {
+    expect(gazeFromDelta(560, 0, 560).nx).toBe(1);
+    expect(gazeFromDelta(280, 0, 560).nx).toBe(0.5);
+  });
+});
+
+describe('setGaze / clearGaze', () => {
+  it('实例把注视直接递给引擎', () => {
+    const eb = makeStubEmotionBall();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const q = createQiuqiu(host, { engine: eb, gaze: false, idle: false });
+    q.setGaze(0.5, -0.25);
+    q.clearGaze();
+    expect(eb.instances.at(-1)!.gaze).toEqual([
+      [0.5, -0.25],
+      [0, 0]
+    ]);
     q.destroy();
     host.remove();
   });

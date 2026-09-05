@@ -8,6 +8,7 @@ import {
   DEFAULT_MARGIN_PX,
   MIN_VISIBLE_PX,
   moveBy,
+  gazeDelta,
   petBounds,
   petSize,
   PET_COLLAPSED,
@@ -216,5 +217,36 @@ describe('restorePetBounds', () => {
     const out = restorePetBounds({ x: 9999, y: 9999 }, WORK);
     expect(out.x).toBe(WORK.x + WORK.width - MIN_VISIBLE_PX);
     expect(out.y).toBe(WORK.y + WORK.height - MIN_VISIBLE_PX);
+  });
+});
+
+describe('gazeDelta · 眼神跟随', () => {
+  const rect = { x: 400, y: 300, ...PET_COLLAPSED };
+  const shut = { expanded: false, bubble: 0 };
+
+  it('光标正压在球心时偏移是 0', () => {
+    expect(gazeDelta(rect, shut, { x: 500, y: 400 })).toEqual({ dx: 0, dy: 0 });
+  });
+
+  it('右下方的光标给出正的 dx / dy', () => {
+    expect(gazeDelta(rect, shut, { x: 900, y: 700 })).toEqual({ dx: 400, dy: 300 });
+  });
+
+  it('左上方的光标给出负的', () => {
+    expect(gazeDelta(rect, shut, { x: 100, y: 100 })).toEqual({ dx: -400, dy: -300 });
+  });
+
+  it('气泡把窗口撑高之后，球心跟着走，偏移仍然对着球', () => {
+    // 这一条是气泡那个 bug 的连带：球在窗口里的位置随气泡变，
+    // 用窗口中心算注视就会越偏越多
+    const withBubble = { expanded: false, bubble: 44 };
+    const grown = petBounds(rect, shut, withBubble);
+    expect(gazeDelta(grown, withBubble, { x: 500, y: 400 })).toEqual({ dx: 0, dy: 0 });
+  });
+
+  it('展开输入条不影响球心，注视也不受影响', () => {
+    const open = { expanded: true, bubble: 0 };
+    const wide = petBounds(rect, shut, open);
+    expect(gazeDelta(wide, open, { x: 500, y: 400 })).toEqual({ dx: 0, dy: 0 });
   });
 });

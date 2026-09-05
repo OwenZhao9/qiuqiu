@@ -23,6 +23,7 @@ import type { CharacterState, EmotionId, QiuqiuInstance, SetStateOptions } from 
 
 export {
   createQiuqiu,
+  gazeFromDelta,
   getEmotionBall,
   normalizeEmotionId,
   GAZE_RADIUS_PX,

@@ -255,6 +255,7 @@ interface QiuqiuBridge {
   onPetFocus(cb: () => void): Unsubscribe;                    // 全局快捷键唤起后展开输入条
   onAmbientToggle(cb: (paused: boolean) => void): Unsubscribe; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
   onSkin(cb: (skin: string) => void): Unsubscribe;            // 另一个窗口换了皮肤。收到只应用不再广播，否则来回弹
+  onPetGaze(cb: (dx: number, dy: number) => void): Unsubscribe; // 光标相对球心的偏移，屏幕像素。桌宠窗口穿透且只有 200 px，自己拿不到窗口外的指针
 }
 window.__QIUQIU_API__ = "http://127.0.0.1:8000";
 ```
@@ -571,7 +572,11 @@ prompt_persona = boundary_block
 
 当前：**v0.1.13**（桌宠气泡与首句不丢）
 
-v0.1.13 三条，都是修 bug 补的：
+v0.1.13 四条：
+
+- **§ 2 增 `onPetGaze`**。桌宠的眼神跟随。桌宠窗口鼠标穿透且只有 200 px，渲染进程只在光标压在丘丘身上时才收得到 `pointermove`，「鼠标在屏幕另一头」它根本不知道。Electron 没有全局鼠标事件，只有 `screen.getCursorScreenPoint()` 这个同步查询，所以由主进程按 30 Hz 轮询、减去球心再推下来
+
+以下三条都是修 bug 补的：
 
 - **§ 2 所有 `onX` 改为返回退订函数**。只订不退，开发模式下 effect 跑两遍就订两份，桌宠气泡里一条 delta 拼两遍，回复成了每个字重复
 

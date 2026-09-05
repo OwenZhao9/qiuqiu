@@ -76,6 +76,13 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   setPetBubble(height: number): void;
   /** 主窗口的渲染进程已经挂好监听。桌宠先发的话主进程攒着，等这一声再送。 */
   mainReady(): void;
+  /**
+   * 光标相对球心的偏移，屏幕像素，由主进程轮询系统光标推下来。
+   *
+   * 桌宠窗口鼠标穿透且只有 200 px，渲染进程只在光标压在丘丘身上时才收得到
+   * `pointermove`——所以桌面上的「眼神跟随」桌宠自己做不到，只能这样喂。
+   */
+  onPetGaze(cb: (dx: number, dy: number) => void): Unsubscribe;
   /** `'desktop'` 或 `'web'`。**只给适配层与 CSS 用，组件不读**。 */
   platform(): 'desktop' | 'web';
 }
@@ -172,6 +179,10 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     },
     onSkin(cb) {
       return bus.on('skin', cb as Listener);
+    },
+    onPetGaze(cb) {
+      // 网页端丘丘嵌在页面里，document 上的 pointermove 就够，不需要这条
+      return bus.on('pet-gaze', cb as Listener);
     },
     platform: () => 'web'
   };

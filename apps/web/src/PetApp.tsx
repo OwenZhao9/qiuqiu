@@ -11,13 +11,21 @@ import { getBridge } from './bridge.js';
 import { Composer } from './components/Composer.js';
 import { useChord } from './useChord.js';
 import { QiuqiuBall } from './components/QiuqiuBall.js';
-import type { CharacterState, QiuqiuInstance } from '@qiuqiu/character';
+import { gazeFromDelta, type CharacterState, type QiuqiuInstance } from '@qiuqiu/character';
 
 /** 单击判定：`pointerup` 距 `pointerdown` ≤ 400 ms 且位移 ≤ 4 px。 */
 export const CLICK_MS = 400;
 export const DRAG_SLOP_PX = 4;
 /** `done` 之后气泡停留 6 s 再淡出；鼠标悬停在气泡上则不淡出。 */
 export const BUBBLE_LINGER_MS = 6000;
+
+/**
+ * 眼神跟随的饱和半径，屏幕像素。光标离球心这么远时眼睛看到头。
+ *
+ * 比网页端那个 320 大一截：桌面上光标动辄离丘丘上千像素，半径太小的话
+ * 眼睛几乎永远是「看到头」的状态，反而没有跟随感。
+ */
+export const PET_GAZE_RADIUS_PX = 560;
 
 export function PetApp(): React.JSX.Element {
   // 桌宠上也能按 C+A 拨通话，但会话跑在主窗口（AD-5：桌宠不自己发请求）
@@ -61,7 +69,15 @@ export function PetApp(): React.JSX.Element {
         q.setState(state as CharacterState);
         if (emotionId) q.setEmotion(emotionId);
       }),
-      bridge.onPetFocus(() => setExpanded(true))
+      bridge.onPetFocus(() => setExpanded(true)),
+      // 眼神跟随。桌宠窗口鼠标穿透且只有 200 px，渲染进程只在光标压在丘丘身上时
+      // 才收得到 pointermove，所以偏移由主进程轮询系统光标算好推下来
+      bridge.onPetGaze((dx: number, dy: number) => {
+        const q = qiuqiuRef.current;
+        if (!q) return;
+        const { nx, ny } = gazeFromDelta(dx, dy, PET_GAZE_RADIUS_PX);
+        q.setGaze(nx, ny);
+      })
     ];
     return () => {
       for (const f of off) f();
@@ -213,7 +229,10 @@ export function PetApp(): React.JSX.Element {
       >
         <QiuqiuBall
           preset="pet"
-          gaze="pointer"
+          // 本地那条 pointermove 注视关掉：桌宠窗口穿透，它只在光标压在丘丘
+          // 身上时才有事件，且坐标是窗口内的。全局那条（onPetGaze）已经覆盖，
+          // 两条一起开会互相打架
+          gaze={false}
           onReady={(q) => {
             qiuqiuRef.current = q;
           }}

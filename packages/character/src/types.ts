@@ -193,6 +193,17 @@ export interface QiuqiuInstance {
    */
   onEmotion(cb: (id: EmotionId) => void): () => void;
 
+  /**
+   * 直接给注视量，`nx` / `ny` ∈ [-1, 1]，正方向右下，超出去引擎自己夹。
+   *
+   * 桌宠窗口只有 200 px 又是鼠标穿透的，渲染进程只在光标压在丘丘身上时才收得到
+   * `pointermove`——所以桌面上的「眼神跟随」拿不到自己算，得由主进程轮询
+   * 全局光标再喂进来。`gazeFromDelta` 负责把像素偏移换成这两个数。
+   */
+  setGaze(nx: number, ny: number): void;
+  /** 收回注视，眼睛回正。 */
+  clearGaze(): void;
+
   /** 当前形象。 */
   getLook(): CharacterLook;
   /**

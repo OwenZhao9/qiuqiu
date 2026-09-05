@@ -63,6 +63,13 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   mainReady(): void;
   /** `setSkin` 的订阅端。**收到之后只应用不再广播**，否则两个窗口会来回弹。 */
   onSkin(cb: (skin: string) => void): Unsubscribe;
+  /**
+   * 光标相对球心的偏移，屏幕像素，由主进程轮询系统光标推下来。
+   *
+   * 桌宠窗口鼠标穿透且只有 200 px，渲染进程只在光标压在丘丘身上时才收得到
+   * `pointermove`，所以「眼神跟随」这件事桌宠自己做不到。
+   */
+  onPetGaze(cb: (dx: number, dy: number) => void): Unsubscribe;
   setPetPassthrough(ignore: boolean): void;
   setPetExpanded(expanded: boolean): void;
   popupPetMenu(state: { ambientPaused: boolean }): void;
@@ -163,6 +170,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     },
     onSkin(cb) {
       return sub(TO_RENDERER.skin)((skin) => cb(String(skin)));
+    },
+    onPetGaze(cb) {
+      return sub(TO_RENDERER.petGaze)((dx, dy) => cb(Number(dx), Number(dy)));
     },
 
     platform: () => 'desktop'
