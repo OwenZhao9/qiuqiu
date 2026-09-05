@@ -163,6 +163,10 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
             onReady={(q) => {
               qiuqiuRef.current = q;
               q.setState(chat.get().character);
+              // 桌宠不自己推断表情（AD-5），所以主窗口这只丘丘每换一次表情就镜像
+              // 过去一次。只发 `setPetState(state)` 的话桌宠永远只有四个状态表情，
+              // 事件表情（写入 10、召回 31…）与情绪推断的结果全丢，两个窗口两张脸。
+              q.onEmotion((id) => bridge.setPetState(q.getState(), id));
             }}
           />
           <div className="qq-left__state qq-collapsible">丘丘{stateLabel(chatState.character)}</div>

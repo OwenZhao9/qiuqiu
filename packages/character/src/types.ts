@@ -184,6 +184,15 @@ export interface QiuqiuInstance {
   /** 直接施加一条事件表情，持续 1600 ms。映射表之外的自定义用法走这里。 */
   applyEventEmotion(emotionId: EmotionId, priority: number): boolean;
 
+  /**
+   * 订阅表情变化。返回退订函数。
+   *
+   * 桌面端主窗口靠它把自己这只丘丘的表情镜像到桌宠：桌宠不自己推断表情
+   * （AD-5），可主窗口的事件表情、情绪推断结果都只写在自己的实例上，
+   * 不镜像的话两个窗口就是两张脸。
+   */
+  onEmotion(cb: (id: EmotionId) => void): () => void;
+
   /** 当前形象。 */
   getLook(): CharacterLook;
   /**
@@ -285,6 +294,8 @@ export interface EmotionRaw {
   group: string;
   body?: Record<string, unknown> & { color?: string };
   eyes?: Record<string, unknown>;
+  /** 待机随机小动作（自旋 / 弹跳）。自旋会甩彩带，见 `theme.ts` 的 `IDLE_ANTICS_OFF`。 */
+  antics?: boolean;
   sequence?: {
     settle?: unknown;
     frames: Array<

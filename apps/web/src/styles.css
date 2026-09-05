@@ -1029,20 +1029,39 @@ select {
   cursor: grab;
 }
 
+/* 桌宠说的话直接落在桌面上，**不套卡片**。
+   套一个不透明的圆角矩形等于在桌面上贴了一块白板，丘丘就不像站在桌面上、
+   像是被关在一个框里。可读性改用描边光晕解决：文字外面一圈同色晕，
+   压在任何壁纸上都读得出来，而且没有边界。 */
 .qq-pet__bubble {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(var(--qq-ball-size-pet) + var(--qq-space-4));
-  max-width: 320px;
+  bottom: calc(var(--qq-ball-size-pet) + var(--qq-space-2));
+  max-width: 300px;
   max-height: calc(6 * var(--qq-text-md) * var(--qq-leading-normal));
   overflow-y: auto;
-  padding: var(--qq-space-5);
-  border-radius: var(--qq-radius-lg);
-  background: var(--qq-color-surface);
-  box-shadow: var(--qq-shadow-3);
+  padding: 0 var(--qq-space-2);
+  background: none;
+  box-shadow: none;
+  color: var(--qq-pet-ink);
   font-size: var(--qq-text-md);
+  font-weight: var(--qq-weight-medium);
+  line-height: var(--qq-leading-normal);
+  text-align: center;
   white-space: pre-wrap;
+  /* 八向 1 px 实晕 + 一层扩散晕。纯 blur 的晕在细笔画上糊，
+     八向实晕保证每一笔都有底 */
+  text-shadow:
+    1px 0 0 var(--qq-pet-halo),
+    -1px 0 0 var(--qq-pet-halo),
+    0 1px 0 var(--qq-pet-halo),
+    0 -1px 0 var(--qq-pet-halo),
+    1px 1px 0 var(--qq-pet-halo),
+    -1px 1px 0 var(--qq-pet-halo),
+    1px -1px 0 var(--qq-pet-halo),
+    -1px -1px 0 var(--qq-pet-halo),
+    0 0 8px var(--qq-pet-halo);
   transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
 }
 
@@ -1075,12 +1094,18 @@ select {
   }
 }
 
+/* 提示也不套底，同样走光晕 */
 .qq-pet__hint {
   font-size: var(--qq-text-xs);
-  color: var(--qq-color-text-muted);
-  background: var(--qq-color-surface);
-  border-radius: var(--qq-radius-full);
-  padding: var(--qq-space-1) var(--qq-space-4);
+  color: var(--qq-pet-ink);
+  opacity: 0.7;
+  padding: var(--qq-space-1) var(--qq-space-2);
+  text-shadow:
+    1px 0 0 var(--qq-pet-halo),
+    -1px 0 0 var(--qq-pet-halo),
+    0 1px 0 var(--qq-pet-halo),
+    0 -1px 0 var(--qq-pet-halo),
+    0 0 6px var(--qq-pet-halo);
 }
 
 /* 网页端：丘丘内嵌在左栏顶部，随页面滚动，不可拖动 */
@@ -1408,6 +1433,11 @@ select {
 /* ── 记忆框图（论文骨架）─────────────────────────────────────────
    三段横排，亮起来的是这一轮真的走过的路。三段各一个色调，
    沿用产品图里的分区做法。 */
+/* ── 记忆框图 ─────────────────────────────────────────────────────
+   底图照搬论文 arXiv 2604.01007 的框图（几何取自 docs/omni-framework-cn.html），
+   在上面只加两件事：走到的块亮起来、丘丘没做的块灰掉。
+
+   线型沿用原图：实线是数据往前走一步，虚线是指针 / 丢弃 / 回读。 */
 
 .qq-map {
   padding: var(--qq-space-5);
@@ -1415,124 +1445,241 @@ select {
 }
 
 .qq-map svg {
-  min-width: 900px;
+  min-width: 980px;
 }
 
+/* 三段分区底 */
 .qq-map__zone {
-  fill: var(--qq-color-surface);
+  fill: var(--qq-color-bg-subtle);
   stroke: var(--qq-color-border);
-  stroke-width: 1;
-  opacity: 0.5;
+  stroke-opacity: 0.5;
 }
 
 .qq-map__zone[data-tone='1'] {
+  fill: var(--qq-color-uncertain-bg);
+}
+
+.qq-map__zone[data-tone='2'] {
   fill: var(--qq-color-write-bg);
 }
-.qq-map__zone[data-tone='2'] {
-  fill: var(--qq-color-surface);
-}
+
 .qq-map__zone[data-tone='3'] {
   fill: var(--qq-color-recall-bg);
 }
 
-.qq-map__zone-title {
-  font-size: 14px;
-  font-weight: 700;
-  text-anchor: middle;
-  fill: var(--qq-color-text-muted);
-}
-
-.qq-map__zone-title[data-tone='1'] {
-  fill: var(--qq-color-write);
-}
-.qq-map__zone-title[data-tone='3'] {
-  fill: var(--qq-color-recall);
-}
-
-/* 块：没走到是白底细边，走到了填色描边，这轮跳过是虚线 */
-.qq-map__box rect {
-  fill: var(--qq-color-bg);
-  stroke: var(--qq-color-border);
-  stroke-width: 1.2;
-  transition:
-    fill var(--qq-duration-base) var(--qq-ease-standard),
-    stroke var(--qq-duration-base) var(--qq-ease-standard);
-}
-
-.qq-map__box--on rect {
-  stroke-width: 2;
-}
-
-.qq-map__box--on[data-tone='1'] rect,
-.qq-map__box--on[data-tone='2'] rect {
-  fill: var(--qq-color-write-bg);
-  stroke: var(--qq-color-write);
-}
-
-.qq-map__box--on[data-tone='3'] rect {
-  fill: var(--qq-color-recall-bg);
-  stroke: var(--qq-color-recall);
-}
-
-.qq-map__box--skip rect {
-  fill: transparent;
-  stroke-dasharray: 4 4;
-}
-
-.qq-map__title {
-  font-size: 13px;
-  font-weight: 600;
+.qq-map__zone-t {
+  font-size: 14.5px;
+  font-weight: var(--qq-weight-bold);
   text-anchor: middle;
   fill: var(--qq-color-text);
 }
 
-.qq-map__sub {
-  font-size: 10.5px;
+.qq-map__zone-t[data-tone='1'] {
+  fill: var(--qq-color-uncertain);
+}
+
+.qq-map__zone-t[data-tone='2'] {
+  fill: var(--qq-color-write);
+}
+
+.qq-map__zone-t[data-tone='3'] {
+  fill: var(--qq-color-recall);
+}
+
+.qq-map__zone-en,
+.qq-map__s {
+  font-size: 9.5px;
   text-anchor: middle;
   fill: var(--qq-color-text-muted);
 }
 
-.qq-map__box--skip .qq-map__title,
-.qq-map__box--skip .qq-map__sub {
-  fill: var(--qq-color-text-muted);
+/* 方块 */
+.qq-map__box rect {
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-border-strong);
+  stroke-width: 1;
+  transition:
+    fill var(--qq-duration-base) var(--qq-ease-out),
+    stroke var(--qq-duration-base) var(--qq-ease-out);
 }
 
-.qq-map__arrow {
-  stroke: var(--qq-color-border);
-  stroke-width: 1.4;
-  fill: none;
+.qq-map__t {
+  font-size: 11.5px;
+  font-weight: var(--qq-weight-semibold);
+  text-anchor: middle;
+  fill: var(--qq-color-text);
 }
 
-.qq-map__arrow--on {
-  stroke: var(--qq-color-write);
-  stroke-width: 2;
+.qq-map__lg {
+  font-size: 12.5px;
 }
 
-.qq-map__tip {
-  fill: var(--qq-color-border);
-}
-.qq-map__tip--on {
-  fill: var(--qq-color-write);
+/* 靠左 / 靠右 / 竖排的文字，覆盖默认的居中 */
+.qq-map__l {
+  text-anchor: start;
 }
 
-.qq-map__edge {
-  font-size: 10.5px;
-  fill: var(--qq-color-text-muted);
+.qq-map__r {
+  text-anchor: end;
 }
 
-.qq-map__note {
-  margin: var(--qq-space-4) 0 0;
-  font-size: var(--qq-text-sm);
-  color: var(--qq-color-text-muted);
-}
-
-/* 冷热那两条边的文字竖排在箭头旁边，不跟索引块抢位置 */
-.qq-map__edge {
+.qq-map__rot {
   text-anchor: middle;
   writing-mode: vertical-rl;
 }
 
-/* ── 框图的流动 ────────────────────────────────────────────────────
+/* 丘丘跟论文不一样的地方，写在块里面，用强调色 */
+.qq-map__note-in {
+  font-size: 9px;
+  text-anchor: middle;
+  fill: var(--qq-color-uncertain);
+}
+
+/* 走到了 */
+.qq-map__box.qq-map--on rect {
+  fill: var(--qq-color-write-bg);
+  stroke: var(--qq-color-write);
+  stroke-width: 1.6;
+  animation: qq-map-pulse 2.2s var(--qq-ease-standard) infinite;
+}
+
+.qq-map__box.qq-map--on .qq-map__t {
+  fill: var(--qq-color-write);
+}
+
+/* 丘丘没做的块：灰掉、虚边，一眼看得出图上这一块是论文的不是我们的 */
+.qq-map__box.qq-map--none rect,
+.qq-map__graph.qq-map--none rect,
+.qq-map__graph.qq-map--none ellipse {
+  fill: none;
+  stroke: var(--qq-color-border);
+  stroke-dasharray: 4 3;
+}
+
+.qq-map__box.qq-map--none .qq-map__t,
+.qq-map__graph.qq-map--none text {
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-map__graph.qq-map--none .qq-map__edge {
+  stroke: var(--qq-color-border);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  fill: none;
+}
+
+/* 漏斗 */
+.qq-map__funnel path {
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-uncertain);
+  stroke-width: 1.4;
+}
+
+.qq-map__funnel .qq-map__funnel-l {
+  fill: none;
+  stroke: var(--qq-color-uncertain);
+  stroke-width: 1;
+  opacity: 0.35;
+}
+
+.qq-map__funnel.qq-map--on path {
+  stroke: var(--qq-color-write);
+}
+
+.qq-map__x {
+  font-size: 12px;
+  font-weight: var(--qq-weight-bold);
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-map__x.qq-map--on {
+  fill: var(--qq-color-reject);
+}
+
+/* 存储的架子与原子单元卡 */
+.qq-map__shelf rect,
+.qq-map__shelf {
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-recall);
+  stroke-opacity: 0.6;
+}
+
+.qq-map__shelf--cold {
+  fill: var(--qq-color-bg-subtle);
+  stroke: var(--qq-color-border);
+}
+
+.qq-map__mau rect {
+  fill: var(--qq-color-bg-subtle);
+  stroke: var(--qq-color-border);
+  transition: fill var(--qq-duration-base) var(--qq-ease-out);
+}
+
+.qq-map__mau--cold rect {
+  fill: var(--qq-color-surface);
+}
+
+.qq-map__mau.qq-map--on rect {
+  fill: var(--qq-color-write-bg);
+  stroke: var(--qq-color-write);
+}
+
+.qq-map__mau-h {
+  font-size: 10px;
+  font-weight: var(--qq-weight-semibold);
+  fill: var(--qq-color-text);
+}
+
+.qq-map__mau-l {
+  font-size: 9px;
+  fill: var(--qq-color-text-muted);
+}
+
+/* 并集圆与预算金字塔 */
+.qq-map__union circle {
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-recall);
+  stroke-width: 1.4;
+}
+
+.qq-map__union.qq-map--on circle {
+  fill: var(--qq-color-recall-bg);
+  stroke-width: 2;
+}
+
+.qq-map__tier path {
+  fill: var(--qq-color-recall-bg);
+  stroke: var(--qq-color-recall);
+  stroke-opacity: 0.7;
+}
+
+.qq-map__tier.qq-map--on path {
+  fill: var(--qq-color-write-bg);
+  stroke: var(--qq-color-write);
+  stroke-opacity: 1;
+}
+
+/* 连线 */
+.qq-map__arrow {
+  fill: none;
+  stroke: var(--qq-color-border-strong);
+  stroke-width: 1.3;
+}
+
+.qq-map__arrow.qq-map--on {
+  stroke: var(--qq-color-write);
+  stroke-width: 1.8;
+}
+
+.qq-map__tip {
+  fill: var(--qq-color-border-strong);
+}
+
+.qq-map__tip.qq-map--on {
+  fill: var(--qq-color-write);
+}
+
+/* ── 流动 ──────────────────────────────────────────────────────
    静态箭头只说明连通；跑起来的虚线才说明「此刻数据正在这里过」，
    而且看得出方向。 */
 
@@ -1551,11 +1698,6 @@ select {
   }
 }
 
-/* 走到的块轻轻呼吸，一眼看得出「现在在这儿」 */
-.qq-map__box--on rect {
-  animation: qq-map-pulse 2.2s var(--qq-ease-standard) infinite;
-}
-
 @keyframes qq-map-pulse {
   0%,
   100% {
@@ -1566,9 +1708,16 @@ select {
   }
 }
 
+.qq-map__note {
+  margin: var(--qq-space-4) 0 0;
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text-secondary);
+  line-height: var(--qq-leading-relaxed);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .qq-map__flow,
-  .qq-map__box--on rect {
+  .qq-map__box.qq-map--on rect {
     animation: none;
   }
 }
@@ -1611,13 +1760,15 @@ select {
 }
 
 /* 紧凑模式：主页那条限高，图整体缩放，不挤掉对话 */
+/* 论文那张图比原来自己画的那张密得多，压到 344 px 高就只剩色块看不清字了。
+   放到窗口高的 46%（上限 460）：既读得出块名，收起来也只要点一下标题。 */
 .qq-map--compact {
   padding: 0 var(--qq-space-4) var(--qq-space-4);
-  max-height: 360px;
+  max-height: min(460px, 46vh);
 }
 
 .qq-map--compact svg {
-  max-height: 344px;
+  max-height: min(444px, 44vh);
   /* 别设 min-width：主页这一条要跟着中栏缩放，横向滚动条比看不清更烦 */
   min-width: 0;
 }

@@ -230,6 +230,8 @@ interface QiuqiuBridge {
   forwardDelta(sessionId: string, text: string): void;
   forwardDone(sessionId: string): void;
   // 主窗口 → 桌宠：状态与表情
+  // `emotionId` 不是可选装饰：桌宠不自己推断表情，主窗口每换一次表情就带上它发一次，
+  // 只发 state 的话桌宠永远只有四个状态表情，事件表情与情绪推断的结果全丢
   setPetState(state: "idle"|"listening"|"thinking"|"speaking", emotionId?: string): void;
   // 桌宠 → 主窗口：内联输入条提交
   submitFromPet(text: string): void;

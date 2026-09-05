@@ -292,6 +292,13 @@ graph LR
 - 规则：主窗口是 `/chat` `/events` `/voice/stream` 的唯一消费者；桌宠窗口的流式数据全部经主进程 IPC `forwardDelta` `forwardDone` `setPetState` 转发；桌宠窗口的输入经 `submitFromPet` 交主窗口发出
 - 状态：已采纳
 
+### AD-5b — 桌宠的表情由主窗口镜像，不自己算
+
+- 约束范围：frontend、character
+- 防止的分歧：桌宠自己订一份事件流算表情，与主窗口算出两张脸；或者只同步四个状态，事件表情与情绪推断的结果在桌宠上全丢
+- 规则：主窗口订阅自己那只丘丘的 `onEmotion`，每换一次就 `setPetState(state, emotionId)` 发一次；桌宠收到只照做，不推断。表情映射表只在主窗口跑一遍
+- 状态：已采纳
+
 ### AD-6 — AI 回复也写入记忆
 
 - 约束范围：backend、memory

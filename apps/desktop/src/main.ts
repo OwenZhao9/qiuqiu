@@ -43,6 +43,20 @@ const WEB_DIST = join(__dirname, '../../web/dist');
 
 let mainWindow: BrowserWindow | null = null;
 let petWindow: BrowserWindow | null = null;
+
+/**
+ * 拖动时窗口的落点，自己记着，不每帧回头问系统。
+ *
+ * `getBounds()` 是一次同步的窗口查询，`setBounds()` 走的是带尺寸的完整重排；
+ * 一秒上百次地这么来回，手已经停了窗口还在追。改成只记位置、只调
+ * `setPosition`，一次移动一次系统调用。位置被别的路径改了（吸附、复位、
+ * 展开输入条）就清空，下次拖动重新问一次。
+ */
+let dragAt: { x: number; y: number } | null = null;
+
+/** `moved` 停下来多久算一次拖动结束。Electron 没有拖动结束事件，只能等它安静。 */
+const SETTLE_DEBOUNCE_MS = 120;
+let settleTimer: ReturnType<typeof setTimeout> | null = null;
 let tray: Tray | null = null;
 let petExpanded = false;
 let ambientPaused = false;
@@ -267,8 +281,13 @@ function wireIpc(): void {
 
   ipcMain.on(TO_MAIN.dragPet, (_e, dx: number, dy: number) => {
     if (!petWindow || petWindow.isDestroyed()) return;
-    const next = moveBy(petWindow.getBounds(), dx, dy);
-    petWindow.setBounds(next);
+    if (!dragAt) {
+      const b = petWindow.getBounds();
+      dragAt = { x: b.x, y: b.y };
+    }
+    const next = moveBy({ ...dragAt, width: 0, height: 0 }, dx, dy);
+    dragAt = { x: next.x, y: next.y };
+    petWindow.setPosition(next.x, next.y, false);
   });
 
   ipcMain.on(TO_MAIN.setPetExpanded, (_e, expanded: boolean) => {
@@ -339,12 +358,24 @@ if (!app.requestSingleInstanceLock()) {
     petWindow = createPetWindow();
     createTray();
 
-    // 松手后的吸附与位置持久化：Electron 没有「拖动结束」事件，用 moved 收尾
+    // 松手后的吸附与位置持久化。
+    //
+    // `moved` 在拖动**过程中**每移动一次就来一发，直接在里面吸附有两个后果：
+    // 一是拖到边上时窗口自己跳过去，手还没松就被吸走；二是 `setBounds` 又触发
+    // 一次 `moved`，一路自己喂自己，拖动就顿。所以等它安静下来再收尾
+    // ——Electron 没有「拖动结束」事件，只能这么判。
     petWindow.on('moved', () => {
-      if (!petWindow || petWindow.isDestroyed()) return;
-      const next = settle(petWindow.getBounds(), workArea());
-      petWindow.setBounds(next);
-      savePetPosition(next);
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        settleTimer = null;
+        dragAt = null; // 位置已经不是拖动时那个了，缓存作废
+        if (!petWindow || petWindow.isDestroyed()) return;
+        const now = petWindow.getBounds();
+        const next = settle(now, workArea());
+        // 没变就别写回去，写回去又是一次 `moved`，会自己转起来
+        if (next.x !== now.x || next.y !== now.y) petWindow.setBounds(next);
+        savePetPosition(next);
+      }, SETTLE_DEBOUNCE_MS);
     });
 
     globalShortcut.register(FOCUS_PET_ACCELERATOR, () => {

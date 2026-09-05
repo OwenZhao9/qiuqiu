@@ -297,8 +297,14 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
   const machine = new CharacterMachine({ sink, now });
   const voice = createVoiceChannel(stage, machine.getPulse(), now);
 
+  /** 表情变化的订阅者。引擎只给一个 `change` 事件，这里分发给外面。 */
+  const emotionSubs = new Set<(id: EmotionId) => void>();
+
   const onChange = (payload: { id?: string }): void => {
-    if (payload && typeof payload.id === 'string') machine.onEngineEmotion(payload.id);
+    if (!payload || typeof payload.id !== 'string') return;
+    machine.onEngineEmotion(payload.id);
+    if (!isEmotionId(payload.id)) return;
+    for (const cb of [...emotionSubs]) cb(payload.id);
   };
   ball.on('change', onChange);
 
@@ -331,6 +337,11 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
     applyReply(replyText: string, userText?: string) {
       applyReplyTo(machine, replyText, userText);
     },
+    onEmotion(cb: (id: EmotionId) => void) {
+      emotionSubs.add(cb);
+      return () => emotionSubs.delete(cb);
+    },
+
     getLook: () => look,
     setLook(next: CharacterLook) {
       if (next === look) return;
@@ -354,6 +365,7 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
       destroyed = true;
       ball.off('change', onChange);
       detachGaze?.();
+      emotionSubs.clear();
       machine.destroy();
       voice.destroy();
       costume?.destroy();

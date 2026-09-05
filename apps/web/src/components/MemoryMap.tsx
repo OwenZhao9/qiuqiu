@@ -1,97 +1,153 @@
 /**
- * 记忆框图。按论文（arXiv 2604.01007）的三段骨架横排画，但它是**活的**——
- * 事件到哪一块，哪一块亮。
+ * 记忆框图。**照论文原图搬过来的**，不是另画一张。
  *
- *     ① 选择性摄入            ② 存储                ③ 检索
- *     被动采集 → 筛选           热存储  ⇄  冷存储      规划 → 三路 → 命中
- *     主动输入 ─────┐              ↑                       ↓
- *                  压缩 → 合成 ────┘                    进 prompt
+ * 底图逐块对应 arXiv 2604.01007 的 `assets/framework.png`，坐标与形状取自
+ * `docs/omni-framework-cn.html`（那份是对着原图重绘并翻译的，没改环节）：
+ * 四模态各自的廉价判据 → 漏斗形的新颖度过滤器 → 生成记忆原子单元 →
+ * 热冷两层存储与知识图谱 → 三路检索 → 并集合并 → token 预算金字塔 → 答案。
  *
- * 侧栏只有 340 宽，横向三段画不下，所以这张图是主区的一页。侧栏留那张竖的
- * 单轮流程图，两者分工：这里看**系统全貌**，侧栏看**这一句走到哪了**。
+ * 在原图上加的只有两件事，一件都不改结构：
+ *
+ * 1. **亮起来**——这一轮真的走到哪一块，哪一块亮，连线上跑一段流动的虚线
+ * 2. **标出丘丘跟论文不一样的地方**——没做的块画成灰的并注明，做法不同的
+ *    块在原名下面写丘丘的做法。图上不能只有论文没有实现，那是在骗人
+ *
+ * 线型沿用原图的约定，不是自己定的：
+ *
+ * - **实线** = 数据往前走一步
+ * - **虚线** = 不是往前走的那种连接：热→冷的指针 `p`、被判冗余漏出去的那一路、
+ *   检索时从存储回读
  *
  * 数据只来自事件（AD-14）。
  */
 
 import { useMemo } from 'react';
 import type { MemoryEventEnvelope } from '../api.js';
-import { derivePipeline, PATH_LABEL, type SearchPath } from '../store/pipeline.js';
+import { derivePipeline, type SearchPath } from '../store/pipeline.js';
 
 const W = 1160;
-const H = 560;
+const H = 620;
 
-/** 一块的状态：这一轮走没走到。 */
-type Lit = 'off' | 'on' | 'skip';
+/** 一块的状态。`off` 没走到，`on` 这一轮走到了，`none` 是丘丘根本没做这一块。 */
+type Lit = 'off' | 'on' | 'none';
 
-function boxClass(lit: Lit): string {
-  return (
-    'qq-map__box' + (lit === 'on' ? ' qq-map__box--on' : lit === 'skip' ? ' qq-map__box--skip' : '')
-  );
+function cls(base: string, lit: Lit): string {
+  return base + (lit === 'on' ? ' qq-map--on' : lit === 'none' ? ' qq-map--none' : '');
 }
 
+/** 论文原图里的一个方块。`note` 写丘丘跟论文哪里不一样。 */
 function Box({
   x,
   y,
   w,
   h,
+  tone,
   title,
+  en,
   sub,
+  note,
   lit,
-  tone
+  rx = 7
 }: {
   x: number;
   y: number;
   w: number;
   h: number;
+  tone: 1 | 2 | 3 | 4;
   title: string;
+  en?: string;
   sub?: string;
+  note?: string;
   lit: Lit;
-  tone: 1 | 2 | 3;
+  rx?: number;
 }): React.JSX.Element {
+  const cx = x + w / 2;
+  const lines = [en, sub, note].filter(Boolean) as string[];
+  // 标题在竖直方向居中，副行往下排
+  const top = y + h / 2 - (lines.length * 12) / 2 + 4;
   return (
-    <g className={boxClass(lit)} data-tone={tone} aria-label={`${title}${sub ? '：' + sub : ''}`}>
-      <rect x={x} y={y} width={w} height={h} rx={10} />
-      <text className="qq-map__title" x={x + w / 2} y={y + (sub ? h / 2 - 4 : h / 2 + 5)}>
+    <g className={cls('qq-map__box', lit)} data-tone={tone} aria-label={title}>
+      <rect x={x} y={y} width={w} height={h} rx={rx} />
+      <text className="qq-map__t" x={cx} y={top}>
         {title}
       </text>
-      {sub ? (
-        <text className="qq-map__sub" x={x + w / 2} y={y + h / 2 + 14}>
-          {sub}
+      {lines.map((t, i) => (
+        <text
+          key={t}
+          className={t === note ? 'qq-map__note-in' : 'qq-map__s'}
+          x={cx}
+          y={top + 13 + i * 12}
+        >
+          {t}
         </text>
-      ) : null}
+      ))}
     </g>
   );
 }
 
 function Arrow({
-  x1,
-  y1,
-  x2,
-  y2,
+  d,
   lit,
-  dashed
+  dashed,
+  tone = 1,
+  tip = true
 }: {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
+  d: string;
   lit: boolean;
   dashed?: boolean;
+  tone?: 1 | 2 | 3 | 4;
+  tip?: boolean;
 }): React.JSX.Element {
-  const d = `M ${x1} ${y1} L ${x2} ${y2}`;
   return (
-    <g>
+    <g data-tone={tone}>
       <path
-        className={'qq-map__arrow' + (lit ? ' qq-map__arrow--on' : '')}
+        className={'qq-map__arrow' + (lit ? ' qq-map--on' : '')}
         strokeDasharray={dashed ? '5 4' : undefined}
         d={d}
-        markerEnd={lit ? 'url(#qq-map-tip-on)' : 'url(#qq-map-tip)'}
+        markerEnd={tip ? (lit ? 'url(#qq-tip-on)' : 'url(#qq-tip)') : undefined}
       />
-      {/* 亮起时在同一条线上叠一段跑动的虚线：**看得出往哪个方向流**。
-          静态箭头只说明连通，动起来才说明「此刻数据正在这里过」。 */}
+      {/* 亮起来时在同一条线上叠一段跑动的虚线：看得出数据往哪个方向流 */}
       {lit ? <path className="qq-map__flow" d={d} /> : null}
     </g>
   );
+}
+
+/** 存储区里的一张「记忆原子单元」卡。命中过的那张会亮。 */
+function Mau({
+  x,
+  y,
+  cold,
+  lit,
+  text
+}: {
+  x: number;
+  y: number;
+  cold?: boolean;
+  lit: boolean;
+  text?: string;
+}): React.JSX.Element {
+  return (
+    <g className={'qq-map__mau' + (cold ? ' qq-map__mau--cold' : '') + (lit ? ' qq-map--on' : '')}>
+      <rect x={x} y={y} width={106} height={62} rx={6} />
+      <text className="qq-map__mau-h" x={x + 9} y={y + 15}>
+        记忆原子单元
+      </text>
+      <text className="qq-map__mau-l" x={x + 9} y={y + 29}>
+        {text ? clip(text, 13) : '摘要：…'}
+      </text>
+      <text className="qq-map__mau-l" x={x + 9} y={y + 41}>
+        向量：[…]
+      </text>
+      <text className="qq-map__mau-l" x={x + 9} y={y + 53}>
+        时间 · 模态
+      </text>
+    </g>
+  );
+}
+
+function clip(s: string, n: number): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  return t.length > n ? t.slice(0, n) + '…' : t;
 }
 
 export interface MemoryMapProps {
@@ -102,251 +158,417 @@ export interface MemoryMapProps {
 
 export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JSX.Element {
   const p = useMemo(() => derivePipeline(events), [events]);
+
   const ingest = p.lane === 'ingest';
   const recall = p.lane === 'recall';
-
-  const on = (b: boolean): Lit => (b ? 'on' : 'off');
-  const wrote = ingest && p.stages.store.status === 'done';
-  const merged = ingest && p.stages.synthesize.status === 'done';
   const filtered = p.stages.filter.status === 'done';
-  const skipped = p.stages.filter.status === 'skip';
+  const rejected = p.decision === 'reject';
+  const passed = ingest && (p.stages.filter.status === 'skip' || (filtered && !rejected));
+  const made = ingest && p.stages.compress.status === 'done';
+  const wrote = ingest && p.stages.store.status === 'done';
+  const on = (b: boolean): Lit => (b ? 'on' : 'off');
+
+  const written = [...p.facts, ...p.replyFacts];
 
   return (
     <div className={'qq-map' + (compact ? ' qq-map--compact' : '')}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="记忆系统框图">
         <defs>
-          <marker
-            id="qq-map-tip"
-            viewBox="0 0 8 8"
-            refX="6"
-            refY="4"
-            markerWidth="6"
-            markerHeight="6"
-            orient="auto"
-          >
-            <path d="M 0 0 L 8 4 L 0 8 z" className="qq-map__tip" />
-          </marker>
-          <marker
-            id="qq-map-tip-on"
-            viewBox="0 0 8 8"
-            refX="6"
-            refY="4"
-            markerWidth="6"
-            markerHeight="6"
-            orient="auto"
-          >
-            <path d="M 0 0 L 8 4 L 0 8 z" className="qq-map__tip qq-map__tip--on" />
-          </marker>
+          {(['qq-tip', 'qq-tip-on'] as const).map((id) => (
+            <marker
+              key={id}
+              id={id}
+              viewBox="0 0 7 4.4"
+              markerWidth="7"
+              markerHeight="7"
+              refX="6"
+              refY="2.2"
+              orient="auto"
+            >
+              <path
+                className={'qq-map__tip' + (id.endsWith('on') ? ' qq-map--on' : '')}
+                d="M0,0 L0,4.4 L6,2.2 z"
+              />
+            </marker>
+          ))}
         </defs>
 
-        {/* 三段的分区底与标题 */}
+        {/* ============ ① 选择性摄入 ============ */}
         <rect
           className="qq-map__zone"
-          data-tone="1"
-          x={16}
+          data-tone={1}
+          x={12}
           y={16}
           width={330}
-          height={H - 40}
-          rx={14}
+          height={580}
+          rx={12}
         />
-        <rect
-          className="qq-map__zone"
-          data-tone="2"
-          x={366}
-          y={16}
-          width={410}
-          height={H - 40}
-          rx={14}
-        />
-        <rect
-          className="qq-map__zone"
-          data-tone="3"
-          x={796}
-          y={16}
-          width={348}
-          height={H - 40}
-          rx={14}
-        />
-        <text className="qq-map__zone-title" data-tone="1" x={181} y={42}>
+        <text className="qq-map__zone-t" data-tone={1} x={177} y={42}>
           ① 选择性摄入
         </text>
-        <text className="qq-map__zone-title" data-tone="2" x={571} y={42}>
-          ② 结构化存储
-        </text>
-        <text className="qq-map__zone-title" data-tone="3" x={970} y={42}>
-          ③ 意图感知检索
+        <text className="qq-map__zone-en" x={177} y={60}>
+          Selective Ingestion
         </text>
 
-        {/* ① 两条输入路径 */}
-        <Box
-          x={44}
-          y={72}
-          w={124}
-          h={48}
-          title="主动输入"
-          sub="打字 · 说话"
-          lit={on(ingest && skipped)}
-          tone={1}
-        />
-        <Box
-          x={196}
-          y={72}
-          w={124}
-          h={48}
-          title="被动采集"
-          sub="环境音 · 画面"
-          lit={on(ingest && filtered)}
-          tone={1}
-        />
-
-        <Arrow x1={258} y1={120} x2={258} y2={156} lit={ingest && filtered} />
-        <Box
-          x={196}
-          y={158}
-          w={124}
-          h={48}
-          title="筛选"
-          sub={filtered ? p.stages.filter.detail : '留 / 丢 / 拿不准'}
-          lit={filtered ? 'on' : skipped ? 'skip' : 'off'}
-          tone={1}
-        />
-
-        {/* 主动输入绕过筛选（AD-3），画成虚线直落压缩 */}
-        <Arrow x1={106} y1={120} x2={106} y2={244} lit={ingest && skipped} dashed />
-        <Arrow
-          x1={258}
-          y1={206}
-          x2={258}
-          y2={244}
-          lit={ingest && filtered && p.decision !== 'reject'}
-        />
-
-        <Box
-          x={44}
-          y={246}
-          w={276}
-          h={52}
-          title="压缩"
-          sub={ingest ? p.stages.compress.detail : '拆自包含事实 · 代词解析'}
-          lit={on(ingest && p.stages.compress.status === 'done')}
-          tone={1}
-        />
-        <Arrow x1={182} y1={298} x2={182} y2={334} lit={merged} />
-        <Box
-          x={44}
-          y={336}
-          w={276}
-          h={52}
-          title="合成"
-          sub={merged ? p.stages.synthesize.detail : '同义合并 · 旧的作废'}
-          lit={on(merged)}
-          tone={1}
-        />
-
-        {/* 摄入 → 存储 */}
-        <Arrow x1={320} y1={362} x2={412} y2={362} lit={wrote} />
-
-        {/* ② 冷热两层 */}
-        <Box
-          x={414}
-          y={116}
-          w={314}
-          h={72}
-          title="热存储"
-          sub="近 30 天 · 三层索引全建"
-          lit={on(wrote || p.hits.length > 0)}
-          tone={2}
-        />
-        <Box
-          x={414}
-          y={396}
-          w={314}
-          h={72}
-          title="冷存储"
-          sub="全量历史与作废版本 · 仅摘要索引"
-          lit={on(p.promoted.length > 0)}
-          tone={2}
-        />
-
-        {/* 冷热双向：30 天没命中降冷，命中即整条回热 */}
-        <Arrow x1={438} y1={188} x2={438} y2={392} lit={false} dashed />
-        <text className="qq-map__edge" x={392} y={300}>
-          30 天没命中降冷
-        </text>
-        <Arrow x1={706} y1={392} x2={706} y2={192} lit={p.promoted.length > 0} />
-        <text className="qq-map__edge" x={714} y={300}>
-          {p.promoted.length > 0 ? `回热 ${p.promoted.length} 条` : '命中即整条回热'}
-        </text>
-
-        {/* 三层索引 */}
-        {(['semantic', 'lexical', 'symbolic'] as SearchPath[]).map((path, i) => {
-          const hit = p.hits.some((h) => h.path === path);
-          const walked = p.paths.includes(path);
+        {/* 四种模态各有各的廉价判据。丘丘做了前三种，视频没做 */}
+        {(
+          [
+            ['文字', '词汇重合度去重', 'Jaccard', null, ingest],
+            ['图片', '画面相似度比对', 'CLIP', '丘丘走 Vision 转描述', false],
+            ['音频', '语音活动检测', 'VAD', null, ingest && filtered],
+            ['视频', '抽帧', 'Frame sampling', '丘丘没做', null]
+          ] as const
+        ).map(([mode, how, en, note, live], i) => {
+          const y = 76 + i * 48;
+          const lit: Lit = live === null ? 'none' : on(Boolean(live));
           return (
-            <Box
-              key={path}
-              x={420 + i * 102}
-              y={206}
-              w={94}
-              h={44}
-              title={PATH_LABEL[path]}
-              lit={hit ? 'on' : walked ? 'on' : p.skipped.includes(path) ? 'skip' : 'off'}
-              tone={2}
-            />
+            <g key={mode}>
+              <Box x={30} y={y} w={128} h={38} tone={1} title={mode} lit={lit} />
+              <Box
+                x={182}
+                y={y}
+                w={140}
+                h={38}
+                tone={1}
+                title={how}
+                en={en}
+                note={note ?? undefined}
+                lit={lit}
+              />
+              <Arrow d={`M158,${y + 19} L178,${y + 19}`} lit={lit === 'on'} />
+            </g>
           );
         })}
 
-        {/* ③ 检索 */}
-        <Arrow x1={728} y1={228} x2={842} y2={228} lit={recall && p.paths.length > 0} />
+        {/* 四路汇成一路进漏斗 */}
+        <Arrow d="M322,95 L332,95 L332,278 L177,278 L177,296" lit={ingest} />
+        {[143, 191, 239].map((y) => (
+          <Arrow key={y} d={`M322,${y} L332,${y}`} lit={false} tip={false} />
+        ))}
+
+        {/* 判为冗余的从漏斗旁边漏出去 —— 虚线，因为它不往前走 */}
+        <Arrow d="M246,316 L268,334" lit={rejected} dashed tip={false} />
+        <text className={cls('qq-map__x', on(rejected))} x={274} y={342}>
+          ✕
+        </text>
+        <text className="qq-map__s" x={240} y={364} textAnchor="start">
+          {rejected ? clip(p.reason, 12) : '判为冗余，丢掉'}
+        </text>
+
+        {/* 漏斗本体 */}
+        <g className={cls('qq-map__funnel', on(ingest && (filtered || passed)))}>
+          <path d="M96,302 L258,302 L192,376 L192,412 L162,412 L162,376 z" />
+          <path className="qq-map__funnel-l" d="M120,318 L234,318" />
+          <path className="qq-map__funnel-l" d="M134,332 L220,332" />
+          <path className="qq-map__funnel-l" d="M148,346 L206,346" />
+        </g>
+        <text className={cls('qq-map__t qq-map__lg', on(filtered))} x={177} y={440}>
+          新颖度过滤器
+        </text>
+        <text className="qq-map__s" x={177} y={456}>
+          {filtered ? p.stages.filter.detail || 'Novelty Filter' : 'Novelty Filter'}
+        </text>
+
+        <Arrow d="M177,462 L177,486" lit={passed} />
+
         <Box
-          x={844}
-          y={116}
-          w={272}
-          h={52}
-          title="检索规划"
-          sub={recall ? p.stages.plan.detail : '选路径 · 定深度'}
-          lit={on(recall && p.stages.plan.status === 'done')}
+          x={34}
+          y={492}
+          w={286}
+          h={76}
+          tone={1}
+          title="生成记忆原子单元"
+          en="MAU Creation"
+          sub={made ? p.stages.compress.detail : '大模型产出摘要 + 向量'}
+          note="留下来的才进这一步，省的就是这里的钱"
+          lit={on(made)}
+          rx={8}
+        />
+
+        {/* ============ ② 存储与知识图谱 ============ */}
+        <rect
+          className="qq-map__zone"
+          data-tone={2}
+          x={358}
+          y={16}
+          width={440}
+          height={580}
+          rx={12}
+        />
+        <text className="qq-map__zone-t" data-tone={2} x={578} y={42}>
+          ② 存储与知识图谱
+        </text>
+        <text className="qq-map__zone-en" x={578} y={60}>
+          MAU Storage + Knowledge Graph
+        </text>
+
+        {/* 热存储 */}
+        <g className={cls('qq-map__shelf', on(wrote || p.hits.length > 0))}>
+          <rect x={374} y={76} width={408} height={104} rx={9} />
+        </g>
+        <text className="qq-map__t qq-map__l" x={392} y={97}>
+          热存储
+        </text>
+        <text className="qq-map__s qq-map__r" x={766} y={97}>
+          常驻，随时可取
+        </text>
+        {[0, 1, 2].map((i) => (
+          <Mau
+            key={i}
+            x={392 + i * 116}
+            y={106}
+            lit={Boolean(written[i]) && wrote}
+            text={written[i]?.text ?? p.hits[i]?.text}
+          />
+        ))}
+        <text className="qq-map__s" x={748} y={142}>
+          ⋯
+        </text>
+
+        {/* 热 → 冷的指针：虚线，它是引用不是流动 */}
+        <Arrow d="M578,182 L578,208" lit={false} dashed tone={2} />
+        <text className="qq-map__s qq-map__l" x={590} y={200}>
+          指针 p
+        </text>
+
+        {/* 冷存储 */}
+        <rect
+          className="qq-map__shelf qq-map__shelf--cold"
+          x={374}
+          y={214}
+          width={408}
+          height={104}
+          rx={9}
+        />
+        <text className="qq-map__s qq-map__l qq-map__t" x={392} y={235}>
+          冷存储
+        </text>
+        <text className="qq-map__s qq-map__r" x={766} y={235}>
+          {p.promoted.length > 0 ? `回热 ${p.promoted.length} 条` : '归档，按需加载'}
+        </text>
+        {[0, 1, 2].map((i) => (
+          <Mau key={i} x={392 + i * 116} y={244} cold lit={i < p.promoted.length} />
+        ))}
+        <text className="qq-map__s" x={748} y={280}>
+          ⋯
+        </text>
+
+        {/* 冷存储 → 实体抽取 */}
+        <Arrow d="M470,320 L470,346 L556,346 L556,358" lit={false} tone={2} />
+        <Arrow d="M578,320 L578,358" lit={false} tone={2} tip={false} />
+        <Arrow d="M686,320 L686,346 L600,346" lit={false} tone={2} tip={false} />
+
+        <Box
+          x={450}
+          y={362}
+          w={256}
+          h={42}
+          tone={2}
+          title="实体抽取"
+          en="Entity Extraction"
+          note="丘丘没做"
+          lit="none"
+          rx={8}
+        />
+        <Arrow d="M578,406 L578,424" lit={false} tone={2} />
+
+        {/* 知识图谱：丘丘没建图，这一整块是灰的 */}
+        <g className="qq-map__graph qq-map--none">
+          <rect x={374} y={428} width={408} height={152} rx={9} />
+          {(
+            [
+              [440, 470, '人物', '张三'],
+              [604, 470, '事件', '研讨会'],
+              [440, 548, '人物', '李四'],
+              [640, 548, '地点', '上海']
+            ] as const
+          ).map(([cx, cy, kind, name]) => (
+            <g key={name}>
+              <ellipse cx={cx} cy={cy} rx={52} ry={19} />
+              <text className="qq-map__s" x={cx} y={cy - 3}>
+                {kind}
+              </text>
+              <text className="qq-map__s" x={cx} y={cy + 9}>
+                {name}
+              </text>
+            </g>
+          ))}
+          {[
+            'M492,470 L550,470',
+            'M604,489 L604,516 L692,516 L692,540 L694,540',
+            'M440,489 L440,528',
+            'M492,548 L586,548'
+          ].map((d) => (
+            <path key={d} className="qq-map__edge" d={d} markerEnd="url(#qq-tip)" />
+          ))}
+          <text className="qq-map__s" x={766} y={448} textAnchor="end">
+            实体归并 · 丘丘没做
+          </text>
+          <text className="qq-map__s" x={766} y={462} textAnchor="end">
+            第三路走标签，不跳图
+          </text>
+        </g>
+
+        {/* ============ ③ 检索 ============ */}
+        <rect
+          className="qq-map__zone"
+          data-tone={3}
+          x={814}
+          y={16}
+          width={334}
+          height={580}
+          rx={12}
+        />
+        <text className="qq-map__zone-t" data-tone={3} x={981} y={42}>
+          ③ 检索
+        </text>
+        <text className="qq-map__zone-en" x={981} y={60}>
+          Retrieval
+        </text>
+
+        <Box
+          x={890}
+          y={74}
+          w={180}
+          h={32}
+          tone={3}
+          title={recall && p.input ? clip(p.input, 11) : '用户提问 q'}
+          lit={on(recall)}
+          rx={16}
+        />
+
+        <Arrow d="M980,108 L980,122" lit={recall} tip={false} />
+        <Arrow d="M868,122 L1094,122" lit={recall} tip={false} />
+
+        {/* 三路。论文第三路是图检索，丘丘走标签 */}
+        {(
+          [
+            ['semantic', 830, 100, '稠密检索', '按意思', 'FAISS 向量', null],
+            ['lexical', 936, 90, '稀疏检索', '按字面', 'BM25 关键词', null],
+            ['symbolic', 1032, 100, '图检索', '按关系', 'h 跳邻居', '丘丘按标签']
+          ] as const
+        ).map(([path, x, w, title, how, en, note]) => {
+          const walked = p.paths.includes(path as SearchPath);
+          const cx = x + w / 2;
+          return (
+            <g key={path}>
+              <Arrow d={`M${cx},122 L${cx},138`} lit={walked} />
+              <Box
+                x={x}
+                y={142}
+                w={w}
+                h={58}
+                tone={3}
+                title={title}
+                sub={how}
+                en={en}
+                note={note ?? undefined}
+                lit={on(walked)}
+              />
+            </g>
+          );
+        })}
+
+        <Arrow
+          d="M880,202 L880,222 L981,222"
+          lit={p.paths.includes('semantic')}
+          tip={false}
           tone={3}
         />
-        <Arrow x1={980} y1={168} x2={980} y2={226} lit={recall && p.paths.length > 0} />
-        <Box
-          x={844}
-          y={228}
-          w={272}
-          h={52}
-          title="三路并行"
-          sub={recall && p.paths.length > 0 ? p.stages.search.detail : '按意思 · 按字面 · 按标签'}
-          lit={on(recall && p.paths.length > 0)}
+        <Arrow d="M981,202 L981,222" lit={p.paths.includes('lexical')} tip={false} tone={3} />
+        <Arrow
+          d="M1082,202 L1082,222 L981,222"
+          lit={p.paths.includes('symbolic')}
+          tip={false}
           tone={3}
         />
-        <Arrow x1={980} y1={280} x2={980} y2={338} lit={recall && p.hits.length > 0} />
+        <Arrow d="M981,222 L981,238" lit={p.hits.length > 0} tone={3} />
+
+        <g className={cls('qq-map__union', on(p.hits.length > 0))}>
+          <circle cx={981} cy={262} r={24} />
+          <text className="qq-map__t" x={981} y={259}>
+            并集
+          </text>
+          <text className="qq-map__t" x={981} y={271}>
+            合并
+          </text>
+        </g>
+        <text className="qq-map__s" x={1018} y={266} textAnchor="start">
+          {p.hits.length > 0 ? `去重后 ${p.hits.length} 条` : '去重后得 R(q)'}
+        </text>
+
+        <Arrow d="M981,288 L981,310" lit={p.hits.length > 0} tone={3} />
+
+        {/* token 预算金字塔 */}
+        <text className="qq-map__t qq-map__l" x={852} y={352}>
+          token
+        </text>
+        <text className="qq-map__t qq-map__l" x={852} y={367}>
+          预算 B
+        </text>
+        {(
+          [
+            ['M930,318 L1032,318 L1024,348 L938,348 z', 338, '摘要'],
+            ['M936,352 L1026,352 L1018,384 L944,384 z', 372, '全文'],
+            ['M942,388 L1020,388 L1012,420 L950,420 z', 408, '原始内容']
+          ] as const
+        ).map(([d, ty, label], i) => (
+          <g key={label} className={cls('qq-map__tier', on(recall && p.hits.length > i))}>
+            <path d={d} />
+            <text className="qq-map__s" x={981} y={ty}>
+              {label}
+            </text>
+          </g>
+        ))}
+        <text className="qq-map__s" x={1042} y={360} textAnchor="start">
+          先给摘要
+        </text>
+        <text className="qq-map__s" x={1042} y={376} textAnchor="start">
+          不够再展开
+        </text>
+        <text className="qq-map__s" x={1042} y={392} textAnchor="start">
+          {recall ? p.stages.recall.detail || '预算内为止' : '预算内为止'}
+        </text>
+
+        <Arrow d="M981,424 L981,452" lit={recall && p.hits.length > 0} tone={3} />
         <Box
-          x={844}
-          y={340}
-          w={272}
-          h={52}
-          title="召回"
-          sub={recall ? p.stages.recall.detail : '按预算截断'}
+          x={900}
+          y={456}
+          w={162}
+          h={40}
+          tone={3}
+          title="答案"
           lit={on(recall && p.hits.length > 0)}
-          tone={3}
+          rx={8}
         />
-        <Arrow x1={980} y1={392} x2={980} y2={444} lit={recall && p.hits.length > 0} />
-        <Box
-          x={844}
-          y={446}
-          w={272}
-          h={48}
-          title="进 prompt"
-          sub="与人格、会话历史拼在一起"
-          lit={on(recall && p.hits.length > 0)}
+
+        {/* 跨区：摄入 → 热存储 */}
+        <Arrow d="M320,530 L338,530 L338,128 L356,128" lit={wrote} tone={2} />
+        <text className="qq-map__s qq-map__rot" x={348} y={330}>
+          写入热存储
+        </text>
+
+        {/* 跨区：存储 → 检索，回读。虚线，因为它是读不是写 */}
+        <Arrow d="M784,128 L800,128 L800,171 L828,171" lit={p.hits.length > 0} dashed tone={3} />
+        <Arrow
+          d="M784,266 L796,266 L796,171"
+          lit={p.promoted.length > 0}
+          dashed
           tone={3}
+          tip={false}
         />
+        <Arrow d="M784,504 L806,504 L806,171" lit={false} dashed tone={3} tip={false} />
+        <text className="qq-map__s" x={806} y={112}>
+          读取
+        </text>
       </svg>
 
       {compact ? null : (
         <p className="qq-map__note">
-          照论文 <span className="qq-mono">arXiv 2604.01007</span> 的三段骨架画。
-          亮起来的是这一轮真的走过的路，数据全部来自记忆事件。
+          底图照搬论文 <span className="qq-mono">arXiv 2604.01007</span> 的框图，环节与线型都没改：
+          实线是数据往前走一步，虚线是指针、丢弃与回读。亮起来的是这一轮真的走过的路，
+          全部来自记忆事件。<b>灰掉的块是丘丘没做的</b>——视频抽帧、实体抽取与知识图谱；
+          论文第三路检索是图上跳 h 步，丘丘走的是标签。
         </p>
       )}
     </div>

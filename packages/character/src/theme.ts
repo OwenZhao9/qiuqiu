@@ -105,6 +105,21 @@ export const PALETTES: Readonly<Record<CharacterLook, CharacterPalette>> = {
   }
 };
 
+/**
+ * 待机时关掉「小动作」的表情。
+ *
+ * 上游的 `antics` 是待机随机小动作：45% 概率原地自旋一圈，自旋会甩出一圈彩带。
+ * 一共四个表情开了它——`02` 待机放空、`04` 发呆、`10` 开心、`19` 满意。
+ *
+ * 后两个是**反应**，转一圈甩点彩带是在表达「高兴」，留着。
+ * 前两个是**待机**，人没在跟丘丘说话的时候，桌面上那颗球每隔十几秒自己转一圈
+ * 撒一把彩带——那既不表示刚记住了什么，也不表示正在想什么，纯粹是动静。
+ * `design/character.md` 的原则是「表情是信息不是装饰」，所以待机这两个关掉。
+ *
+ * 关掉的只是自旋与弹跳，呼吸、眨眼、看鼠标都还在，球不会变成一张静态图。
+ */
+export const IDLE_ANTICS_OFF: readonly EmotionId[] = ['02', '04'];
+
 /** 序列帧里允许被换掉的起始色：上游默认色，加上每一套配色的体色。 */
 const REPLACEABLE_BASE: ReadonlySet<string> = new Set([
   ...UPSTREAM_BASE_COLORS,
@@ -209,6 +224,9 @@ export function applyQiuqiuTheme(
     delete prevBoth.color;
     eyes.both = { ...prevBoth, color: palette.eye };
     raw.eyes = eyes;
+
+    // 4 · 待机不再自己转圈甩彩带，见 IDLE_ANTICS_OFF
+    if (IDLE_ANTICS_OFF.includes(id)) raw.antics = false;
 
     const res = eb.config.register(raw);
     if (!res || res.ok === false) {

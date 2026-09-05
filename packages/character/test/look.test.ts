@@ -11,10 +11,17 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mountCostume, findBodyGroup, parseEyeTransform, EYE_HALF } from '../src/costume.js';
-import { applyQiuqiuTheme, currentLook, PALETTES, resetThemeFlag } from '../src/theme.js';
+import { createQiuqiu } from '../src/engine.js';
+import {
+  applyQiuqiuTheme,
+  currentLook,
+  IDLE_ANTICS_OFF,
+  PALETTES,
+  resetThemeFlag
+} from '../src/theme.js';
 import { ALL_EMOTION_IDS, type EmotionId, type EmotionRaw } from '../src/types.js';
 import { fromRepo } from './helpers/paths.js';
-import { makeStubEmotionBall } from './helpers/stub-engine.js';
+import { loadEmotionSeed, makeStubEmotionBall } from './helpers/stub-engine.js';
 
 const DESIGN = readFileSync(fromRepo('design', 'character.md'), 'utf8');
 
@@ -293,5 +300,64 @@ describe('装扮层', () => {
     expect(cancel).toHaveBeenCalled();
     expect((mount.querySelector('svg') as SVGElement).outerHTML).toBe(before);
     c.destroy(); // 幂等
+  });
+});
+
+describe('待机不甩彩带', () => {
+  it('02 / 04 的 antics 关掉，10 / 19 留着', () => {
+    const eb = makeStubEmotionBall();
+    applyQiuqiuTheme(eb, { look: 'warm' });
+    // 待机与发呆：不再自己转圈撒彩带
+    for (const id of IDLE_ANTICS_OFF) {
+      expect(eb.config.get(id)!.raw.antics, `${id} 的 antics 应该关掉`).toBe(false);
+    }
+    // 开心与满意是反应不是待机，转一圈是在表达情绪，留着
+    for (const id of ['10', '19'] as const) {
+      expect(eb.config.get(id)!.raw.antics, `${id} 的 antics 不该被动`).toBe(true);
+    }
+  });
+
+  it('上游确实只有这四个开了 antics（关错了这里会红）', () => {
+    const seed = loadEmotionSeed();
+    const on = seed
+      .filter((r) => r.antics)
+      .map((r) => r.id)
+      .sort();
+    expect(on).toEqual(['02', '04', '10', '19']);
+  });
+});
+
+describe('onEmotion', () => {
+  it('每换一次表情通知一次，退订之后不再来', () => {
+    const eb = makeStubEmotionBall();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const q = createQiuqiu(host, { engine: eb, gaze: false, idle: false });
+
+    const seen: string[] = [];
+    const off = q.onEmotion((id) => void seen.push(id));
+    q.setEmotion('10');
+    q.setEmotion('31');
+    off();
+    q.setEmotion('21');
+
+    // 桌宠靠这条链路跟主窗口保持同一张脸，断了就是两张脸
+    expect(seen).toEqual(['10', '31']);
+    q.destroy();
+    host.remove();
+  });
+
+  it('引擎报了个不认识的 id 就不往外发，别让桌宠去猜', () => {
+    const eb = makeStubEmotionBall();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const q = createQiuqiu(host, { engine: eb, gaze: false, idle: false });
+    const seen: string[] = [];
+    q.onEmotion((id) => void seen.push(id));
+    // stub 的 setEmotion 对未知 id 会回退到 02，所以直接推一发 change
+    eb.instances.at(-1)!.emitChange('nope');
+    expect(seen).toEqual([]);
+    q.destroy();
+    host.remove();
   });
 });

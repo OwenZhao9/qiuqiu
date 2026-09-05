@@ -94,6 +94,23 @@ export function PetApp(): React.JSX.Element {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, []);
 
+  /**
+   * 拖动的增量攒在这里，一帧只发一次 IPC。
+   *
+   * 指针事件在 macOS 上一秒能来 100+ 次，每次都发一条 IPC 让主进程搬一次窗口，
+   * 主进程那边就排起队来，手已经停了窗口还在追——看着就是跟不上手。
+   * 攒到一帧发一次之后，发送频率与屏幕刷新对齐，多余的中间点本来也画不出来。
+   */
+  const pending = useRef<{ dx: number; dy: number } | null>(null);
+  const flushing = useRef(0);
+
+  const flush = useCallback(() => {
+    flushing.current = 0;
+    const d = pending.current;
+    pending.current = null;
+    if (d && (d.dx !== 0 || d.dy !== 0)) bridge.dragPet(d.dx, d.dy);
+  }, [bridge]);
+
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       const g = gesture.current;
@@ -103,22 +120,34 @@ export function PetApp(): React.JSX.Element {
       if (!g.dragging && Math.hypot(dx, dy) <= DRAG_SLOP_PX) return;
       g.dragging = true;
       // 增量是相对上一次 move，不是相对起点
-      bridge.dragPet(dx, dy);
+      const acc = pending.current ?? { dx: 0, dy: 0 };
+      acc.dx += dx;
+      acc.dy += dy;
+      pending.current = acc;
+      if (!flushing.current) flushing.current = requestAnimationFrame(flush);
       g.x = e.clientX;
       g.y = e.clientY;
     },
-    [bridge]
+    [flush]
   );
 
-  const onPointerUp = useCallback((e: React.PointerEvent) => {
-    const g = gesture.current;
-    gesture.current = null;
-    if (!g) return;
-    const moved = Math.hypot(e.clientX - g.x, e.clientY - g.y);
-    if (!g.dragging && Date.now() - g.t <= CLICK_MS && moved <= DRAG_SLOP_PX) {
-      setExpanded((v) => !v);
-    }
-  }, []);
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      const g = gesture.current;
+      gesture.current = null;
+      // 松手时把攒着的最后一点增量补发出去，否则窗口会停在差几像素的地方
+      if (flushing.current) {
+        cancelAnimationFrame(flushing.current);
+        flush();
+      }
+      if (!g) return;
+      const moved = Math.hypot(e.clientX - g.x, e.clientY - g.y);
+      if (!g.dragging && Date.now() - g.t <= CLICK_MS && moved <= DRAG_SLOP_PX) {
+        setExpanded((v) => !v);
+      }
+    },
+    [flush]
+  );
 
   return (
     <div className="qq-pet" data-expanded={expanded ? 'true' : 'false'}>
