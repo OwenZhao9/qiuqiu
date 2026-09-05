@@ -2,11 +2,20 @@
  * 设置页：场景控制台 + 供应商清单。
  *
  * 供应商只看 `has_key` 的真假，**密钥永远不落前端**（`docs/CONVENTIONS.md`）。
- * 场景回放的路由取自 `scenarios/README.md`，契约 § 1 里没有，见报告的缺口清单。
+ * 场景列表走 `GET /scenarios`（契约 v0.1.8 § 1 收编）；请求不通时退回写死的四个，
+ * 让界面上还看得见有哪些演示。
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, getProviders, playScenario, SCENARIOS, type ProviderInfo } from '../api.js';
+import {
+  ApiError,
+  FALLBACK_SCENARIOS,
+  getProviders,
+  getScenarios,
+  playScenario,
+  type ProviderInfo,
+  type ScenarioInfo
+} from '../api.js';
 
 const CAPABILITY_CN: Record<string, string> = {
   chat: '对话',
@@ -22,6 +31,7 @@ export function SettingsPage(): React.JSX.Element {
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<readonly ScenarioInfo[]>(FALLBACK_SCENARIOS);
 
   const load = useCallback(() => {
     getProviders()
@@ -40,6 +50,16 @@ export function SettingsPage(): React.JSX.Element {
 
   useEffect(load, [load]);
 
+  useEffect(() => {
+    getScenarios()
+      .then((list) => {
+        if (list.length > 0) setScenarios(list);
+      })
+      .catch(() => {
+        /* 列不出来就用兜底的四个，不打断这一页的其余部分 */
+      });
+  }, []);
+
   return (
     <div className="qq-page">
       <h1 className="qq-page__title">设置</h1>
@@ -48,7 +68,7 @@ export function SettingsPage(): React.JSX.Element {
         <h2 className="qq-section__title">场景控制台</h2>
         <p className="qq-note">一键回放演示场景，事件会实时落进右边的记忆过程侧栏。</p>
         <div className="qq-scenarios">
-          {SCENARIOS.map((s) => (
+          {scenarios.map((s) => (
             <div className="qq-scenario" key={s.name}>
               <div style={{ flex: 1 }}>
                 <div>{s.title}</div>

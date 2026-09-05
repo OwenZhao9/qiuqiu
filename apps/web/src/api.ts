@@ -638,17 +638,51 @@ export function getProviders(): Promise<ProviderInfo[]> {
 }
 
 /**
- * 切当前模型。
+ * 切当前模型。契约 v0.1.8 § 1 定形：`{ capability, model }` 进，
+ * `{ capability, model, provider }` 出。
  *
- * 契约 § 1 只写了路由名 `POST /current-model`，没给 body 形状——见文件末尾的缺口清单。
- * 本轮按 `{ capability, provider, model }` 发。
+ * `provider` 是**结果不是入参**——选路只看 `.env`（AD-8），这里不绕过。
  */
 export function setCurrentModel(body: {
   capability: Capability;
-  provider: string;
-  model?: string | null;
-}): Promise<void> {
-  return json<void>('/current-model', { method: 'POST', body: JSON.stringify(body) });
+  model: string;
+}): Promise<{ capability: Capability; model: string; provider: ProviderInfo }> {
+  return json<{ capability: Capability; model: string; provider: ProviderInfo }>('/current-model', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+}
+
+/* ---- 会话与历史（契约 v0.1.8 § 1）---- */
+
+export interface SessionInfo {
+  id: string;
+  title: string;
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StoredMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  model: string | null;
+  favorite: boolean;
+  created_at: string;
+}
+
+/** 会话列表。契约 v0.1.8 § 1，只读；写入只经 `/chat`。 */
+export function getSessions(archived = false): Promise<SessionInfo[]> {
+  return json<SessionInfo[]>('/sessions?archived=' + String(archived));
+}
+
+/** 一个会话的历史消息，时间正序。契约 v0.1.8 § 1。 */
+export function getSessionMessages(sessionId: string, limit = 200): Promise<StoredMessage[]> {
+  return json<StoredMessage[]>(
+    '/sessions/' + encodeURIComponent(sessionId) + '/messages?limit=' + String(limit)
+  );
 }
 
 /** 上传附件，拿 `blob_id`。 */
@@ -720,12 +754,18 @@ export interface ScenarioInfo {
 }
 
 /**
- * 四个演示场景，取自 `scenarios/README.md`。
- *
- * 契约 § 1 没有「列出场景」的路由（缺口清单第 3 条），本轮把四个名字写死在前端，
- * 后端补上 `GET /scenarios` 之后这里换成一次请求。
+ * 列出可回放的场景。契约 v0.1.8 § 1 收编了 `GET /scenarios`，
+ * 名字不再写死在前端。
  */
-export const SCENARIOS: readonly ScenarioInfo[] = [
+export function getScenarios(): Promise<ScenarioInfo[]> {
+  return json<ScenarioInfo[]>('/scenarios');
+}
+
+/**
+ * 场景名的兜底：后端还没放脚本时列表是空的，界面上至少显示这四个（点了会报没有脚本）。
+ * 取自 `scenarios/README.md`，不是契约的一部分。
+ */
+export const FALLBACK_SCENARIOS: readonly ScenarioInfo[] = [
   { name: 'ambient-noise', title: '99% 是废话' },
   { name: 'time-jump', title: '过了三个月' },
   { name: 'multi-person', title: '客厅里有三个人' },

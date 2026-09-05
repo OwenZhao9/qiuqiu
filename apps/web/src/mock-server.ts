@@ -14,6 +14,9 @@ import {
   type MemoryEventEnvelope,
   type Persona,
   type ProviderInfo,
+  type ScenarioInfo,
+  type SessionInfo,
+  type StoredMessage,
   type Thresholds,
   type VisibleMemory
 } from './api.js';
@@ -274,6 +277,43 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
     }, opts.ambientMs);
   }
 
+  // 契约 v0.1.8 § 1：会话与历史。`/chat` 往里记，`GET /sessions*` 读出来——
+  // 这两条收编的理由就是「刷新一次历史全丢」，mock 不落库就测不出这件事。
+  const sessions: SessionInfo[] = [];
+  const storedMessages: StoredMessage[] = [];
+
+  const scenarios: ScenarioInfo[] = [
+    { name: 'ambient-noise', title: '99% 是废话' },
+    { name: 'time-jump', title: '过了三个月' },
+    { name: 'multi-person', title: '客厅里有三个人' },
+    { name: 'cost-compare', title: '成本对照' }
+  ];
+
+  function remember(sessionId: string, role: 'user' | 'assistant', content: string): void {
+    const at = nowIso();
+    if (!sessions.some((x) => x.id === sessionId)) {
+      sessions.unshift({
+        id: sessionId,
+        title: content.slice(0, 20),
+        archived: false,
+        created_at: at,
+        updated_at: at
+      });
+    } else {
+      const row = sessions.find((x) => x.id === sessionId)!;
+      row.updated_at = at;
+    }
+    storedMessages.push({
+      id: String(storedMessages.length + 1),
+      session_id: sessionId,
+      role,
+      content,
+      model: role === 'assistant' ? 'mock-chat' : null,
+      favorite: false,
+      created_at: at
+    });
+  }
+
   const providers: ProviderInfo[] = [
     {
       capability: 'chat',
@@ -325,8 +365,12 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
     if (path === '/health') return jsonResponse({ status: 'ok' });
 
     if (path === '/chat' && method === 'POST') {
-      const body = JSON.parse(String(init?.body ?? '{}')) as { content?: string };
+      const body = JSON.parse(String(init?.body ?? '{}')) as {
+        content?: string;
+        session_id?: string;
+      };
       const query = body.content ?? '';
+      const sessionId = body.session_id || 'default';
       const reply = opts.reply ?? REPLY_POOL[Math.floor(Math.random() * REPLY_POOL.length)];
       const trace = traceId();
       const { response, handle: h } = sseResponse(signal);
@@ -349,6 +393,9 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
           tokens_out: reply.length,
           latency_ms: 420
         });
+        // AD-6：用户那句和 AI 那句都要落库，`GET /sessions/{id}/messages` 才读得回两条
+        remember(sessionId, 'user', query);
+        remember(sessionId, 'assistant', reply);
         h.close();
         broadcast(events[1]);
         broadcast(events[2]);
@@ -420,7 +467,39 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
     }
 
     if (path === '/providers' && method === 'GET') return jsonResponse(providers);
-    if (path === '/current-model' && method === 'POST') return jsonResponse({});
+
+    // 契约 v0.1.8：`{ capability, model }` 进，`{ capability, model, provider }` 出。
+    if (path === '/current-model' && method === 'POST') {
+      const sent = JSON.parse(String(init?.body ?? '{}')) as {
+        capability?: string;
+        model?: string;
+      };
+      const provider = providers.find((p) => p.capability === sent.capability) ?? providers[0];
+      return jsonResponse({
+        capability: sent.capability ?? 'chat',
+        model: sent.model ?? '',
+        provider
+      });
+    }
+
+    // 契约 v0.1.8 § 1 收编的三条只读路由。
+    if (path === '/scenarios' && method === 'GET') return jsonResponse(scenarios);
+    if (path === '/sessions' && method === 'GET') return jsonResponse(sessions);
+    {
+      const m = /^\/sessions\/([^/]+)\/messages$/.exec(path);
+      if (m && method === 'GET') {
+        const id = decodeURIComponent(m[1]);
+        if (!sessions.some((x) => x.id === id)) {
+          return errorResponse(
+            404,
+            'session_not_found',
+            `没有这个会话：${id}。`,
+            '会话由 POST /chat 自动创建；先发一句话，或用 GET /sessions 看现有的。'
+          );
+        }
+        return jsonResponse(storedMessages.filter((x) => x.session_id === id));
+      }
+    }
     if (path === '/blobs' && method === 'POST') {
       return jsonResponse({ blob_id: 'image/' + Math.random().toString(16).slice(2, 18) });
     }

@@ -25,7 +25,13 @@ export interface EventCardProps {
   onToggle(id: string): void;
   /** 拖动阈值时的本地预演：只重算颜色，不改 `payload.decision` 的原值。 */
   preview?: Thresholds | null;
-  /** `uncertain` 卡上的「留下 / 丢掉」。契约里没有对应路由，见报告的缺口清单。 */
+  /**
+   * `uncertain` 卡上的「留下 / 丢掉」。**契约 v0.1.8 把它推迟到 M3**，暂无路由。
+   *
+   * 原因不是漏了：v0.1.7 定的「`uncertain` 只发事件不落库」意味着事件里只剩
+   * `input_preview`——80 字截断带省略号。照它「留下」，存进记忆的是被截断的半句话，
+   * 比按钮点不动更糟。要做得先定「拿不准的原文停在哪里等用户决定」。
+   */
   onResolveUncertain?(event: MemoryEventEnvelope, keep: boolean): void;
 }
 

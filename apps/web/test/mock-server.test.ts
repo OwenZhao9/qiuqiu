@@ -11,6 +11,9 @@ import {
   openEventStream,
   postChat,
   putThresholds,
+  getScenarios,
+  getSessions,
+  getSessionMessages,
   type MemoryEventEnvelope
 } from '../src/api.js';
 import { installMockServer, type MockServer } from '../src/mock-server.js';
@@ -108,5 +111,41 @@ describe('mock 后端 · REST', () => {
     server = installMockServer();
     const p = await getPersona();
     expect(Object.keys(p).sort()).toEqual(['current', 'learned', 'preset', 'sliders']);
+  });
+});
+
+describe('mock 后端 · 会话与历史（契约 v0.1.8 § 1）', () => {
+  it('发过话之后读得回来，两个角色都在', async () => {
+    server = installMockServer({ deltaMs: 0, reply: '知道啦' });
+    {
+      expect(await getSessions()).toEqual([]);
+
+      // 把这一轮 SSE 读到底：`done` 之后 mock 才落库，跟真后端一样
+      await postChat({ session_id: 's1', content: '我叫赵宁' }, {}).finished;
+
+      const sessions = await getSessions();
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0].id).toBe('s1');
+
+      // 收编这两条路由的理由就是「刷新一次历史全丢」，所以要读得回两条（AD-6）
+      const rows = await getSessionMessages('s1');
+      expect(rows.map((r) => r.role)).toEqual(['user', 'assistant']);
+      expect(rows[0].content).toBe('我叫赵宁');
+      expect(rows[1].content).toBe('知道啦');
+    }
+  });
+
+  it('没有的会话给 404 且带 hint', async () => {
+    server = installMockServer({ deltaMs: 0 });
+    await expect(getSessionMessages('nope')).rejects.toMatchObject({
+      code: 'session_not_found'
+    });
+  });
+
+  it('场景列表走路由，不再写死在前端', async () => {
+    server = installMockServer({ deltaMs: 0 });
+    const rows = await getScenarios();
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.name && r.title)).toBe(true);
   });
 });
