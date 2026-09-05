@@ -57,7 +57,7 @@ export type { QiuqiuInstance, CharacterState, EmotionId };
 「不修改 vendor 文件」不等于「不能改丘丘的样子」。改样子的两条合法路子，都不碰 vendor 的源码：
 
 1. **配色**走公开 API `EmotionBall.config.register()` 打纯数据补丁（`src/theme.ts`）
-2. **装扮**（呆毛、蝴蝶结、腮红、眼高光、闪光）往引擎**运行时画出来的 SVG** 里插自己的节点，插完能原样摘干净（`src/costume.ts`）
+2. **装扮**（蝴蝶结、腮红、眼高光、闪光）往引擎**运行时画出来的 SVG** 里插自己的节点，插完能原样摘干净（`src/costume.ts`）
 
 第 2 条依赖 vendor 画出的 DOM 结构（`bodyG` 是唯一没有 `pointer-events="none"` 的直接子 `<g>`，里面三个 `<path>` 依次是身体、左眼、右眼）。vendor 是随仓库冻结的，不跟上游升级，所以这个依赖是稳的；`test/look.test.ts` 照这个结构搭了替身，结构一变测试就红。
 

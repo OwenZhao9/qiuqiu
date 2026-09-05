@@ -216,7 +216,7 @@ describe('装扮层', () => {
       n.tagName.toLowerCase() === 'path' ? 'path' : (n.getAttribute('class') ?? '')
     );
     expect(order).toEqual([
-      'qq-costume qq-costume--back', // 呆毛在身体之前
+      'qq-costume qq-costume--back', // 身体之前的一层
       'path', // 身体
       'qq-costume qq-costume--mid', // 蝴蝶结腮红在身体之后、眼睛之前
       'path', // 左眼
@@ -225,10 +225,10 @@ describe('装扮层', () => {
     ]);
   });
 
-  it('零件齐全：呆毛 · 蝴蝶结 · 两片腮红 · 两只眼的高光 · 三颗闪光', () => {
+  it('零件齐全：蝴蝶结 · 两片腮红 · 两只眼的高光 · 三颗闪光', () => {
     const { mount } = makeBallDom();
     mountCostume(mount, 'anime', { ...raf, animate: false });
-    expect(mount.querySelectorAll('.qq-costume__ahoge')).toHaveLength(1);
+    expect(mount.querySelectorAll('.qq-costume__ahoge'), '呆毛已去掉').toHaveLength(0);
     expect(mount.querySelectorAll('.qq-costume__bow')).toHaveLength(1);
     expect(mount.querySelectorAll('.qq-costume__blush')).toHaveLength(2);
     expect(mount.querySelectorAll('.qq-costume__shine')).toHaveLength(2);

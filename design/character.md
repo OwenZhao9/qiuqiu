@@ -152,7 +152,7 @@ Emotion Ball 的 `EmotionBall.create(el, { color, eyeColor })` 会在**每一帧
 
 ```
 bodyG
-  ├─ back   呆毛                    ← 在身体之前，只露出头顶那一撮
+  ├─ back   （空，留给以后加在身体之前的东西）
   ├─ head   （引擎的身体）
   ├─ mid    泽面高光 · 蝴蝶结 · 腮红   ← 压在身体上、眼睛下
   ├─ eyeL   （引擎的左眼）

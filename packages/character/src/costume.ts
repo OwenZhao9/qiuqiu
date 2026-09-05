@@ -5,7 +5,7 @@
  * 已经建好的 SVG 里插几个自己的节点。插的位置分三层，靠 z 序解决遮挡：
  *
  *     bodyG
- *       ├─ back   呆毛                 ← 在身体之前，只露出头顶那一截
+ *       ├─ back   （空，留给以后加在身体之前的东西）
  *       ├─ head   （引擎的身体）
  *       ├─ mid    泽面高光 · 蝴蝶结 · 腮红   ← 压在身体上、眼睛下
  *       ├─ eyeL   （引擎的左眼）
@@ -53,7 +53,7 @@ function el<K extends string>(tag: K, attrs: Record<string, string | number>): S
   return node;
 }
 
-/** 页面要求减少动效时，闪光不闪、呆毛不飘。 */
+/** 页面要求减少动效时，闪光不闪。 */
 function prefersReducedMotion(view: Window | null): boolean {
   try {
     return view?.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
@@ -189,24 +189,8 @@ export function mountCostume(
   // 露出来的只有头顶那一撮。所以形状可以放心往下延伸，不用对齐轮廓。
 
   const back = el('g', { class: 'qq-costume qq-costume--back', 'pointer-events': 'none' });
-  // 呆毛：头顶翘起来的那一撮。二次元角色的标准零件，作用只有一个——
-  // 让静止的脑袋上有一处「不服帖」的地方，看着就活。
-  //
-  // 形状要点：**细、弯、尖端带钩**。粗而直会读成角或者三角旗，
-  // 就成了「头上插了个东西」而不是「一撮翘起来的头发」。
-  // 根埋在身体里（身体在它之后绘制，会盖住），露出来的只有头顶那一截。
-  const ahoge = el('path', {
-    class: 'qq-costume__ahoge',
-    d:
-      'M 108 36 C 104 13 111 -6 132 -12 ' + // 外缘：从头顶起，往右上甩
-      'C 140 -14 141 -8 135 -5 ' + // 尖端往回一钩
-      'C 123 1 120 15 122 36 Z', // 内缘：收回头顶
-    fill: '#F7C9DC',
-    stroke: '#E7A6C2',
-    'stroke-width': 1.4,
-    'stroke-linejoin': 'round'
-  });
-  back.appendChild(ahoge);
+  // 头顶原来有一撮呆毛，按需求去掉了。back 这一层留着：它在身体之前绘制，
+  // 以后再往头顶加东西（发饰之类）就插在这儿。
   body.insertBefore(back, head);
 
   /* ---------------- mid：泽面高光 · 蝴蝶结 · 腮红 ---------------- */

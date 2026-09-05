@@ -948,25 +948,9 @@ select {
   padding: 0;
 }
 
-@media (max-width: 1279px) {
-  .qq-left {
-    width: var(--qq-sidebar-left-collapsed);
-    flex-basis: var(--qq-sidebar-left-collapsed);
-  }
-
-  .qq-left:not(.qq-left--drawer) .qq-collapsible {
-    display: none;
-  }
-
-  .qq-left:hover {
-    width: var(--qq-sidebar-left);
-    flex-basis: var(--qq-sidebar-left);
-  }
-
-  .qq-left:hover .qq-collapsible {
-    display: revert;
-  }
-}
+/* 左栏原来在 ≤1279 时缩成一条窄轨、鼠标移上去才展开。桌面端主窗口默认 1200 宽，
+   正好落在这个区间里——于是会话名和分区标题平时都看不见，得先把鼠标挪过去。
+   常驻显示，宽度不够时（≤1023）走抽屉，不做 hover 展开。 */
 
 @media (max-width: 1023px) {
   .qq-right {
