@@ -30,6 +30,15 @@ export const MIN_DWELL_MS = 500;
 export const EVENT_EMOTION_MS = 1600;
 
 /**
+ * 引擎自驱的睡眠表情（`docs/CONTRACTS.md` § 6「引擎自驱」）。
+ * 闲置满 300 s 由引擎自己切上去，宿主只负责在离开 `idle` 时认出它。
+ */
+export const SLEEP_EMOTION: EmotionId = '00';
+
+/** 从 `00` 睡眠离开 `idle` 时的唤醒过场表情，序列 settle 到 `02` 后结束。 */
+export const WAKE_EMOTION: EmotionId = '01';
+
+/**
  * 唤醒过场 `01` 的兜底超时：`01` 的切入 320 ms + 睁眼序列 2100 ms。
  * 正常路径靠引擎 `change` 事件报出 `02` 结束，这条只防引擎不回调。
  */
@@ -323,9 +332,9 @@ export class CharacterMachine {
 
   /** 当前表情是 `00` 睡眠时走 `01` 唤醒过场，返回是否进入了过场。 */
   private maybeWake(): boolean {
-    if (this.sink.currentEmotion() !== '00') return false;
+    if (this.sink.currentEmotion() !== SLEEP_EMOTION) return false;
     this.waking = true;
-    this.commit('01');
+    this.commit(WAKE_EMOTION);
     if (this.wakeTimer) clearTimeout(this.wakeTimer);
     this.wakeTimer = setTimeout(() => this.finishWake(), WAKE_TIMEOUT_MS);
     return true;

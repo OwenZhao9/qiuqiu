@@ -89,6 +89,8 @@ export {
   VOICE_SCALE_GAIN,
   VOICE_SILENCE_MS,
   VOICE_SPAN,
+  SLEEP_EMOTION,
+  WAKE_EMOTION,
   WAKE_TIMEOUT_MS,
   type EmotionSink,
   type MachineOptions

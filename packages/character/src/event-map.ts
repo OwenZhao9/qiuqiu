@@ -45,8 +45,12 @@ export const EVENT_PRIORITY = {
 } as const;
 
 /**
- * `docs/CONTRACTS.md` § 6 的表情映射表，逐行照搬，供契约测试逐条断言。
- * `emotionId` 为 `null` 表示「不切换」。
+ * `docs/CONTRACTS.md` § 6「事件表情」表，**行序与契约逐行一致**，供契约测试对着断言。
+ *
+ * `emotionId` 为 `null` 有两种含义，看 `priority`：
+ * - `priority` 也是 `null` → 契约里写的「不切换」
+ * - `priority` 有值（`inferred` 那行）→ 契约里写的是 `10`–`21` 区间而不是单个 ID，
+ *   具体落哪个由 `design/emotion-rules.md` 的 17 条规则算出来
  */
 export const EVENT_EMOTION_TABLE: readonly {
   rule: EventRuleKey;
@@ -60,10 +64,10 @@ export const EVENT_EMOTION_TABLE: readonly {
   { rule: 'merge', emotionId: '19', priority: EVENT_PRIORITY.merge },
   { rule: 'write', emotionId: '10', priority: EVENT_PRIORITY.write },
   { rule: 'filter.uncertain', emotionId: '11', priority: EVENT_PRIORITY.filterUncertain },
+  { rule: 'inferred', emotionId: null, priority: EVENT_PRIORITY.inferred },
   { rule: 'filter.reject', emotionId: null, priority: null },
   { rule: 'filter.accept', emotionId: null, priority: null },
-  { rule: 'recall.empty', emotionId: null, priority: null },
-  { rule: 'inferred', emotionId: null, priority: EVENT_PRIORITY.inferred }
+  { rule: 'recall.empty', emotionId: null, priority: null }
 ];
 
 /** 请求出错（SSE / WS `error` 帧）。 */
