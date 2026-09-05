@@ -19,7 +19,7 @@
 | 图片理解 | DeepSeek `deepseek-v4-flash-vision-exp`（同一个 key） |
 | 语音识别 | sherpa-onnx + SenseVoice（本地，离线） |
 | 语音活动检测 | silero-vad（本地） |
-| 语音合成 | Azure 语音服务（F0 档每月 50 万字符免费） |
+| 语音合成 | 豆包语音合成 2.0（默认）/ Azure 语音服务，`TTS_PROVIDER` 切换 |
 | 嵌入 | Qwen/Qwen3-Embedding-0.6B（本地，1024 维） |
 | 实时语音（可选） | 豆包端到端实时语音 |
 | 生图（可选） | Seedream |

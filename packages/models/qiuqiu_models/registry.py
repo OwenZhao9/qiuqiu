@@ -46,11 +46,11 @@ _DEFERRED: dict[str, tuple[str, str, str]] = {
         "先用文字聊；要离线开发就设 MODELS_MOCK=1。",
     ),
     "tts": (
-        "azure",
-        "语音合成没配好：缺少 AZURE_SPEECH_KEY 或 AZURE_SPEECH_REGION。",
-        "Azure 门户建一个 Speech 资源（定价层 F0，每月 50 万字符免费），"
-        "密钥填 AZURE_SPEECH_KEY、区域填 AZURE_SPEECH_REGION（如 eastasia）。"
-        "没有 key 时回复照常显示文字，只是没有声音。",
+        "volcengine",
+        "语音合成没配好。",
+        "默认走豆包语音：在豆包语音控制台建应用，填 VOLC_SPEECH_APPID 与 "
+        "VOLC_SPEECH_TOKEN。想换 Azure 就设 TTS_PROVIDER=azure 并填 "
+        "AZURE_SPEECH_KEY 与 AZURE_SPEECH_REGION。没配时回复照常显示文字，只是没有声音。",
     ),
     "realtime": (
         "doubao",
@@ -123,11 +123,7 @@ def _build(capability: str) -> Any:
         return deepseek_vision.from_env()
 
     if capability == "tts":
-        # 供应商由 TTS_PROVIDER 选，默认 azure。azure 是官方接口、可用于产品，
-        # 音色与 Edge 朗读同一批（`zh-CN-XiaoxiaoNeural` 本来就是 Azure 的音色名）。
-        from .providers import azure_tts
-
-        return azure_tts.from_env()
+        return _build_tts()
 
     provider, what, todo = _DEFERRED[capability]
     raise ProviderNotConfiguredError(
@@ -135,6 +131,30 @@ def _build(capability: str) -> Any:
         hint=todo,
         capability=capability,
         provider=provider,
+    )
+
+
+def tts_provider() -> str:
+    """``volcengine``（默认）或 ``azure``。两家都是官方接口，都能用于产品。"""
+
+    return (os.environ.get("TTS_PROVIDER") or "volcengine").strip().lower()
+
+
+def _build_tts() -> Any:
+    name = tts_provider()
+    if name == "azure":
+        from .providers import azure_tts
+
+        return azure_tts.from_env()
+    if name == "volcengine":
+        from .providers import volc_tts
+
+        return volc_tts.from_env()
+    raise ProviderNotConfiguredError(
+        f"不认识的 TTS 供应商 {name!r}。",
+        hint="TTS_PROVIDER 只能是 volcengine 或 azure。",
+        capability="tts",
+        provider=name,
     )
 
 
@@ -196,11 +216,19 @@ def list_providers() -> list[dict[str, Any]]:
             )
             has_key = bool(os.environ.get("VOLC_ARK_API_KEY", "").strip())
         elif capability == "tts":
-            # Azure 语音服务是官方接口，key 齐了就真的能用，不只是 mock 下可用。
-            has_key = bool(
-                os.environ.get("AZURE_SPEECH_KEY", "").strip()
-                and os.environ.get("AZURE_SPEECH_REGION", "").strip()
-            )
+            # 两家都是官方接口，key 齐了就真的能用，不只是 mock 下可用。
+            name = tts_provider()
+            if name == "azure":
+                has_key = bool(
+                    os.environ.get("AZURE_SPEECH_KEY", "").strip()
+                    and os.environ.get("AZURE_SPEECH_REGION", "").strip()
+                )
+            else:
+                has_key = bool(
+                    os.environ.get("VOLC_SPEECH_APPID", "").strip()
+                    and os.environ.get("VOLC_SPEECH_TOKEN", "").strip()
+                )
+            provider = "mock" if mock else name
             available = mock or has_key
             hint = None if available else todo
         else:

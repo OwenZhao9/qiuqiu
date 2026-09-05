@@ -48,7 +48,15 @@
 - [ ] `evaluate(pcm16k)` 返回 `has_speech` `energy` `confidence`
 - [ ] 阈值从 `/config/thresholds` 读，热更新
 
-**TTS · Azure**（`azure_tts.py`）**已完成**
+**TTS · 豆包语音**（`volc_tts.py`）**已完成，默认**
+- [x] v3 单向流式 HTTP，`X-Api-Resource-Id: seed-tts-2.0`，输出 `pcm` 16k
+- [x] 响应是一行一个 JSON，`data` 为 base64 PCM，边收边解边给 `AudioChunk`
+- [x] 鉴权用豆包语音控制台的 `X-Api-App-Key` + `X-Api-Access-Key`
+
+**接口版本容易踩**：2.0 走 `/api/v3/tts/unidirectional`；1.0 那套 `/api/v1/tts` 加
+`cluster` 参数在 2.0 上一律 403。方舟的 ark key 在语音接口上返回 401，两套凭证各管各的。
+
+**TTS · Azure**（`azure_tts.py`）**已完成，备选**
 - [x] Azure 语音服务 REST 接口，端点 `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1`
 - [x] 输出 `raw-16khz-16bit-mono-pcm`，裸 PCM 直接就是 `AudioChunk` 要的形状，不用解码
 - [x] `synthesize()` 返回 `AudioChunk` 流，上游分片重切成 20ms 定长块（不重切的话 rms 会抖）
@@ -58,9 +66,10 @@
 音色与 Edge 朗读同一批——`zh-CN-XiaoxiaoNeural` 本来就是 Azure 的音色名，Edge 背后调的
 就是这个服务。这里走官方接口带自己的订阅密钥，可用于产品。F0 档每月 50 万字符免费。
 
-**换别家 TTS**（可选）
-- [ ] 火山、阿里等只是多一个 `<vendor>_tts.py`，`TTS` 协议不变
-- [ ] 由 `TTS_PROVIDER` 选，缺 key 时 registry 抛带 hint 的错（AD-16，不静默换 mock）
+**再换别家**（可选）
+- [ ] 阿里、腾讯等只是多一个 `<vendor>_tts.py`，`TTS` 协议不变
+- [x] 由 `TTS_PROVIDER` 选（`volcengine` 默认 / `azure`），缺凭证时 registry 抛带 hint 的错
+      （AD-16，不静默换 mock），且 hint 同时说清两条路怎么配
 
 **Image Gen · Seedream**（`seedream.py`，可选）
 - [ ] 火山方舟 `/images/generations`
