@@ -53,6 +53,13 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   onPetFocus(cb: () => void): void;
   /** 托盘 / 右键菜单里的「暂停被动采集」。 */
   onAmbientToggle(cb: (paused: boolean) => void): void;
+  /**
+   * 换皮肤。桌宠和主窗口是两个渲染进程，各自一份 `localStorage` 监听，
+   * 只能过主进程同步，不然主窗口换了皮肤桌宠还是旧样子。
+   */
+  setSkin(skin: string): void;
+  /** `setSkin` 的订阅端。**收到之后只应用不再广播**，否则两个窗口会来回弹。 */
+  onSkin(cb: (skin: string) => void): void;
   /** `'desktop'` 或 `'web'`。**只给适配层与 CSS 用，组件不读**。 */
   platform(): 'desktop' | 'web';
 }
@@ -114,6 +121,10 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     callFromPet() {
       bus.emit('call-from-pet');
     },
+    setSkin(skin) {
+      // 网页端只有一个页面，没有第二个窗口要同步，投回自己反而会绕回去
+      void skin;
+    },
     onDelta(cb) {
       bus.on('delta', cb as Listener);
     },
@@ -134,6 +145,9 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     },
     onAmbientToggle(cb) {
       bus.on('ambient-toggle', cb as Listener);
+    },
+    onSkin(cb) {
+      bus.on('skin', cb as Listener);
     },
     platform: () => 'web'
   };

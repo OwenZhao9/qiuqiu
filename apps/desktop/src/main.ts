@@ -309,6 +309,15 @@ function wireIpc(): void {
 
   // 桌宠按了通话和弦。语音会话跑在主窗口——麦克风与音频播放只该有一份，
   // 两个窗口各开一个会互相抢
+  // 换皮肤：转给**除发送方之外**的窗口。带上发送方会转回去，那边再广播一次就绕不完了
+  ipcMain.on(TO_MAIN.setSkin, (e, skin: string) => {
+    for (const win of [mainWindow, petWindow]) {
+      if (!win || win.isDestroyed()) continue;
+      if (win.webContents.id === (e as { sender?: { id?: number } }).sender?.id) continue;
+      win.webContents.send(TO_RENDERER.skin, skin);
+    }
+  });
+
   ipcMain.on(TO_MAIN.callFromPet, () => {
     ensureMain();
     mainWindow?.webContents.send(TO_RENDERER.callFromPet);

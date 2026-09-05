@@ -8,9 +8,25 @@ import { useEffect, useRef, useState } from 'react';
 import {
   createQiuqiu,
   loadEngine,
+  type CharacterLook,
   type QiuqiuInstance,
   type QiuqiuPreset
 } from '@qiuqiu/character';
+import { lookOf, readSkin, SKIN_EVENT, type Skin } from '../skin.js';
+
+/** 当前皮肤对应的丘丘形象。皮肤一换就跟着换，不重建实例。 */
+export function useLook(): CharacterLook {
+  const [look, setLook] = useState<CharacterLook>(() => lookOf(readSkin()));
+  useEffect(() => {
+    const onSkin = (e: Event): void => {
+      const skin = (e as CustomEvent<Skin>).detail;
+      setLook(lookOf(skin ?? readSkin()));
+    };
+    globalThis.addEventListener?.(SKIN_EVENT, onSkin);
+    return () => globalThis.removeEventListener?.(SKIN_EVENT, onSkin);
+  }, []);
+  return look;
+}
 
 /**
  * vendor 四个 IIFE 脚本的目录。
@@ -34,6 +50,8 @@ export interface UseQiuqiuResult {
 
 export interface UseQiuqiuOptions {
   preset: QiuqiuPreset;
+  /** 形象。缺省跟着当前皮肤走。 */
+  look?: CharacterLook;
   /** 桌宠窗口是穿透的，拿不到有意义的指针坐标时关掉注视。 */
   gaze?: 'pointer' | false;
   /** 实例造好后回调一次，用来把状态机接上去。 */
@@ -47,8 +65,18 @@ export function useQiuqiu(opts: UseQiuqiuOptions): UseQiuqiuResult {
   const [error, setError] = useState<Error | null>(null);
   const onReady = useRef(opts.onReady);
   onReady.current = opts.onReady;
+  // 建实例时读一次当前形象；之后的变化走上面那个 effect，不进依赖数组
+  const lookRef = useRef<CharacterLook>('warm');
 
+  const skinLook = useLook();
+  const look = opts.look ?? skinLook;
+  lookRef.current = look;
   const { preset, gaze } = opts;
+
+  // 形象变了不重建实例——重建会丢掉当前表情与状态机的进度
+  useEffect(() => {
+    qiuqiu?.setLook(look);
+  }, [qiuqiu, look]);
 
   useEffect(() => {
     let disposed = false;
@@ -58,7 +86,7 @@ export function useQiuqiu(opts: UseQiuqiuOptions): UseQiuqiuResult {
       try {
         await loadEngine({ baseUrl: vendorBaseUrl() });
         if (disposed || !ref.current) return;
-        instance = createQiuqiu(ref.current, { preset, gaze });
+        instance = createQiuqiu(ref.current, { preset, gaze, look: lookRef.current });
         setQiuqiu(instance);
         onReady.current?.(instance);
       } catch (err) {

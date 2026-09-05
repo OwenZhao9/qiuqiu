@@ -369,6 +369,13 @@ graph LR
 - 规则：mock 只在 `MODELS_MOCK=1` 时由 registry 全量返回；运行时任何出网失败按第 3 节的失败处理返回带 `hint` 的错误或明确降级，不换 mock；失败记 `run_metrics`
 - 状态：已采纳
 
+### AD-17 — 皮肤只覆盖令牌，丘丘的样子只由 character 决定
+
+- 约束范围：frontend、character、design
+- 防止的分歧：同一套「二次元」被做两遍——前端在组件里写死粉色，character 又改一遍球的配色，两边各调各的，永远对不齐
+- 规则：页面的样子只由 `design/tokens.css` 里 `:root[data-skin=…]` 的令牌覆盖决定，组件里不出现具体颜色；丘丘的样子只由 `CharacterLook` 决定，`apps/web/src/skin.ts` 里每个皮肤声明自己对应哪个 `look`，这是两者唯一的连接点。丘丘是 SVG，CSS 令牌管不到它，所以这两层必须分开，不能指望其中一层顺带把另一层改了
+- 状态：已采纳
+
 ### 已推迟
 
 | 决定 | 为什么能等 |

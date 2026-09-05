@@ -52,7 +52,7 @@ const CONTRACTS = readFileSync(fromRepo('docs', 'CONTRACTS.md'), 'utf8');
  * v0.1.7（收编 memory 报的十一条缺口）改的是 § 1 / § 3 / § 5，
  * § 6 六个小节与 v0.1.6 逐字一致，本文件的断言无需改动。
  */
-const CONTRACT_VERSION = 'v0.1.11';
+const CONTRACT_VERSION = 'v0.1.12';
 
 /* ------------------------------------------------------------------ *
  * 解析
@@ -489,8 +489,16 @@ describe('CONTRACTS 版本', () => {
     expect(m![1]).toBe(CONTRACT_VERSION);
   });
 
-  it('§ 6 只有这六个小节', () => {
+  it('§ 6 只有这七个小节', () => {
     const titles = [...section6().matchAll(/^### (.+)$/gm)].map((m) => m[1]!.trim());
-    expect(titles).toEqual(['状态表情', '事件表情', '引擎自驱', '情绪推断', '发声脉动', '主题色']);
+    expect(titles).toEqual([
+      '状态表情',
+      '事件表情',
+      '引擎自驱',
+      '情绪推断',
+      '发声脉动',
+      '主题色',
+      '形象'
+    ]);
   });
 });

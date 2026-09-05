@@ -108,7 +108,7 @@ export function SettingsPage(): React.JSX.Element {
 
       <section>
         <h2 className="qq-section__title">外观</h2>
-        <p className="qq-note">只换颜色与圆角，功能完全一样。</p>
+        <p className="qq-note">换页面的颜色与圆角，功能完全一样。二次元连丘丘本人一起换。</p>
         <div className="qq-voices" role="radiogroup" aria-label="外观">
           {SKINS.map((s) => (
             <button

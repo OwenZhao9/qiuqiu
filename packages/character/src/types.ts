@@ -184,6 +184,14 @@ export interface QiuqiuInstance {
   /** 直接施加一条事件表情，持续 1600 ms。映射表之外的自定义用法走这里。 */
   applyEventEmotion(emotionId: EmotionId, priority: number): boolean;
 
+  /** 当前形象。 */
+  getLook(): CharacterLook;
+  /**
+   * 换形象。重打一遍配色补丁（全局）并重挂装扮层（本实例）。
+   * 页面上换皮肤时调它，不用销毁重建实例。
+   */
+  setLook(look: CharacterLook): void;
+
   /** 暂停 / 恢复渲染（窗口失焦、滚出视口时用）。 */
   setActive(on: boolean): void;
   /** 复位闲置计时。 */
@@ -201,6 +209,23 @@ export interface SetStateOptions {
 
 /** 三处实例的尺寸与创建参数预设，见 `design/character.md` § 3。 */
 export type QiuqiuPreset = 'pet' | 'main' | 'web';
+
+/**
+ * 形象。决定丘丘长什么样，与页面皮肤是两件事——页面皮肤只换 CSS 令牌，
+ * 形象换的是球本身的配色与身上那层装扮。
+ *
+ * - `warm`  —— 原本的暖奶油小球，不戴任何装扮
+ * - `anime` —— 二次元少女：樱色瓷白 + 紫瞳，加眼高光、腮红、呆毛、蝴蝶结、闪光
+ */
+export type CharacterLook = 'warm' | 'anime';
+
+/** 合法形象列表，界面拿它做选项。 */
+export const ALL_LOOKS: readonly CharacterLook[] = ['warm', 'anime'];
+
+/** 是不是合法形象。 */
+export function isCharacterLook(v: unknown): v is CharacterLook {
+  return typeof v === 'string' && (ALL_LOOKS as readonly string[]).includes(v);
+}
 
 export interface QiuqiuIdleOptions {
   standbyAfter?: number;
@@ -236,6 +261,12 @@ export interface QiuqiuOptions {
    * 默认 320。
    */
   gazeRadius?: number;
+  /**
+   * 形象，默认 `'warm'`。`'anime'` 换成二次元配色并挂上装扮层。
+   * 配色补丁是注册表级别的，会影响同一个 EmotionBall 上的所有实例；
+   * 装扮层是每个实例各挂各的。
+   */
+  look?: CharacterLook;
   /** 注入 Emotion Ball 全局对象，缺省读 `globalThis.EmotionBall`。测试用。 */
   engine?: EmotionBallGlobal;
   /** 注入时钟，缺省 `Date.now`。测试用。 */

@@ -20,10 +20,12 @@ import {
   type EmotionSink,
   type VoicePulse
 } from './state-machine.js';
+import { mountCostume, type Costume } from './costume.js';
 import { applyQiuqiuTheme } from './theme.js';
 import {
   FALLBACK_EMOTION,
   isEmotionId,
+  type CharacterLook,
   type CharacterState,
   type EmotionBallEngine,
   type EmotionBallGlobal,
@@ -231,7 +233,8 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
     throw new Error('[qiuqiu] createQiuqiu：container 必须是一个已挂载的 HTMLElement');
   }
   const eb = getEmotionBall(opts.engine);
-  applyQiuqiuTheme(eb);
+  let look: CharacterLook = opts.look ?? 'warm';
+  applyQiuqiuTheme(eb, { look });
 
   const preset = PRESETS[opts.preset ?? 'pet'];
   const now = opts.now ?? (() => Date.now());
@@ -268,6 +271,9 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
     idle: idle === false ? false : { ...IDLE_DEFAULT, ...idle }
     // 刻意不传 color / eyeColor：主题走 config.register 的数据补丁，见 src/theme.ts
   });
+
+  // 引擎已经把 SVG 画进 mount 了，这时候才挂得上装扮层
+  let costume: Costume | null = mountCostume(mount, look);
 
   const sink: EmotionSink = {
     setEmotion(id) {
@@ -325,6 +331,18 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
     applyReply(replyText: string, userText?: string) {
       applyReplyTo(machine, replyText, userText);
     },
+    getLook: () => look,
+    setLook(next: CharacterLook) {
+      if (next === look) return;
+      look = next;
+      // 配色补丁改的是注册表，得让引擎重新读一遍当前表情才看得到新颜色
+      applyQiuqiuTheme(eb, { look });
+      const cur = sink.currentEmotion();
+      if (cur) ball.handleAIMessage({ emotionId: cur });
+      costume?.destroy();
+      costume = mountCostume(mount, look);
+    },
+
     setActive(on: boolean) {
       ball.setActive(on);
     },
@@ -338,6 +356,8 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
       detachGaze?.();
       machine.destroy();
       voice.destroy();
+      costume?.destroy();
+      costume = null;
       ball.destroy();
       if (stage.parentNode) stage.parentNode.removeChild(stage);
     }

@@ -2,7 +2,7 @@
  * `@qiuqiu/character` —— 丘丘的表情引擎封装、状态机、事件映射、情绪推断。
  *
  * 纯 TypeScript，不依赖 React（`apps/web` 自己包一层 hook）。
- * 对应 `docs/CONTRACTS.md` § 6，契约版本 v0.1.5。
+ * 对应 `docs/CONTRACTS.md` § 6，契约版本 v0.1.12。
  *
  * 典型用法：
  *
@@ -98,18 +98,39 @@ export {
 
 export {
   applyQiuqiuTheme,
+  currentLook,
+  ANIME_BODY_COLOR,
+  ANIME_BODY_COLOR_PATCH,
+  ANIME_EYE_COLOR,
   BODY_COLOR_PATCH,
+  PALETTES,
   QIUQIU_BODY_COLOR,
   QIUQIU_EYE_COLOR,
   UPSTREAM_BASE_COLORS,
-  type ApplyThemeResult
+  type ApplyThemeResult,
+  type CharacterPalette
 } from './theme.js';
 
 export {
+  findBodyGroup,
+  mountCostume,
+  parseEyeTransform,
+  BLUSH_DROP,
+  BLUSH_SPREAD,
+  EYE_HALF,
+  HEAD_C,
+  type Costume,
+  type MountCostumeOptions
+} from './costume.js';
+
+export {
   ALL_EMOTION_IDS,
+  ALL_LOOKS,
   ALL_STATES,
+  isCharacterLook,
   isEmotionId,
   type AgentEmotionId,
+  type CharacterLook,
   type CharacterState,
   type EmotionBallEngine,
   type EmotionBallGlobal,

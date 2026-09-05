@@ -238,6 +238,7 @@ interface QiuqiuBridge {
   setPetPassthrough(ignore: boolean): void;   // 鼠标穿透开关
   setPetExpanded(expanded: boolean): void;    // 展开输入条时改窗口尺寸，主进程保住球心
   popupPetMenu(state: { ambientPaused: boolean }): void;  // 原生右键菜单，HTML 菜单会被窗口边界裁掉
+  setSkin(skin: string): void;                // 换皮肤，主进程转给另一个窗口
   // 订阅
   onDelta(cb: (sessionId: string, text: string) => void): void;
   onDone(cb: (sessionId: string) => void): void;
@@ -246,6 +247,7 @@ interface QiuqiuBridge {
   onCallFromPet(cb: () => void): void;                 // 主窗口收桌宠按的通话和弦
   onPetFocus(cb: () => void): void;                    // 全局快捷键唤起后展开输入条
   onAmbientToggle(cb: (paused: boolean) => void): void; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
+  onSkin(cb: (skin: string) => void): void;            // 另一个窗口换了皮肤。收到只应用不再广播，否则来回弹
 }
 window.__QIUQIU_API__ = "http://127.0.0.1:8000";
 ```
@@ -527,6 +529,22 @@ init()   一次建齐目录、表与索引，可重复调用
 
 **主题色不能走 `opts.color`。** 引擎每帧无条件覆写体色，会废掉 `21` 生气变红、`14` 害羞变粉、`34` 出错红白闪。改用公开 API `EmotionBall.config.register()` 打纯数据主题补丁，不改 `vendor/` 任何文件，补丁表见 `design/character.md`。
 
+### 形象
+
+`CharacterLook = 'warm' | 'anime'`，`createQiuqiu(el, { look })` 选一套，`instance.setLook(look)` 中途换、不重建实例。一套形象包含两件事：
+
+| | 改什么 | 在哪 |
+| --- | --- | --- |
+| 配色 | 32 个表情的体色与眼色 | `EmotionBall.config.register()` 数据补丁 |
+| 装扮 | 呆毛 · 蝴蝶结 · 腮红 · 眼高光 · 闪光 | 往引擎画好的 SVG 里插节点 |
+
+两条硬约束：
+
+1. **配色补丁读的是注册表里的 `raw`，也就是上一次补丁的产物，不是上游原文。** 所以每一处覆盖都必须无条件赋成本次的值；写成「原来没有才补」的话，换回上一套形象会留下上一套的颜色。
+2. **装扮插在 `bodyG` 里面，不插在 SVG 根上。** 呼吸、点头、生气抖动都写在 `bodyG` 的 `transform` 上，当子节点就自动跟着动。跟眼睛走的两件（眼高光、腮红）每帧抄眼睛的 `transform`：高光整条抄（跟着眨眼一起压扁），腮红只抄平移（跟了缩放会在眨眼时压成一条线）。
+
+页面皮肤（`data-skin`）与形象是两件事：皮肤只覆盖 CSS 令牌，管不到 SVG 里的丘丘。`apps/web/src/skin.ts` 里每个皮肤声明自己对应哪个 `look`。
+
 ## 7 · 人格合成规则
 
 ```
@@ -544,7 +562,14 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.11**（IPC 增通话转发）
+当前：**v0.1.12**（形象与皮肤同步）
+
+v0.1.12 两条：
+
+- **§ 6 增「形象」小节**，定义 `CharacterLook` 与配色 / 装扮两层，以及重打补丁必须无条件覆盖这条硬约束
+- **§ 2 增 `setSkin` 与 `onSkin`**。两个窗口是两个渲染进程，各自一份 `localStorage`，主窗口换了皮肤桌宠收不到，只能过主进程转
+
+v0.1.11（IPC 增通话转发）
 
 v0.1.11 一条：**§ 2 增 `callFromPet` 与 `onCallFromPet`**。
 

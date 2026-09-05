@@ -1,7 +1,7 @@
 /** 皮肤切换只动令牌，不该动组件——所以测的是属性和存储，不是渲染。 */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { applySkin, initSkin, readSkin, SKINS } from '../src/skin.js';
+import { applySkin, initSkin, lookOf, readSkin, SKINS, SKIN_EVENT } from '../src/skin.js';
 
 describe('skin', () => {
   beforeEach(() => {
@@ -38,8 +38,27 @@ describe('skin', () => {
     expect(readSkin()).toBe('default');
   });
 
-  it('两个皮肤都有名字和说明', () => {
-    expect(SKINS).toHaveLength(2);
-    for (const s of SKINS) expect(s.label && s.blurb).toBeTruthy();
+  it('每个皮肤都有名字、说明和形象', () => {
+    expect(SKINS.map((s) => s.id)).toEqual(['default', 'kawaii', 'anime']);
+    for (const s of SKINS) expect(s.label && s.blurb && s.look).toBeTruthy();
+  });
+
+  it('二次元换的不只是令牌，丘丘本人也换形象', () => {
+    // 素净和卡哇伊只动 CSS，丘丘照旧；二次元连球一起换
+    expect(lookOf('default')).toBe('warm');
+    expect(lookOf('kawaii')).toBe('warm');
+    expect(lookOf('anime')).toBe('anime');
+    applySkin('anime');
+    expect(document.documentElement.getAttribute('data-skin')).toBe('anime');
+  });
+
+  it('切皮肤会广播，挂着丘丘的组件靠它换形象（CSS 变量传不到 SVG 里）', () => {
+    const seen: string[] = [];
+    const onSkin = (e: Event): void => void seen.push((e as CustomEvent<string>).detail);
+    window.addEventListener(SKIN_EVENT, onSkin);
+    applySkin('anime');
+    applySkin('default');
+    window.removeEventListener(SKIN_EVENT, onSkin);
+    expect(seen).toEqual(['anime', 'default']);
   });
 });

@@ -42,6 +42,10 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   onSubmitFromPet(cb: (text: string) => void): void;
   /** 主窗口接住桌宠按的通话和弦。会话只跑在主窗口。 */
   onCallFromPet(cb: () => void): void;
+  /** 换皮肤。两个窗口是两个渲染进程，各有各的 localStorage 事件，只能过主进程同步。 */
+  setSkin(skin: string): void;
+  /** `setSkin` 的订阅端。**收到之后只应用不再广播**，否则两个窗口会来回弹。 */
+  onSkin(cb: (skin: string) => void): void;
   setPetPassthrough(ignore: boolean): void;
   setPetExpanded(expanded: boolean): void;
   popupPetMenu(state: { ambientPaused: boolean }): void;
@@ -92,6 +96,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     popupPetMenu(state) {
       ipc.send(TO_MAIN.popupPetMenu, state);
     },
+    setSkin(skin) {
+      ipc.send(TO_MAIN.setSkin, skin);
+    },
 
     onDelta(cb) {
       ipc.on(TO_RENDERER.delta, (_e, sessionId, text) => cb(String(sessionId), String(text)));
@@ -115,6 +122,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     },
     onAmbientToggle(cb) {
       ipc.on(TO_RENDERER.ambientToggle, (_e, paused) => cb(Boolean(paused)));
+    },
+    onSkin(cb) {
+      ipc.on(TO_RENDERER.skin, (_e, skin) => cb(String(skin)));
     },
 
     platform: () => 'desktop'

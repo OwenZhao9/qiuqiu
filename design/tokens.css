@@ -412,3 +412,97 @@
     --qq-color-border-strong: #684a70;
   }
 }
+
+/* ============================================================
+ * 皮肤 · 二次元
+ * ============================================================
+ * 挂在 `<html data-skin="anime">` 上。和「卡哇伊」一样只覆盖令牌。
+ *
+ * 与卡哇伊的区别不是「更粉」，是**取色的路子不同**：
+ * 卡哇伊走糖果色，同一族色相里靠明度分层；二次元走的是赛璐璐——
+ * 底色近乎白、饱和度压得很低，重点色（堇紫）单点提上去，
+ * 靠**大片留白衬一点浓色**产生层次。所以这里底比卡哇伊更淡、
+ * 品牌色比卡哇伊更沉。
+ *
+ * 丘丘本人不吃 CSS 令牌（它是 SVG），换的是 `apps/web/src/skin.ts` 里
+ * 声明的 `look: 'anime'`，见 `packages/character/src/costume.ts`。
+ */
+
+:root[data-skin='anime'] {
+  /* 圆角比卡哇伊收一点。赛璐璐的边是干净的，不是软的 */
+  --qq-radius-xs: 6px;
+  --qq-radius-sm: 10px;
+  --qq-radius-md: 14px;
+  --qq-radius-lg: 18px;
+  --qq-radius-xl: 24px;
+  --qq-radius-2xl: 30px;
+
+  /* 底与面：接近白的樱色，饱和度压到最低 */
+  --qq-color-bg: #fbf7fb;
+  --qq-color-bg-subtle: #f3edf7;
+  --qq-color-surface: #ffffff;
+  --qq-color-surface-hover: #f7f1fb;
+  --qq-color-surface-sunken: #efe8f6;
+  --qq-color-overlay: rgba(60, 44, 84, 0.34);
+
+  /* 描边淡紫，比卡哇伊冷 */
+  --qq-color-border: #e4dcf0;
+  --qq-color-border-strong: #c9bbe4;
+  --qq-color-focus: #7a5cc4;
+
+  /* 文字用堇紫的深色端，不用纯黑——纯黑会把赛璐璐的干净压掉 */
+  --qq-color-text: #332a4a;
+  --qq-color-text-secondary: #5b4f78;
+  --qq-color-text-muted: #8b81a6;
+  --qq-color-text-inverse: #fbf7fb;
+  --qq-color-text-link: #6a4bb8;
+
+  /* 品牌色：堇紫。与丘丘的瞳色 #4E3A7A 同族，浅两档 */
+  --qq-color-brand: #7a5cc4;
+  --qq-color-brand-hover: #6b4cb8;
+  --qq-color-brand-active: #5c3fa6;
+  --qq-color-brand-subtle: #ece4fa;
+  --qq-color-on-brand: #ffffff;
+
+  /* 记忆事件五色：低饱和的紫青粉黄，五个色相拉开，明度都压在中段 */
+  --qq-color-reject: #9a92ad;
+  --qq-color-reject-bg: #efedf4;
+  --qq-color-uncertain: #d99b3e;
+  --qq-color-uncertain-bg: #fdf0da;
+  --qq-color-write: #3fa9a0;
+  --qq-color-write-bg: #ddf3f1;
+  --qq-color-merge: #7a5cc4;
+  --qq-color-merge-bg: #ece4fa;
+  --qq-color-recall: #4e8fd0;
+  --qq-color-recall-bg: #dfedfa;
+
+  --qq-color-call: #3fa9a0;
+  --qq-color-hangup: #e0698a;
+
+  /* 圆润但比卡哇伊克制的字体栈 */
+  --qq-font-sans:
+    'Hiragino Maru Gothic ProN', 'PingFang SC', 'Noto Sans SC',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* 深色下的二次元：底色转成夜堇，不是把浅紫压暗 */
+:root[data-skin='anime'][data-theme='dark'],
+:root[data-skin='anime']:not([data-theme='light']) {
+  --qq-color-text: #efeaf8;
+  --qq-color-text-secondary: #cdc3e2;
+  --qq-color-text-muted: #a096bd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-skin='anime']:not([data-theme='light']) {
+    --qq-color-bg: #1c1830;
+    --qq-color-bg-subtle: #241f3c;
+    --qq-color-surface: #2a2447;
+    --qq-color-surface-hover: #332c55;
+    --qq-color-border: #3d3564;
+    --qq-color-border-strong: #57497f;
+    --qq-color-brand: #9c82df;
+    --qq-color-brand-hover: #ab94e6;
+    --qq-color-brand-subtle: #352c5c;
+  }
+}

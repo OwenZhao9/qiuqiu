@@ -22,7 +22,8 @@ export const TO_MAIN = {
   // 契约 § 2 之外、界面必须有的四件事，见 apps/web/src/bridge.ts 的注释
   setPetPassthrough: 'qq:set-pet-passthrough',
   setPetExpanded: 'qq:set-pet-expanded',
-  popupPetMenu: 'qq:popup-pet-menu'
+  popupPetMenu: 'qq:popup-pet-menu',
+  setSkin: 'qq:set-skin'
 } as const;
 
 /** 主进程推给渲染进程的。 */
@@ -33,7 +34,8 @@ export const TO_RENDERER = {
   submitFromPet: 'qq:on-submit-from-pet',
   callFromPet: 'qq:on-call-from-pet',
   petFocus: 'qq:on-pet-focus',
-  ambientToggle: 'qq:on-ambient-toggle'
+  ambientToggle: 'qq:on-ambient-toggle',
+  skin: 'qq:on-skin'
 } as const;
 
 export type ToMainChannel = (typeof TO_MAIN)[keyof typeof TO_MAIN];
