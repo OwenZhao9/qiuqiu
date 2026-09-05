@@ -252,7 +252,7 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
           ✕
         </text>
         {/* 排在 ✕ 正下方、漏斗右边。原来放 x=240，被漏斗的斜边压掉了半个字 */}
-        <text className="qq-map__s" x={266} y={362} textAnchor="start">
+        <text className="qq-map__s qq-map__l" x={266} y={362}>
           {rejected ? clip(p.reason, 7) : '冗余，丢掉'}
         </text>
 
@@ -402,10 +402,10 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
           ].map((d) => (
             <path key={d} className="qq-map__edge" d={d} markerEnd="url(#qq-tip)" />
           ))}
-          <text className="qq-map__s" x={766} y={448} textAnchor="end">
+          <text className="qq-map__s qq-map__r" x={766} y={448}>
             实体归并 · 丘丘没做
           </text>
-          <text className="qq-map__s" x={766} y={462} textAnchor="end">
+          <text className="qq-map__s qq-map__r" x={766} y={462}>
             第三路走标签，不跳图
           </text>
         </g>
@@ -485,17 +485,16 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
         />
         <Arrow d="M981,222 L981,238" lit={p.hits.length > 0} tone={3} />
 
+        {/* 圆里只放两个字。原来「并集 / 合并」两行挤在 r=24 的圆里，
+            字号提上去之后两行的包围盒直接叠在一起了 */}
         <g className={cls('qq-map__union', on(p.hits.length > 0))}>
           <circle cx={981} cy={262} r={24} />
-          <text className="qq-map__t" x={981} y={259}>
+          <text className="qq-map__t" x={981} y={267}>
             并集
           </text>
-          <text className="qq-map__t" x={981} y={271}>
-            合并
-          </text>
         </g>
-        <text className="qq-map__s" x={1018} y={266} textAnchor="start">
-          {p.hits.length > 0 ? `去重后 ${p.hits.length} 条` : '去重后得 R(q)'}
+        <text className="qq-map__s qq-map__l" x={1012} y={266}>
+          {p.hits.length > 0 ? `合并去重 ${p.hits.length} 条` : '合并去重得 R(q)'}
         </text>
 
         <Arrow d="M981,288 L981,310" lit={p.hits.length > 0} tone={3} />
@@ -521,13 +520,13 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
             </text>
           </g>
         ))}
-        <text className="qq-map__s" x={1042} y={360} textAnchor="start">
+        <text className="qq-map__s qq-map__l" x={1042} y={360}>
           先给摘要
         </text>
-        <text className="qq-map__s" x={1042} y={376} textAnchor="start">
+        <text className="qq-map__s qq-map__l" x={1042} y={376}>
           不够再展开
         </text>
-        <text className="qq-map__s" x={1042} y={392} textAnchor="start">
+        <text className="qq-map__s qq-map__l" x={1042} y={392}>
           {recall ? p.stages.recall.detail || '预算内为止' : '预算内为止'}
         </text>
 
@@ -543,22 +542,21 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
           rx={8}
         />
 
-        {/* 跨区：摄入 → 热存储 */}
-        <Arrow d="M320,530 L338,530 L338,128 L356,128" lit={wrote} tone={2} />
-        <text className="qq-map__s qq-map__rot" x={348} y={330}>
-          写入热存储
-        </text>
+        {/* 跨区：摄入 → 热存储。
+            走 x=348 而不是原图的 338——338 离摄入区那条汇流线（x=332）只有 6 个
+            单位，两条长竖线并排看着像一条粗的。顺带去掉「写入热存储」那个竖排
+            标签：两头的框本来就写着「生成记忆原子单元」和「热存储」，
+            它挤在 16 个单位宽的区间里只添乱。 */}
+        <Arrow d="M320,530 L348,530 L348,128 L356,128" lit={wrote} tone={2} />
 
-        {/* 跨区：存储 → 检索，回读。虚线，因为它是读不是写 */}
-        <Arrow d="M784,128 L800,128 L800,171 L828,171" lit={p.hits.length > 0} dashed tone={3} />
-        <Arrow
-          d="M784,266 L796,266 L796,171"
-          lit={p.promoted.length > 0}
-          dashed
-          tone={3}
-          tip={false}
-        />
-        <Arrow d="M784,504 L806,504 L806,171" lit={false} dashed tone={3} tip={false} />
+        {/* 跨区：存储 → 检索，回读。虚线，因为它是读不是写。
+            原图三条竖线分别走 x=796 / 800 / 806，挤在 16 个单位宽的区间里成了一条
+            毛边。并成一条干线（x=806），三处出口用横向短线接上去。 */}
+        <Arrow d="M806,504 L806,128" lit={p.hits.length > 0} dashed tone={3} tip={false} />
+        <Arrow d="M784,128 L806,128" lit={p.hits.length > 0} dashed tone={3} tip={false} />
+        <Arrow d="M784,266 L806,266" lit={p.promoted.length > 0} dashed tone={3} tip={false} />
+        <Arrow d="M784,504 L806,504" lit={false} dashed tone={3} tip={false} />
+        <Arrow d="M806,171 L828,171" lit={p.hits.length > 0} dashed tone={3} />
         <text className="qq-map__s" x={806} y={112}>
           读取
         </text>
