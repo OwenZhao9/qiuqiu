@@ -112,11 +112,46 @@ def test_missing_key_raises_instead_of_falling_back_to_mock(capability: str) -> 
     assert err.to_dict()["error"]["code"] == "model.provider_not_configured"
 
 
-@pytest.mark.parametrize("capability", ["asr", "vad", "tts"])
+@pytest.mark.parametrize("capability", ["asr", "vad"])
 def test_deferred_capabilities_raise_with_hint(capability: str) -> None:
+    """还没接真实实现的能力，hint 要告诉人怎么绕过去。"""
     with pytest.raises(base.ProviderNotConfiguredError) as excinfo:
         registry.get(capability)
     assert "MODELS_MOCK=1" in excinfo.value.hint
+
+
+def test_tts_without_key_raises_and_points_at_azure() -> None:
+    """TTS 有真实实现（Azure 官方接口），缺的是配置不是实现——
+    所以 hint 该说去哪拿 key，而不是叫人开 mock。"""
+    with pytest.raises(base.ProviderNotConfiguredError) as excinfo:
+        registry.get("tts")
+    hint = excinfo.value.hint
+    assert "AZURE_SPEECH_KEY" in hint
+    assert "AZURE_SPEECH_REGION" in hint
+
+
+def test_tts_reports_configured_once_both_azure_vars_are_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`GET /providers` 的 `has_key` 要如实反映 Azure 配没配好，且**不回 key 本身**。"""
+    monkeypatch.setenv("AZURE_SPEECH_KEY", "fake-key")
+    monkeypatch.setenv("AZURE_SPEECH_REGION", "eastasia")
+    registry.reset()
+    tts = next(p for p in registry.list_providers() if p["capability"] == "tts")
+    assert tts["provider"] == "azure"
+    assert tts["has_key"] is True
+    assert tts["available"] is True
+    assert "fake-key" not in str(tts)
+
+
+def test_tts_needs_both_vars_not_just_the_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """只填 key 不填区域是配不通的，别报成已就绪。"""
+    monkeypatch.setenv("AZURE_SPEECH_KEY", "fake-key")
+    monkeypatch.delenv("AZURE_SPEECH_REGION", raising=False)
+    registry.reset()
+    tts = next(p for p in registry.list_providers() if p["capability"] == "tts")
+    assert tts["has_key"] is False
+    assert tts["hint"]
 
 
 def test_realtime_without_mock_in_realtime_mode_raises(

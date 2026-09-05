@@ -32,7 +32,8 @@ __all__ = ["get", "list_providers", "reset", "mock_enabled", "voice_mode"]
 _lock = threading.Lock()
 _instances: dict[str, Any] = {}
 
-#: 推迟到 M5 的能力 → (供应商名, 缺什么, 怎么办)
+#: 还没有真实实现、或缺配置的能力 → (供应商名, 缺什么, 怎么办)。
+#: `tts` 已有真实实现（`azure_tts`），这里的条目只在缺 key 时用来报错。
 _DEFERRED: dict[str, tuple[str, str, str]] = {
     "asr": (
         "sensevoice",
@@ -45,9 +46,11 @@ _DEFERRED: dict[str, tuple[str, str, str]] = {
         "先用文字聊；要离线开发就设 MODELS_MOCK=1。",
     ),
     "tts": (
-        "edge",
-        "语音合成还没接上（edge-tts 计划在 M5 接入）。",
-        "回复照常显示文字，只是没有声音；要离线开发就设 MODELS_MOCK=1。",
+        "azure",
+        "语音合成没配好：缺少 AZURE_SPEECH_KEY 或 AZURE_SPEECH_REGION。",
+        "Azure 门户建一个 Speech 资源（定价层 F0，每月 50 万字符免费），"
+        "密钥填 AZURE_SPEECH_KEY、区域填 AZURE_SPEECH_REGION（如 eastasia）。"
+        "没有 key 时回复照常显示文字，只是没有声音。",
     ),
     "realtime": (
         "doubao",
@@ -119,6 +122,13 @@ def _build(capability: str) -> Any:
 
         return deepseek_vision.from_env()
 
+    if capability == "tts":
+        # 供应商由 TTS_PROVIDER 选，默认 azure。azure 是官方接口、可用于产品，
+        # 音色与 Edge 朗读同一批（`zh-CN-XiaoxiaoNeural` 本来就是 Azure 的音色名）。
+        from .providers import azure_tts
+
+        return azure_tts.from_env()
+
     provider, what, todo = _DEFERRED[capability]
     raise ProviderNotConfiguredError(
         what,
@@ -176,7 +186,7 @@ def list_providers() -> list[dict[str, Any]]:
         )
 
     for capability in ("asr", "vad", "tts", "realtime"):
-        provider, what, todo = _DEFERRED[capability]
+        provider, _what, todo = _DEFERRED[capability]
         if capability == "realtime":
             available = mock and mode == "realtime"
             hint = (
@@ -185,12 +195,18 @@ def list_providers() -> list[dict[str, Any]]:
                 else (todo if mode == "realtime" else "级联模式下不使用端到端语音。")
             )
             has_key = bool(os.environ.get("VOLC_ARK_API_KEY", "").strip())
+        elif capability == "tts":
+            # Azure 语音服务是官方接口，key 齐了就真的能用，不只是 mock 下可用。
+            has_key = bool(
+                os.environ.get("AZURE_SPEECH_KEY", "").strip()
+                and os.environ.get("AZURE_SPEECH_REGION", "").strip()
+            )
+            available = mock or has_key
+            hint = None if available else todo
         else:
             available = mock
             hint = None if available else todo
-            has_key = (
-                bool(os.environ.get("VOLC_TTS_TOKEN", "").strip()) if capability == "tts" else False
-            )
+            has_key = False
         infos.append(
             ProviderInfo(
                 capability=capability,

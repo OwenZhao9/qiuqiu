@@ -48,14 +48,19 @@
 - [ ] `evaluate(pcm16k)` 返回 `has_speech` `energy` `confidence`
 - [ ] 阈值从 `/config/thresholds` 读，热更新
 
-**TTS · edge**（`edge_tts.py`）
-- [ ] `edge-tts` 包，默认音色 `zh-CN-XiaoxiaoNeural`
-- [ ] `synthesize()` 返回 `AudioChunk` 流，每 chunk 含 pcm 与 rms（口型包络用）
-- [ ] 代码注释标明：非官方接口，仅 demo
+**TTS · Azure**（`azure_tts.py`）**已完成**
+- [x] Azure 语音服务 REST 接口，端点 `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1`
+- [x] 输出 `raw-16khz-16bit-mono-pcm`，裸 PCM 直接就是 `AudioChunk` 要的形状，不用解码
+- [x] `synthesize()` 返回 `AudioChunk` 流，上游分片重切成 20ms 定长块（不重切的话 rms 会抖）
+- [x] 默认音色 `zh-CN-XiaoxiaoNeural`，`AZURE_TTS_VOICE` 可换
+- [x] SSML 转义用户文本；错误按状态码给不同 hint
 
-**TTS · volcengine**（`volc_tts.py`，占位）
-- [ ] 接口实现，key 缺失时 `registry` 不注册
-- [ ] 正式环境替换 edge
+音色与 Edge 朗读同一批——`zh-CN-XiaoxiaoNeural` 本来就是 Azure 的音色名，Edge 背后调的
+就是这个服务。这里走官方接口带自己的订阅密钥，可用于产品。F0 档每月 50 万字符免费。
+
+**换别家 TTS**（可选）
+- [ ] 火山、阿里等只是多一个 `<vendor>_tts.py`，`TTS` 协议不变
+- [ ] 由 `TTS_PROVIDER` 选，缺 key 时 registry 抛带 hint 的错（AD-16，不静默换 mock）
 
 **Image Gen · Seedream**（`seedream.py`，可选）
 - [ ] 火山方舟 `/images/generations`
@@ -86,7 +91,7 @@
 - 真实 key 下 `ChatModel.stream()` 首字 < 1s
 - SenseVoice 识别 10 秒中文音频，字准率 > 90%（用公开测试集一段）
 - silero 对 1 秒静音返回 `has_speech=False`，对 1 秒人声返回 `True`
-- edge-tts 合成 20 字中文，`AudioChunk` 的 `rms` 序列非零且随语音起伏
+- Azure 合成 20 字中文，`AudioChunk` 的 `rms` 序列非零且随语音起伏
 - `pytest` 通过
 
 ## 受哪些 AD 约束
@@ -101,7 +106,7 @@ AD-8、AD-13、AD-16
 
 **边做边定，定完回报**：
 - SenseVoice 流式分段长度
-- edge-tts 输出 mp3 转 pcm 的解码库
+- 长文本要不要切句并行合成（现在是整段一次请求）
 
 ## 与其他分支
 
