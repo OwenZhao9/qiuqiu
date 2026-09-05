@@ -118,10 +118,21 @@ describe('petSize', () => {
 
   it('有气泡才加间隙，高度向上取整', () => {
     expect(petSize({ expanded: false, bubble: 43.2 })).toEqual({
-      width: 256,
+      // 有气泡时用展开态的宽度：气泡靠右上、尖角朝左下指着丘丘，
+      // 窗口只有丘丘那么宽的话「靠右」无处可靠
+      width: 336,
       height: 308,
       above: 52
     });
+  });
+
+  it('气泡出现只加宽，不动球心', () => {
+    const shut = { expanded: false, bubble: 0 };
+    const withBubble = { expanded: false, bubble: 44 };
+    const rect = { x: 400, y: 300, ...PET_COLLAPSED };
+    const out = petBounds(rect, shut, withBubble);
+    expect(out.width).toBe(336);
+    expect(ballCenter(out, withBubble)).toEqual(ballCenter(rect, shut));
   });
 });
 

@@ -102,8 +102,16 @@ export function petSize(layout: PetLayout): {
   above: number;
 } {
   const above = bubbleBlock(layout.bubble);
+  // 有气泡时也用展开态的宽度：气泡靠右上、尖角朝左下指着丘丘（漫画那样），
+  // 窗口只有丘丘那么宽的话「靠右」就无处可靠，看着还是顶在正上方。
+  // 丘丘始终水平居中，窗口变宽时 `petBounds` 会把 x 补回来，球心不动。
+  const wide = layout.expanded || layout.bubble > 0;
   const base = layout.expanded ? PET_EXPANDED : PET_COLLAPSED;
-  return { width: base.width, height: above + base.height, above };
+  return {
+    width: wide ? PET_EXPANDED.width : base.width,
+    height: above + base.height,
+    above
+  };
 }
 
 function sizeOf(expanded: boolean): { width: number; height: number } {

@@ -10,7 +10,7 @@
  *       ├─ mid    泽面高光 · 蝴蝶结 · 腮红   ← 压在身体上、眼睛下
  *       ├─ eyeL   （引擎的左眼）
  *       ├─ eyeR   （引擎的右眼）
- *       └─ front  眼高光 · 闪光          ← 压在眼睛上
+ *       └─ front  眼高光                ← 压在眼睛上
  *
  * 插在 `bodyG` 里面而不是 SVG 根上，是为了**白拿身体的整体变换**：呼吸、点头、
  * 生气时的抖动都写在 `bodyG` 的 `transform` 上，当子节点就自动跟着动，一帧 JS 都不用跑。
@@ -53,15 +53,6 @@ function el<K extends string>(tag: K, attrs: Record<string, string | number>): S
   return node;
 }
 
-/** 页面要求减少动效时，闪光不闪。 */
-function prefersReducedMotion(view: Window | null): boolean {
-  try {
-    return view?.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * 从引擎写的 eye `transform` 里取出平移量与「基准点」。
  *
@@ -85,17 +76,6 @@ export function parseEyeTransform(
   const base: [number, number] = [-Number(tail[1]), -Number(tail[2])];
   if (![...at, ...base].every(Number.isFinite)) return null;
   return { at, base };
-}
-
-/** 四角星。二次元的闪光是尖的，不是圆点。 */
-function starPath(r: number): string {
-  const w = r * 0.16;
-  return (
-    `M 0 ${-r} C ${w} ${-w} ${w} ${-w} ${r} 0 ` +
-    `C ${w} ${w} ${w} ${w} 0 ${r} ` +
-    `C ${-w} ${w} ${-w} ${w} ${-r} 0 ` +
-    `C ${-w} ${-w} ${-w} ${-w} 0 ${-r} Z`
-  );
 }
 
 /** 挂上去的一层装扮。`destroy` 之后引擎的 SVG 回到原样。 */
@@ -122,8 +102,6 @@ export interface MountCostumeOptions {
   /** 注入 rAF，测试里换成手动步进。 */
   raf?: (cb: () => void) => number;
   cancel?: (handle: number) => void;
-  /** 强制开 / 关动效，缺省读 `prefers-reduced-motion`。 */
-  animate?: boolean;
 }
 
 /**
@@ -150,8 +128,6 @@ export function mountCostume(
   if (!head || !eyeL || !eyeR) return null;
 
   const uid = `qqc${++seq}`;
-  const view = mount.ownerDocument?.defaultView ?? null;
-  const animate = opts.animate ?? !prefersReducedMotion(view);
 
   /* ---------------- defs：腮红与泽面的柔边渐变 ---------------- */
 
@@ -274,7 +250,7 @@ export function mountCostume(
   mid.appendChild(blushR);
   body.insertBefore(mid, eyeL);
 
-  /* ---------------- front：眼高光 · 闪光 ---------------- */
+  /* ---------------- front：眼高光 ---------------- */
 
   const front = el('g', { class: 'qq-costume qq-costume--front', 'pointer-events': 'none' });
 
@@ -316,34 +292,7 @@ export function mountCostume(
   front.appendChild(shineL.g);
   front.appendChild(shineR.g);
 
-  // 闪光：三颗，全在轮廓之外的留白里，不压在身上（压在身上像脏点）
-  const sparkSpots: [number, number, number, number][] = [
-    [16, 26, 8, 0],
-    [231, 60, 5.6, 0.9],
-    [237, 130, 4.2, 1.7]
-  ];
-  for (const [x, y, r, delay] of sparkSpots) {
-    const s = el('path', {
-      class: 'qq-costume__spark',
-      d: starPath(r),
-      fill: '#FFC94D',
-      transform: `translate(${x} ${y})`,
-      opacity: animate ? 0 : 0.85
-    });
-    if (animate) {
-      s.appendChild(
-        el('animate', {
-          attributeName: 'opacity',
-          values: '0;0.95;0.2;0.9;0',
-          keyTimes: '0;0.18;0.4;0.62;1',
-          dur: '2.8s',
-          begin: `${delay}s`,
-          repeatCount: 'indefinite'
-        })
-      );
-    }
-    front.appendChild(s);
-  }
+  // 原来这里还有三颗闪光，按需求去掉了。
   body.appendChild(front);
 
   /* ---------------- 每帧：跟着眼睛走 ---------------- */

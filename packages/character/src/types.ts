@@ -242,7 +242,7 @@ export type QiuqiuPreset = 'pet' | 'main' | 'web';
  * 形象换的是球本身的配色与身上那层装扮。
  *
  * - `warm`  —— 原本的暖奶油小球，不戴任何装扮
- * - `anime` —— 二次元少女：樱色瓷白 + 紫瞳，加眼高光、腮红、蝴蝶结、闪光
+ * - `anime` —— 二次元少女：樱色瓷白 + 紫瞳，加眼高光、腮红、蝴蝶结
  */
 export type CharacterLook = 'warm' | 'anime';
 

@@ -208,7 +208,7 @@ describe('装扮层', () => {
 
   it('anime 按 back / mid / front 三层插进 bodyG，顺序决定遮挡', () => {
     const { mount } = makeBallDom();
-    const c = mountCostume(mount, 'anime', { ...raf, animate: false });
+    const c = mountCostume(mount, 'anime', raf);
     expect(c).not.toBeNull();
 
     const body = findBodyGroup(mount.querySelector('svg') as unknown as SVGElement)!;
@@ -225,21 +225,20 @@ describe('装扮层', () => {
     ]);
   });
 
-  it('零件齐全：蝴蝶结 · 两片腮红 · 两只眼的高光 · 三颗闪光', () => {
+  it('零件齐全：蝴蝶结 · 两片腮红 · 两只眼的高光', () => {
     const { mount } = makeBallDom();
-    mountCostume(mount, 'anime', { ...raf, animate: false });
+    mountCostume(mount, 'anime', raf);
     expect(mount.querySelectorAll('.qq-costume__ahoge'), '呆毛已去掉').toHaveLength(0);
     expect(mount.querySelectorAll('.qq-costume__bow')).toHaveLength(1);
     expect(mount.querySelectorAll('.qq-costume__blush')).toHaveLength(2);
     expect(mount.querySelectorAll('.qq-costume__shine')).toHaveLength(2);
-    expect(mount.querySelectorAll('.qq-costume__spark')).toHaveLength(3);
   });
 
   it('高光照抄眼睛的变换，腮红只跟平移', () => {
     const { mount, eyeL } = makeBallDom();
     const t = 'translate(100 60) scale(1.2 0.5) translate(-136.56 -66.76)';
     eyeL.setAttribute('transform', t);
-    const c = mountCostume(mount, 'anime', { ...raf, animate: false })!;
+    const c = mountCostume(mount, 'anime', raf)!;
     c.sync();
 
     const shine = mount.querySelector('.qq-costume__shine') as SVGElement;
@@ -256,7 +255,7 @@ describe('装扮层', () => {
     const { mount, eyeL } = makeBallDom();
     eyeL.setAttribute('transform', 'translate(0 0) scale(1 1) translate(-50 -40)');
     eyeL.setAttribute('d', 'M 1 2 L 3 4 Z');
-    const c = mountCostume(mount, 'anime', { ...raf, animate: false })!;
+    const c = mountCostume(mount, 'anime', raf)!;
     c.sync();
 
     const big = mount.querySelector('.qq-costume__shine circle') as SVGElement;
@@ -272,29 +271,25 @@ describe('装扮层', () => {
   it('眼睛转到背面被 display:none 时，高光和腮红一起收起来', () => {
     const { mount, eyeL } = makeBallDom();
     eyeL.setAttribute('transform', 'translate(10 10) scale(1 1) translate(-5 -5)');
-    const c = mountCostume(mount, 'anime', { ...raf, animate: false })!;
+    const c = mountCostume(mount, 'anime', raf)!;
     (eyeL as unknown as HTMLElement).style.display = 'none';
     c.sync();
     expect(mount.querySelector('.qq-costume__shine')!.getAttribute('opacity')).toBe('0');
     expect(mount.querySelector('.qq-costume__blush')!.getAttribute('opacity')).toBe('0');
   });
 
-  it('减少动效时闪光不加 animate，直接常亮', () => {
+  it('不再有闪光，也不留 SMIL 动画', () => {
     const { mount } = makeBallDom();
-    mountCostume(mount, 'anime', { ...raf, animate: false });
+    mountCostume(mount, 'anime', raf);
+    expect(mount.querySelectorAll('.qq-costume__spark')).toHaveLength(0);
     expect(mount.querySelectorAll('animate')).toHaveLength(0);
-    expect(mount.querySelector('.qq-costume__spark')!.getAttribute('opacity')).toBe('0.85');
-
-    const b = makeBallDom();
-    mountCostume(b.mount, 'anime', { ...raf, animate: true });
-    expect(b.mount.querySelectorAll('animate')).toHaveLength(3);
   });
 
   it('destroy 之后 SVG 回到原样，rAF 也停了', () => {
     const { mount } = makeBallDom();
     const before = (mount.querySelector('svg') as SVGElement).outerHTML;
     const cancel = vi.fn();
-    const c = mountCostume(mount, 'anime', { raf: raf.raf, cancel, animate: false })!;
+    const c = mountCostume(mount, 'anime', { raf: raf.raf, cancel })!;
     expect((mount.querySelector('svg') as SVGElement).outerHTML).not.toBe(before);
     c.destroy();
     expect(cancel).toHaveBeenCalled();
@@ -460,7 +455,7 @@ describe('setLight', () => {
 describe('装扮的泽面高光', () => {
   it('跟着光源挪，方向一致', () => {
     const { mount } = makeBallDom();
-    const c = mountCostume(mount, 'anime', { raf: () => 0, cancel: () => {}, animate: false })!;
+    const c = mountCostume(mount, 'anime', { raf: () => 0, cancel: () => {} })!;
     const gloss = mount.querySelector('.qq-costume__gloss') as SVGElement;
     const before = gloss.getAttribute('transform')!;
     c.setLight(1, 0);

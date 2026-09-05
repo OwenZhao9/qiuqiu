@@ -1087,11 +1087,20 @@ select {
 
    分两层：外层 balloon 画框和尖角，内层 bubble 负责超长时滚动。
    合成一层的话 `overflow-y: auto` 会把尖角那两个伪元素一起裁掉。 */
+/* 漫画对话框：靠右上，左下角一个尖角指回丘丘（丘丘在窗口正中偏下）。
+   不能用 position: absolute 钉在丘丘上方——桌宠窗口是透明无边框的，画在窗口
+   外面的一律被裁掉。它是正常排在丘丘前面的一块，窗口尺寸由主进程按量出来的
+   高度撑开（PetApp 报 setPetBubble，geometry.petSize 算窗口）。
+
+   分两层：外层 balloon 画框和尖角，内层 bubble 负责超长时滚动。
+   合成一层的话 `overflow-y: auto` 会把尖角那两个伪元素一起裁掉。 */
 .qq-pet__balloon {
   position: relative;
   flex: 0 0 auto;
-  align-self: center;
-  max-width: 100%;
+  /* 靠右：漫画里说话的框在角色斜上方，不是顶在头正上方。
+     留出一截让「靠右」看得出来——满宽的话靠不靠右都一个样。 */
+  align-self: flex-end;
+  max-width: 88%;
   padding: var(--qq-space-4) var(--qq-space-5);
   border: var(--qq-border-thin) solid var(--qq-color-border-strong);
   border-radius: var(--qq-radius-2xl);
@@ -1110,28 +1119,32 @@ select {
   white-space: pre-wrap;
 }
 
-/* 尖角：两个三角叠在一起，下面那个是描边、上面那个是底色，
-   错开正好露出跟对话框一样细的边。它落在对话框与丘丘之间的间隙里。 */
+/* 尖角在左下、朝左下斜着指——丘丘在窗口水平正中，对话框靠右，
+   所以它在对话框的左下方。两个三角叠着：下面那个是描边，上面那个是底色。 */
 .qq-pet__balloon::before,
 .qq-pet__balloon::after {
   content: '';
   position: absolute;
   top: 100%;
-  left: 50%;
+  /* 对着丘丘：它永远在窗口水平正中，而对话框靠右——所以尖角落在对话框中线
+     偏左一点，正好指过去。斜切一下才像漫画的尾巴，不是一个正三角。 */
+  left: 42%;
   width: 0;
   height: 0;
   border-style: solid;
+  transform: skewX(-20deg);
+  transform-origin: top center;
 }
 
 .qq-pet__balloon::before {
   margin-left: -11px;
-  border-width: 13px 11px 0;
+  border-width: 15px 11px 0;
   border-color: var(--qq-color-border-strong) transparent transparent;
 }
 
 .qq-pet__balloon::after {
-  margin-left: -10px;
-  border-width: 11px 10px 0;
+  margin-left: -9px;
+  border-width: 13px 9px 0;
   border-color: var(--qq-color-surface) transparent transparent;
 }
 
