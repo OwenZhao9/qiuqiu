@@ -17,6 +17,7 @@ import {
   type ScenarioInfo
 } from '../api.js';
 import { VoicePicker } from './VoicePicker.js';
+import { applySkin, readSkin, SKINS, type Skin } from '../skin.js';
 
 const CAPABILITY_CN: Record<string, string> = {
   chat: '对话',
@@ -33,6 +34,7 @@ export function SettingsPage(): React.JSX.Element {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<readonly ScenarioInfo[]>(FALLBACK_SCENARIOS);
+  const [skin, setSkin] = useState<Skin>(readSkin);
 
   const load = useCallback(() => {
     getProviders()
@@ -100,6 +102,29 @@ export function SettingsPage(): React.JSX.Element {
                 {busy === s.name ? '回放中…' : '回放'}
               </button>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="qq-section__title">外观</h2>
+        <p className="qq-note">只换颜色与圆角，功能完全一样。</p>
+        <div className="qq-voices" role="radiogroup" aria-label="外观">
+          {SKINS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              role="radio"
+              aria-checked={skin === s.id}
+              className={'qq-voice' + (skin === s.id ? ' qq-voice--on' : '')}
+              onClick={() => {
+                setSkin(s.id);
+                applySkin(s.id);
+              }}
+            >
+              <span className="qq-voice__label">{s.label}</span>
+              <span className="qq-voice__blurb">{s.blurb}</span>
+            </button>
           ))}
         </div>
       </section>

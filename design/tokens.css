@@ -325,3 +325,90 @@
     will-change: auto;
   }
 }
+
+/* ============================================================
+ * 皮肤 · 卡哇伊
+ * ============================================================
+ * 挂在 `<html data-skin="kawaii">` 上。**只覆盖令牌，不碰任何组件的
+ * 类名与结构**——换皮肤不该动一行组件代码，这是分层的意义。
+ *
+ * 三件事让它可爱：颜色从暖棕换成粉紫奶油、圆角全线加大、
+ * 字体加圆润的候选。层次靠色相区分，不靠深浅，所以浅色也不糊。
+ */
+
+:root[data-skin='kawaii'] {
+  /* 圆角整体放大一档，方块感消失 */
+  --qq-radius-xs: 8px;
+  --qq-radius-sm: 12px;
+  --qq-radius-md: 16px;
+  --qq-radius-lg: 22px;
+  --qq-radius-xl: 28px;
+  --qq-radius-2xl: 36px;
+
+  /* 底与面：奶油偏粉，不刺眼 */
+  --qq-color-bg: #fff5f8;
+  --qq-color-bg-subtle: #ffe9f0;
+  --qq-color-surface: #ffffff;
+  --qq-color-surface-hover: #fff0f5;
+  --qq-color-surface-sunken: #ffe4ee;
+  --qq-color-overlay: rgba(120, 70, 100, 0.36);
+
+  /* 描边比原来淡，粉调 */
+  --qq-color-border: #ffd3e2;
+  --qq-color-border-strong: #ffb3ce;
+  --qq-color-focus: #ff7fb0;
+
+  /* 文字仍是深色，可读性优先——可爱不等于看不清 */
+  --qq-color-text: #4a3340;
+  --qq-color-text-secondary: #6f5566;
+  --qq-color-text-muted: #9b8090;
+  --qq-color-text-inverse: #fff5f8;
+  --qq-color-text-link: #e0559a;
+
+  /* 品牌色：草莓粉 */
+  --qq-color-brand: #ff7fb0;
+  --qq-color-brand-hover: #ff6aa3;
+  --qq-color-brand-active: #f05596;
+  --qq-color-brand-subtle: #ffe0ec;
+  --qq-color-on-brand: #ffffff;
+
+  /* 记忆事件五色：全部换成粉紫黄绿的糖果调，仍然互相区分得开 */
+  --qq-color-reject: #a596a8;
+  --qq-color-reject-bg: #f3eef4;
+  --qq-color-uncertain: #e8a33d;
+  --qq-color-uncertain-bg: #fff2d9;
+  --qq-color-write: #56c4a0;
+  --qq-color-write-bg: #dcf7ee;
+  --qq-color-merge: #a97fe0;
+  --qq-color-merge-bg: #f0e6ff;
+  --qq-color-recall: #5eaee8;
+  --qq-color-recall-bg: #e0f1ff;
+
+  /* 通话按钮跟着变糖果色 */
+  --qq-color-call: #4fc79b;
+  --qq-color-hangup: #ff7a8a;
+
+  /* 圆润字体优先，取不到就退回原来的栈 */
+  --qq-font-sans:
+    'Hiragino Maru Gothic ProN', 'YuanTi SC', 'Yuanti SC', 'PingFang SC',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* 深色下的卡哇伊：底色转成夜里的紫，不是把粉直接压暗（那样会脏） */
+:root[data-skin='kawaii'][data-theme='dark'],
+:root[data-skin='kawaii']:not([data-theme='light']) {
+  --qq-color-text: #f6ecf3;
+  --qq-color-text-secondary: #d9c4d3;
+  --qq-color-text-muted: #b199aa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-skin='kawaii']:not([data-theme='light']) {
+    --qq-color-bg: #241a24;
+    --qq-color-bg-subtle: #2c202d;
+    --qq-color-surface: #332535;
+    --qq-color-surface-hover: #3c2b3e;
+    --qq-color-border: #4a3550;
+    --qq-color-border-strong: #684a70;
+  }
+}
