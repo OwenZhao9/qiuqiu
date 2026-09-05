@@ -7,16 +7,16 @@
 | design | M2 骨架可跑 | 已合并 | — | — |
 | models | M2 骨架可跑 | 已合并 | — | — |
 | data | M2 骨架可跑 | 已合并 | — | — |
-| memory | M2 骨架可跑 | 进行中 | — | — |
-| character | M2 骨架可跑 | 进行中 | — | — |
-| backend | M2 骨架可跑 | 未开始 | 等 memory 合并 | 等 memory、models、data |
-| frontend | M2 骨架可跑 | 未开始 | 等 backend、character 合并 | 等 backend、character |
+| memory | M2 骨架可跑 | 已合并 | — | — |
+| character | M2 骨架可跑 | 已合并 | — | — |
+| backend | M2 骨架可跑 | 进行中 | — | — |
+| frontend | M2 骨架可跑 | 进行中 | — | 契约 § 1 若因 backend 报缺口升版本，需同步 |
 
 ## 契约版本
 
-当前 `CONTRACTS.md` **v0.1.5**。各分支在 PR 描述里声明依赖版本。
+当前 `CONTRACTS.md` **v0.1.7**。各分支在 PR 描述里声明依赖版本。
 
-三轮升版都来自分支报上来的契约缺口，由主调度裁决：
+五轮升版都来自分支报上来的契约缺口，由主调度裁决。每轮的逐条内容在 `docs/CONTRACTS.md` § 8 的版本历史里，这里只记来源与影响面：
 
 **v0.1.3**（`models` 报的）
 
@@ -45,9 +45,12 @@ M2 骨架可跑：后端起得来、前端起得来、丘丘在页面上会眨�
 合并顺序按 ARCHITECTURE.md 第 5 节依赖图分四波：
 
 1. ~~`design` `models` `data`~~（无相互依赖，并行）—— 三个都已合并
-2. `memory` `character` —— 进行中
-3. `backend`
-4. `frontend`
+2. ~~`memory` `character`~~ —— 都已合并
+3. `backend` `frontend` —— 并行进行中
+
+第三波原计划是 `backend` 先、`frontend` 后。改为并行，理由：契约 v0.1.7 已冻结，前端照 § 1 与 § 2 写即可，这正是契约先行要换来的东西。风险是 backend 报上来的缺口会动 § 1，前端要跟着改；对冲办法是要求前端把全部 HTTP 与 SSE 收发关在 `apps/web/src/api.ts` 一个文件里，组件不出现 `fetch` 与路径字符串，契约升版本时改动只落一处。
+
+M2 之后停下，等 `.env` 填 `DEEPSEEK_API_KEY` 才能进 M3。
 
 ## 合并记录
 
@@ -60,6 +63,12 @@ M2 骨架可跑：后端起得来、前端起得来、丘丘在页面上会眨�
 | 2026-09-05 | （主调度）契约 v0.1.4 | `9022d1c` | v0.1.4 | — |
 | 2026-09-05 | （主调度）契约 v0.1.5 | `0f54e6f` | v0.1.5 | — |
 | 2026-09-05 | design | squash 7 个提交 | v0.1.5 | 通过（仅文档） |
+| 2026-09-05 | （主调度）契约 v0.1.6 | `352937d` | v0.1.6 | — |
+| 2026-09-05 | character | `48106fa` + `3121c40` | v0.1.6 | 通过（190 用例） |
+| 2026-09-05 | （主调度）契约 v0.1.7 | `e00b924` | v0.1.7 | — |
+| 2026-09-05 | memory | `4509890` + `5b50bff` | v0.1.7 | 通过 |
+| 2026-09-05 | data 补丁 | `a087642` | v0.1.7 | 通过 |
+| 2026-09-05 | character 契约钉子 | `86a9819` | v0.1.7 | 通过（190 用例） |
 
 ## 主调度自己做的决定
 
@@ -67,3 +76,4 @@ M2 骨架可跑：后端起得来、前端起得来、丘丘在页面上会眨�
 - **后端包名定为 `qiuqiu_api`**，目录仍是 `services/api/`（架构文档只定目录没定包名），与 `qiuqiu_data` / `qiuqiu_memory` / `qiuqiu_models` 一致，各自是独立 workspace 成员，各管各的依赖。`scripts/smoke.sh` 第 3 步相应改为 `python -m qiuqiu_api.main --check`
 - **`scripts/smoke.sh` 扩成五步**：lint + format 检查、pytest、后端自检、pnpm 安装、前端构建。骨架阶段 pytest 无用例（退出码 5）判为通过
 - **M2 范围裁剪**：`models` 本轮只做 base / registry / metrics / mock / DeepSeek Chat 与 Vision；ASR、VAD、TTS、Seedream、RealtimeVoice 六个真实供应商推迟到 M5，registry 已留分支且缺失时抛带 `hint` 的错误（按 AD-16，不静默换 mock）
+- **无人值守跑法留在仓库里**：`scripts/run.sh` 按顺序跑 `scripts/prompts/` 下的阶段，额度用完时 `claude -p` 报错退出，等 30 分钟重试。`.claude/settings.json` 把 `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS` 设为 `0`——不设的话 `-p` 模式下主调度收工后子 Agent 最多再跑 600 秒就被掐掉，实测掐掉过两次
