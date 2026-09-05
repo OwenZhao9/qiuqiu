@@ -285,7 +285,10 @@ describe('1600 ms 事件表情', () => {
       })
     ).toBe('40');
     expect(
-      applyEvent(m, { type: 'recall', payload: { hits: [{ id: 'h', text: 'x' }], cold_promoted: [] } })
+      applyEvent(m, {
+        type: 'recall',
+        payload: { hits: [{ id: 'h', text: 'x' }], cold_promoted: [] }
+      })
     ).toBe('37');
   });
 
@@ -370,7 +373,10 @@ function parseCurve(): CurveRow[] {
   for (const line of block.split('\n')) {
     const t = line.trim();
     if (!t.startsWith('|')) continue;
-    const cells = t.slice(1, -1).split('|').map((c) => c.trim().replace(/`/g, ''));
+    const cells = t
+      .slice(1, -1)
+      .split('|')
+      .map((c) => c.trim().replace(/`/g, ''));
     if (cells.length !== 5) continue;
     const rms = Number(cells[0]);
     if (!Number.isFinite(rms)) continue; // 表头、分隔行、「≥ 0.35」那行

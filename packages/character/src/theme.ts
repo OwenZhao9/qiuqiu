@@ -81,7 +81,9 @@ export function applyQiuqiuTheme(
   opts: { force?: boolean } = {}
 ): ApplyThemeResult {
   if (!eb || !eb.config) {
-    throw new Error('[qiuqiu] applyQiuqiuTheme：拿不到 EmotionBall.config，先加载 vendor/emotion-ball 的四个脚本');
+    throw new Error(
+      '[qiuqiu] applyQiuqiuTheme：拿不到 EmotionBall.config，先加载 vendor/emotion-ball 的四个脚本'
+    );
   }
   if (patched.has(eb) && !opts.force) {
     return { patched: 0, missing: [], ran: false };
@@ -107,7 +109,11 @@ export function applyQiuqiuTheme(
     if (raw.sequence && Array.isArray(raw.sequence.frames)) {
       for (const frame of raw.sequence.frames) {
         const fb = frame.body;
-        if (isPlainObject(fb) && typeof fb.color === 'string' && UPSTREAM_BASE_COLORS.includes(fb.color)) {
+        if (
+          isPlainObject(fb) &&
+          typeof fb.color === 'string' &&
+          UPSTREAM_BASE_COLORS.includes(fb.color)
+        ) {
           fb.color = QIUQIU_BODY_COLOR;
         }
       }
@@ -129,7 +135,7 @@ export function applyQiuqiuTheme(
     const res = eb.config.register(raw);
     if (!res || res.ok === false) {
       throw new Error(
-        `[qiuqiu] 主题补丁注册失败：${id} —— ${(res && res.errors ? res.errors.join('；') : '未知原因')}`
+        `[qiuqiu] 主题补丁注册失败：${id} —— ${res && res.errors ? res.errors.join('；') : '未知原因'}`
       );
     }
     count++;

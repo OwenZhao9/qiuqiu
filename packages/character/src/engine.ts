@@ -46,7 +46,10 @@ export const IDLE_DEFAULT: Required<QiuqiuIdleOptions> = {
 
 /** 三处实例的创建参数预设（`design/character.md` § 3）。 */
 export const PRESETS: Readonly<
-  Record<QiuqiuPreset, { size: number; eyeScale: number; lite: boolean; idle: QiuqiuIdleOptions | false }>
+  Record<
+    QiuqiuPreset,
+    { size: number; eyeScale: number; lite: boolean; idle: QiuqiuIdleOptions | false }
+  >
 > = {
   /** 桌宠窗口 200 × 200。 */
   pet: { size: 200, eyeScale: 1, lite: false, idle: IDLE_DEFAULT },
@@ -100,7 +103,11 @@ interface VoiceChannel {
  * 写的是容器 `transform`，与 SVG 内部姿态两条独立通路——所以
  * `speaking` 期间切事件表情，球照样随音量起伏。
  */
-function createVoiceChannel(stage: HTMLElement, pulse: VoicePulse, now: () => number): VoiceChannel {
+function createVoiceChannel(
+  stage: HTMLElement,
+  pulse: VoicePulse,
+  now: () => number
+): VoiceChannel {
   const raf: (cb: () => void) => number =
     typeof requestAnimationFrame === 'function'
       ? (cb) => requestAnimationFrame(() => cb())
@@ -230,7 +237,8 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
   const now = opts.now ?? (() => Date.now());
 
   const doc = container.ownerDocument ?? (globalThis as { document?: Document }).document;
-  if (!doc) throw new Error('[qiuqiu] createQiuqiu：拿不到 document，本包只能在浏览器/渲染进程里用');
+  if (!doc)
+    throw new Error('[qiuqiu] createQiuqiu：拿不到 document，本包只能在浏览器/渲染进程里用');
 
   const stage = doc.createElement('div');
   stage.className = 'qq-stage';

@@ -87,8 +87,9 @@ const RESOLVERS: Record<string, () => string | null> = {
       type: 'recall',
       payload: { hits: [{ id: 'h1', text: '去年的旅行' }], cold_promoted: ['c1'] }
     })?.emotionId ?? null,
-  '回复含拒绝': () => decideReplyEmotion('这类问题我不便回答，建议你咨询专业医生。')?.emotionId ?? null,
-  '请求出错': () => ERROR_DECISION.emotionId
+  回复含拒绝: () =>
+    decideReplyEmotion('这类问题我不便回答，建议你咨询专业医生。')?.emotionId ?? null,
+  请求出错: () => ERROR_DECISION.emotionId
 };
 
 describe('CONTRACTS § 6 表情映射（契约测试）', () => {

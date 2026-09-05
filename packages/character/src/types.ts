@@ -18,13 +18,11 @@ export type LifeEmotionId = '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07
 
 /** 情绪反应组，`10`–`21`。情绪推断只能落进这一组。 */
 export type ReactionEmotionId =
-  | '10' | '11' | '12' | '13' | '14' | '15'
-  | '16' | '17' | '18' | '19' | '20' | '21';
+  '10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' | '21';
 
 /** 代理工作状态组，`30`–`41`。 */
 export type AgentEmotionId =
-  | '30' | '31' | '32' | '33' | '34' | '35'
-  | '36' | '37' | '38' | '39' | '40' | '41';
+  '30' | '31' | '32' | '33' | '34' | '35' | '36' | '37' | '38' | '39' | '40' | '41';
 
 /**
  * Emotion Ball 已有的 32 个表情 ID。
@@ -34,9 +32,38 @@ export type EmotionId = LifeEmotionId | ReactionEmotionId | AgentEmotionId;
 
 /** 32 个合法 emotionId，顺序与 `design/character.md` § 1 的全表一致。 */
 export const ALL_EMOTION_IDS: readonly EmotionId[] = [
-  '00', '01', '02', '03', '04', '05', '06', '07',
-  '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21',
-  '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41'
+  '00',
+  '01',
+  '02',
+  '03',
+  '04',
+  '05',
+  '06',
+  '07',
+  '10',
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '19',
+  '20',
+  '21',
+  '30',
+  '31',
+  '32',
+  '33',
+  '34',
+  '35',
+  '36',
+  '37',
+  '38',
+  '39',
+  '40',
+  '41'
 ];
 
 const EMOTION_ID_SET: ReadonlySet<string> = new Set<string>(ALL_EMOTION_IDS);
@@ -229,7 +256,9 @@ export interface EmotionRaw {
   eyes?: Record<string, unknown>;
   sequence?: {
     settle?: unknown;
-    frames: Array<Record<string, unknown> & { body?: Record<string, unknown> & { color?: string } }>;
+    frames: Array<
+      Record<string, unknown> & { body?: Record<string, unknown> & { color?: string } }
+    >;
   };
   [key: string]: unknown;
 }

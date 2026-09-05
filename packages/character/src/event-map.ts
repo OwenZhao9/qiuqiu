@@ -84,12 +84,18 @@ function len(x: unknown): number {
  * - `recall` 的 `cold_promoted` 非空用 `40`，否则命中非空用 `37`，两者都空不切换
  * - `write` 的 `facts` 为空时不切换（`design/state-machine.md` § 3 的判定列）
  */
-export function decideEventEmotion(event: MemoryEvent | null | undefined): EventEmotionDecision | null {
+export function decideEventEmotion(
+  event: MemoryEvent | null | undefined
+): EventEmotionDecision | null {
   if (!event || typeof event !== 'object') return null;
   switch (event.type) {
     case 'filter': {
       if (event.payload?.decision === 'uncertain') {
-        return { emotionId: '11', priority: EVENT_PRIORITY.filterUncertain, rule: 'filter.uncertain' };
+        return {
+          emotionId: '11',
+          priority: EVENT_PRIORITY.filterUncertain,
+          rule: 'filter.uncertain'
+        };
       }
       return null; // accept / reject 都不切换，但照常进记忆侧栏
     }
@@ -101,7 +107,11 @@ export function decideEventEmotion(event: MemoryEvent | null | undefined): Event
       return { emotionId: '19', priority: EVENT_PRIORITY.merge, rule: 'merge' };
     case 'recall': {
       if (len(event.payload?.cold_promoted) > 0) {
-        return { emotionId: '40', priority: EVENT_PRIORITY.recallCold, rule: 'recall.cold_promoted' };
+        return {
+          emotionId: '40',
+          priority: EVENT_PRIORITY.recallCold,
+          rule: 'recall.cold_promoted'
+        };
       }
       if (len(event.payload?.hits) > 0) {
         return { emotionId: '37', priority: EVENT_PRIORITY.recallHit, rule: 'recall.hit' };
@@ -118,7 +128,10 @@ export function decideEventEmotion(event: MemoryEvent | null | undefined): Event
  * 命中则**跳过**情绪推断；否则跑 `design/emotion-rules.md` 的 17 条规则（优先级 30）。
  * 情绪推断落到默认回退 `02` 时不切换——`02` 就是 `idle` 的状态表情，切了也是白切。
  */
-export function decideReplyEmotion(replyText: string, userText?: string): EventEmotionDecision | null {
+export function decideReplyEmotion(
+  replyText: string,
+  userText?: string
+): EventEmotionDecision | null {
   if (typeof replyText !== 'string' || !replyText.trim()) return null;
   if (isRefusal(replyText)) {
     return { emotionId: '38', priority: EVENT_PRIORITY.refusal, rule: 'refusal' };

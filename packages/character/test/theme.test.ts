@@ -31,7 +31,10 @@ function parsePatchTable(): Array<{ id: string; upstream: string; qiuqiu: string
   for (const line of block.split('\n')) {
     const t = line.trim();
     if (!t.startsWith('|')) continue;
-    const cells = t.slice(1, -1).split('|').map((c) => c.trim());
+    const cells = t
+      .slice(1, -1)
+      .split('|')
+      .map((c) => c.trim());
     if (cells.length !== 4) continue;
     const m = cells[0]!.match(/`(\d{2})`/);
     if (!m) continue;

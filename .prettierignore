@@ -1,0 +1,12 @@
+node_modules
+dist
+.venv
+data
+uv.lock
+pnpm-lock.yaml
+packages/character/vendor
+
+# 文档、设计规范与 HTML 是手写的，表格与缩进有意为之，不交给 prettier 重排
+*.md
+*.html
+design/
