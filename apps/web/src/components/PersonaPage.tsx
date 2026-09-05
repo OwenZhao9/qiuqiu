@@ -60,9 +60,18 @@ export function PersonaPage(): React.JSX.Element {
 
   const choosePreset = useCallback(
     (preset: PresetId | null) => {
+      const wasVacuum = persona?.preset === null;
       setPersona((p) => (p ? { ...p, preset } : p));
       putPersonaPreset(preset)
-        .then(() => say(preset === null ? '已设成「不设」，滑块不再进 prompt' : '已切换'))
+        .then(() =>
+          say(
+            preset === null
+              ? '已设成「不设」，滑块不再进 prompt'
+              : wasVacuum
+                ? '已取消「不设」，换成这个预设'
+                : '已切换'
+          )
+        )
         .catch((err: unknown) => {
           load();
           setError(
@@ -70,7 +79,7 @@ export function PersonaPage(): React.JSX.Element {
           );
         });
     },
-    [load, say]
+    [load, say, persona]
   );
 
   const changeSlider = useCallback((key: keyof Sliders, value: number) => {
@@ -117,7 +126,8 @@ export function PersonaPage(): React.JSX.Element {
               type="button"
               className="qq-preset-card qq-focusable"
               aria-pressed={persona.preset === p.id}
-              disabled={vacuum}
+              // 勾着「不设」时不禁用：点一张预设就是要换过去，
+              // 顺手把「不设」取消掉（choosePreset 传非 null 时 vacuum 自然变假）
               onClick={() => choosePreset(p.id)}
             >
               <span className="qq-preset-card__name">{p.name}</span>

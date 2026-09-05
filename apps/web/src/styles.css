@@ -254,14 +254,22 @@ select {
 .qq-thread {
   flex: 1;
   overflow-y: auto;
-  padding: var(--qq-space-6);
+  /* 内容有最大宽度并居中：铺满整栏的话一行几十个字，眼睛要横扫，读着累。
+     滚动条仍在外层，所以 padding 给外层、宽度限制给内容。 */
+  padding: var(--qq-space-6) var(--qq-space-5);
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--qq-space-5);
 }
 
+.qq-thread > * {
+  width: 100%;
+  max-width: var(--qq-thread-max-w);
+}
+
 .qq-msg {
-  max-width: 76%;
+  max-width: 82%;
   padding: var(--qq-space-5) var(--qq-space-6);
   border-radius: var(--qq-radius-lg);
   font-size: var(--qq-text-md);
@@ -1339,4 +1347,187 @@ select {
   display: flex;
   justify-content: space-between;
   gap: var(--qq-space-2);
+}
+
+/* ── 通话按钮 ─────────────────────────────────────────────────────
+   做成打电话的样子：待机绿色（接听），通话中红色（挂断），听筒转 135 度。
+   各家电话应用都是这个约定，用户不用另学。 */
+
+.qq-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: var(--qq-space-3) var(--qq-space-4);
+  border-radius: var(--qq-radius-pill);
+  border: var(--qq-border-thin) solid var(--qq-color-call);
+  background: var(--qq-color-call);
+  color: #fff;
+  font-size: var(--qq-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--qq-duration-fast) var(--qq-ease-standard),
+    border-color var(--qq-duration-fast) var(--qq-ease-standard);
+}
+
+.qq-call:hover {
+  filter: brightness(1.06);
+}
+
+.qq-call--on {
+  background: var(--qq-color-hangup);
+  border-color: var(--qq-color-hangup);
+  /* 通话中轻微呼吸，让人知道麦克风还开着 */
+  animation: qq-call-breathe 2s var(--qq-ease-standard) infinite;
+}
+
+@keyframes qq-call-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(from var(--qq-color-hangup) r g b / 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgb(from var(--qq-color-hangup) r g b / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-call--on {
+    animation: none;
+  }
+}
+
+.qq-call__icon--hangup {
+  transform: rotate(135deg);
+}
+
+.qq-call__text {
+  line-height: 1;
+}
+
+/* ── 记忆框图（论文骨架）─────────────────────────────────────────
+   三段横排，亮起来的是这一轮真的走过的路。三段各一个色调，
+   沿用产品图里的分区做法。 */
+
+.qq-map {
+  padding: var(--qq-space-5);
+  overflow-x: auto;
+}
+
+.qq-map svg {
+  min-width: 900px;
+}
+
+.qq-map__zone {
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-border);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+.qq-map__zone[data-tone='1'] {
+  fill: var(--qq-color-write-bg);
+}
+.qq-map__zone[data-tone='2'] {
+  fill: var(--qq-color-surface);
+}
+.qq-map__zone[data-tone='3'] {
+  fill: var(--qq-color-recall-bg);
+}
+
+.qq-map__zone-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-anchor: middle;
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-map__zone-title[data-tone='1'] {
+  fill: var(--qq-color-write);
+}
+.qq-map__zone-title[data-tone='3'] {
+  fill: var(--qq-color-recall);
+}
+
+/* 块：没走到是白底细边，走到了填色描边，这轮跳过是虚线 */
+.qq-map__box rect {
+  fill: var(--qq-color-bg);
+  stroke: var(--qq-color-border);
+  stroke-width: 1.2;
+  transition:
+    fill var(--qq-duration-base) var(--qq-ease-standard),
+    stroke var(--qq-duration-base) var(--qq-ease-standard);
+}
+
+.qq-map__box--on rect {
+  stroke-width: 2;
+}
+
+.qq-map__box--on[data-tone='1'] rect,
+.qq-map__box--on[data-tone='2'] rect {
+  fill: var(--qq-color-write-bg);
+  stroke: var(--qq-color-write);
+}
+
+.qq-map__box--on[data-tone='3'] rect {
+  fill: var(--qq-color-recall-bg);
+  stroke: var(--qq-color-recall);
+}
+
+.qq-map__box--skip rect {
+  fill: transparent;
+  stroke-dasharray: 4 4;
+}
+
+.qq-map__title {
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
+  fill: var(--qq-color-text);
+}
+
+.qq-map__sub {
+  font-size: 10.5px;
+  text-anchor: middle;
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-map__box--skip .qq-map__title,
+.qq-map__box--skip .qq-map__sub {
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-map__arrow {
+  stroke: var(--qq-color-border);
+  stroke-width: 1.4;
+  fill: none;
+}
+
+.qq-map__arrow--on {
+  stroke: var(--qq-color-write);
+  stroke-width: 2;
+}
+
+.qq-map__tip {
+  fill: var(--qq-color-border);
+}
+.qq-map__tip--on {
+  fill: var(--qq-color-write);
+}
+
+.qq-map__edge {
+  font-size: 10.5px;
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-map__note {
+  margin: var(--qq-space-4) 0 0;
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text-muted);
+}
+
+/* 冷热那两条边的文字竖排在箭头旁边，不跟索引块抢位置 */
+.qq-map__edge {
+  text-anchor: middle;
+  writing-mode: vertical-rl;
 }

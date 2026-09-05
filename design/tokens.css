@@ -181,7 +181,13 @@
   /* ---------- 布局 ---------- */
   --qq-sidebar-left: 260px;
   --qq-sidebar-left-collapsed: 56px;
+  /** 通话按钮：绿接听、红挂断，各家电话应用的通用约定。 */
+  --qq-color-call: #3aa76d;
+  --qq-color-hangup: #d9503f;
+
   --qq-sidebar-right: 340px;
+  /** 对话内容的最大宽度。铺满整栏一行几十个字，眼睛要横扫，读着累。 */
+  --qq-thread-max-w: 720px;
   --qq-main-min: 480px;
   --qq-header-h: 48px;
   --qq-composer-min-h: 52px;

@@ -20,6 +20,25 @@ export interface VoiceButtonProps {
   onActiveChange?(active: boolean): void;
 }
 
+/** 听筒。挂断状态转 135 度——各家电话应用都是这么画的，不用另学。 */
+function PhoneIcon({ hangUp }: { hangUp: boolean }): React.JSX.Element {
+  return (
+    <svg
+      className={'qq-call__icon' + (hangUp ? ' qq-call__icon--hangup' : '')}
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M6.6 10.8c1.6 3.1 4.1 5.6 7.2 7.2l2.4-2.4c.3-.3.7-.4 1.1-.3 1.2.4 2.4.6 3.7.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.7 22 2 13.3 2 2.5c0-.6.4-1 1-1h4.1c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.7.1.4 0 .8-.3 1.1L6.6 10.8z"
+      />
+    </svg>
+  );
+}
+
 export function VoiceButton({
   onFinal,
   onLevel,
@@ -79,12 +98,14 @@ export function VoiceButton({
     <>
       <button
         type="button"
-        className={'qq-btn qq-focusable' + (active ? ' qq-btn--voice-on' : '')}
+        className={'qq-call qq-focusable' + (active ? ' qq-call--on' : '')}
         aria-pressed={active}
-        title={active ? '挂断' : '开始实时语音对话'}
+        aria-label={active ? '挂断' : '打给丘丘'}
+        title={active ? '挂断' : '打给丘丘，说话就行，随时可以打断'}
         onClick={() => (active ? stop() : void start())}
       >
-        {active ? '挂断' : '说话'}
+        <PhoneIcon hangUp={active} />
+        <span className="qq-call__text">{active ? '挂断' : '通话'}</span>
       </button>
       {active || partial || error ? (
         <div className="qq-voice-status" role="status">
