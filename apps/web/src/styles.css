@@ -1,0 +1,1035 @@
+/* 丘丘前端样式。
+ * 颜色、字号、间距、圆角、时长全部走 design/tokens.css 的令牌，这里不写字面值——
+ * 例外只有媒体查询的断点数字（CSS 的 @media 不吃变量，令牌里已注明）。 */
+
+@import '../../../design/tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--qq-font-sans);
+  font-size: var(--qq-text-base);
+  line-height: var(--qq-leading-normal);
+  color: var(--qq-color-text);
+  background: var(--qq-color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ============================================================
+ * 通用基元
+ * ============================================================ */
+
+.qq-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--qq-space-3);
+  padding: var(--qq-space-3) var(--qq-space-5);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-sm);
+  background: var(--qq-color-surface);
+  font-size: var(--qq-text-sm);
+  transition: background var(--qq-duration-fast) var(--qq-ease-out);
+}
+
+.qq-btn:hover {
+  background: var(--qq-color-surface-hover);
+}
+
+.qq-btn[aria-pressed='true'],
+.qq-btn--primary {
+  background: var(--qq-color-brand);
+  border-color: var(--qq-color-brand);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-btn--primary:hover {
+  background: var(--qq-color-brand-hover);
+}
+
+.qq-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qq-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.qq-btn--ghost:hover {
+  background: var(--qq-color-surface-hover);
+}
+
+.qq-muted {
+  color: var(--qq-color-text-muted);
+}
+
+.qq-mono {
+  font-family: var(--qq-font-mono);
+}
+
+.qq-error {
+  border: var(--qq-border-thin) solid var(--qq-color-danger-border);
+  background: var(--qq-color-danger-bg);
+  color: var(--qq-color-danger);
+  border-radius: var(--qq-radius-sm);
+  padding: var(--qq-space-4) var(--qq-space-5);
+  font-size: var(--qq-text-sm);
+}
+
+.qq-error__hint {
+  display: block;
+  margin-top: var(--qq-space-2);
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-secondary);
+}
+
+.qq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--qq-space-3);
+  padding: var(--qq-space-11) var(--qq-space-6);
+  text-align: center;
+}
+
+.qq-empty__title {
+  font-size: var(--qq-text-md);
+}
+
+.qq-empty__hint {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text-muted);
+}
+
+/* ============================================================
+ * 主窗口三栏（design/interaction.md § 3）
+ * ============================================================ */
+
+.qq-shell {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  background: var(--qq-color-bg);
+}
+
+.qq-left {
+  width: var(--qq-sidebar-left);
+  flex: 0 0 var(--qq-sidebar-left);
+  border-right: var(--qq-border-thin) solid var(--qq-color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.qq-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--qq-color-bg-subtle);
+}
+
+.qq-right {
+  width: var(--qq-sidebar-right);
+  flex: 0 0 var(--qq-sidebar-right);
+  border-left: var(--qq-border-thin) solid var(--qq-color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--qq-color-bg);
+}
+
+.qq-header {
+  height: var(--qq-header-h);
+  flex: 0 0 var(--qq-header-h);
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-4);
+  padding: 0 var(--qq-space-5);
+  border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
+  background: var(--qq-color-bg);
+}
+
+.qq-header__title {
+  font-size: var(--qq-text-base);
+  font-weight: var(--qq-weight-semibold);
+  margin: 0;
+}
+
+.qq-spacer {
+  flex: 1;
+}
+
+/* 左栏 */
+
+.qq-left__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--qq-space-3);
+  padding: var(--qq-space-6) var(--qq-space-5);
+}
+
+.qq-left__state {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text-secondary);
+}
+
+.qq-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-1);
+  padding: var(--qq-space-4);
+  border-top: var(--qq-border-thin) solid var(--qq-color-border);
+}
+
+.qq-nav__item {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-4);
+  padding: var(--qq-space-3) var(--qq-space-4);
+  border: none;
+  border-radius: var(--qq-radius-sm);
+  background: transparent;
+  font-size: var(--qq-text-sm);
+  text-align: left;
+}
+
+.qq-nav__item:hover {
+  background: var(--qq-color-surface-hover);
+}
+
+.qq-nav__item[aria-current='page'] {
+  background: var(--qq-color-brand-subtle);
+  color: var(--qq-color-text-link);
+  font-weight: var(--qq-weight-medium);
+}
+
+.qq-sessions {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--qq-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-1);
+}
+
+.qq-sessions__label {
+  font-size: var(--qq-text-2xs);
+  letter-spacing: var(--qq-tracking-wide);
+  color: var(--qq-color-text-muted);
+  padding: var(--qq-space-2) var(--qq-space-4);
+}
+
+/* ============================================================
+ * 对话面板
+ * ============================================================ */
+
+.qq-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--qq-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-5);
+}
+
+.qq-msg {
+  max-width: 76%;
+  padding: var(--qq-space-5) var(--qq-space-6);
+  border-radius: var(--qq-radius-lg);
+  font-size: var(--qq-text-md);
+  line-height: var(--qq-leading-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.qq-msg--user {
+  align-self: flex-end;
+  background: var(--qq-color-brand);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-msg--assistant {
+  align-self: flex-start;
+  background: var(--qq-color-surface);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  box-shadow: var(--qq-shadow-1);
+}
+
+.qq-msg__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: -2px;
+  background: var(--qq-color-brand);
+  animation: qq-blink 1s steps(2, start) infinite;
+}
+
+@keyframes qq-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.qq-recall {
+  margin-top: var(--qq-space-4);
+  font-size: var(--qq-text-xs);
+}
+
+.qq-recall__toggle {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--qq-color-text-link);
+  font-size: var(--qq-text-xs);
+}
+
+.qq-recall__list {
+  margin: var(--qq-space-3) 0 0;
+  padding-left: var(--qq-space-6);
+  color: var(--qq-color-text-muted);
+  font-family: var(--qq-font-mono);
+  font-size: var(--qq-text-2xs);
+}
+
+/* 输入区 */
+
+.qq-composer {
+  border-top: var(--qq-border-thin) solid var(--qq-color-border);
+  background: var(--qq-color-bg);
+  padding: var(--qq-space-5) var(--qq-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-4);
+  position: relative;
+}
+
+.qq-composer__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--qq-space-4);
+}
+
+.qq-composer__input {
+  flex: 1;
+  min-height: var(--qq-composer-min-h);
+  max-height: var(--qq-composer-max-h);
+  overflow-y: auto;
+  resize: none;
+  padding: var(--qq-space-4) var(--qq-space-5);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-md);
+  background: var(--qq-color-surface);
+  font-size: var(--qq-text-lg);
+  line-height: var(--qq-leading-snug);
+}
+
+.qq-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--qq-space-4);
+}
+
+.qq-attachment {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--qq-radius-sm);
+  overflow: hidden;
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  background: var(--qq-color-surface-sunken);
+}
+
+.qq-attachment img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qq-attachment__remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: none;
+  background: var(--qq-color-overlay);
+  color: var(--qq-color-text-inverse);
+  font-size: var(--qq-text-2xs);
+  line-height: 1;
+  padding: var(--qq-space-1) var(--qq-space-2);
+}
+
+.qq-dropzone {
+  position: absolute;
+  inset: 0;
+  z-index: var(--qq-z-dropdown);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--qq-border-thick) dashed var(--qq-color-brand);
+  border-radius: var(--qq-radius-lg);
+  background: var(--qq-color-brand-subtle);
+  color: var(--qq-color-text-link);
+  font-size: var(--qq-text-md);
+}
+
+/* ============================================================
+ * 记忆事件侧栏（design/memory-panel.md）
+ * ============================================================ */
+
+.qq-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--qq-radius-full);
+  flex: 0 0 8px;
+}
+
+.qq-dot--open {
+  background: var(--qq-color-write);
+}
+
+.qq-dot--reconnecting {
+  background: var(--qq-color-uncertain);
+}
+
+.qq-dot--closed {
+  background: var(--qq-color-danger);
+}
+
+.qq-events {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--qq-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-3);
+  position: relative;
+}
+
+.qq-events__folded {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+  text-align: center;
+  padding: var(--qq-space-2) 0;
+}
+
+.qq-events__jump {
+  position: sticky;
+  bottom: var(--qq-space-5);
+  align-self: center;
+  z-index: var(--qq-z-sticky);
+  border: none;
+  border-radius: var(--qq-radius-full);
+  background: var(--qq-color-brand);
+  color: var(--qq-color-on-brand);
+  box-shadow: var(--qq-shadow-3);
+  padding: var(--qq-space-3) var(--qq-space-6);
+  font-size: var(--qq-text-sm);
+}
+
+.qq-card {
+  display: flex;
+  /* 事件流是 flex 列，卡默认会被压扁——按内容撑开，min-height 只做下限 */
+  flex: 0 0 auto;
+  min-height: var(--qq-event-card-min-h);
+  border-radius: var(--qq-radius-md);
+  overflow: hidden;
+  background: var(--qq-color-surface);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  cursor: pointer;
+  text-align: left;
+}
+
+.qq-card__bar {
+  flex: 0 0 4px;
+  width: 4px;
+  background: var(--qq-color-border-strong);
+}
+
+.qq-card__body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--qq-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-3);
+}
+
+.qq-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-3);
+}
+
+.qq-card__badge {
+  font-size: var(--qq-text-2xs);
+  font-weight: var(--qq-weight-semibold);
+  padding: 2px 6px;
+  border-radius: var(--qq-radius-full);
+  flex: 0 0 auto;
+}
+
+.qq-card__summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--qq-text-sm);
+}
+
+.qq-card__time {
+  font-size: var(--qq-text-2xs);
+  color: var(--qq-color-text-muted);
+  font-family: var(--qq-font-mono);
+  flex: 0 0 auto;
+}
+
+.qq-card__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-3);
+  font-size: var(--qq-text-sm);
+}
+
+.qq-card__section-title {
+  font-size: var(--qq-text-2xs);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-card__foot {
+  font-size: var(--qq-text-2xs);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-strike {
+  text-decoration: line-through;
+  color: var(--qq-color-text-muted);
+}
+
+.qq-card__preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 四类事件的颜色（design/memory-panel.md § 2） */
+
+.qq-card--filter-accept .qq-card__bar,
+.qq-card--write .qq-card__bar {
+  background: var(--qq-color-write);
+}
+
+.qq-card--filter-accept .qq-card__badge,
+.qq-card--write .qq-card__badge {
+  background: var(--qq-color-write);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-card--write {
+  background: var(--qq-color-write-bg);
+  border-color: var(--qq-color-write-border);
+  animation: qq-write-flash var(--qq-duration-slow) var(--qq-ease-out);
+}
+
+/* 进场 600 ms 的背景闪，从 write-border 淡到 write-bg */
+@keyframes qq-write-flash {
+  from {
+    background: var(--qq-color-write-border);
+  }
+  to {
+    background: var(--qq-color-write-bg);
+  }
+}
+
+.qq-card--filter-uncertain .qq-card__bar {
+  background: var(--qq-color-uncertain);
+}
+
+.qq-card--filter-uncertain {
+  background: var(--qq-color-uncertain-bg);
+  border-color: var(--qq-color-uncertain-border);
+}
+
+.qq-card--filter-uncertain .qq-card__badge {
+  background: var(--qq-color-uncertain);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-card--filter-reject .qq-card__bar {
+  background: var(--qq-color-reject);
+}
+
+.qq-card--filter-reject {
+  background: var(--qq-color-reject-bg);
+  border-color: var(--qq-color-reject-border);
+  color: var(--qq-color-reject);
+  opacity: 0.72;
+}
+
+.qq-card--filter-reject .qq-card__badge {
+  background: var(--qq-color-reject);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-card--merge .qq-card__bar {
+  background: var(--qq-color-merge);
+}
+
+.qq-card--merge {
+  background: var(--qq-color-merge-bg);
+  border-color: var(--qq-color-merge-border);
+}
+
+.qq-card--merge .qq-card__badge {
+  background: var(--qq-color-merge);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-card--recall .qq-card__bar {
+  background: var(--qq-color-recall);
+}
+
+.qq-card--recall {
+  background: var(--qq-color-recall-bg);
+  border-color: var(--qq-color-recall-border);
+}
+
+.qq-card--recall .qq-card__badge {
+  background: var(--qq-color-recall);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-card__result {
+  font-weight: var(--qq-weight-medium);
+}
+
+/* 路径胶囊 */
+
+.qq-paths {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--qq-space-2);
+}
+
+.qq-pill {
+  font-size: var(--qq-text-2xs);
+  padding: 2px 6px;
+  border-radius: var(--qq-radius-full);
+  border: var(--qq-border-thin) solid var(--qq-color-recall);
+  background: var(--qq-color-recall-bg);
+  color: var(--qq-color-recall);
+}
+
+.qq-pill--hit {
+  background: var(--qq-color-recall);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-pill--skipped {
+  text-decoration: line-through;
+}
+
+.qq-pill--cold {
+  border-color: var(--qq-color-brand);
+  background: var(--qq-color-brand);
+  color: var(--qq-color-on-brand);
+}
+
+.qq-pill--tag {
+  border-color: var(--qq-color-border-strong);
+  background: var(--qq-color-surface);
+  color: var(--qq-color-text-secondary);
+}
+
+/* 阈值区 */
+
+.qq-thresholds {
+  overflow: hidden;
+  border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
+  transition: height var(--qq-duration-base) var(--qq-ease-standard);
+}
+
+.qq-thresholds--collapsed {
+  height: 0;
+  border-bottom-color: transparent;
+}
+
+.qq-thresholds--expanded {
+  height: 128px;
+}
+
+.qq-thresholds__inner {
+  padding: var(--qq-space-4) var(--qq-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-3);
+}
+
+.qq-track {
+  height: 6px;
+  border-radius: var(--qq-radius-full);
+  box-shadow: var(--qq-shadow-inset);
+}
+
+.qq-slider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-4);
+  font-size: var(--qq-text-xs);
+}
+
+.qq-slider-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--qq-color-brand);
+}
+
+.qq-slider-row__value {
+  font-family: var(--qq-font-mono);
+  min-width: 4ch;
+  text-align: right;
+}
+
+/* ============================================================
+ * 人格设置页
+ * ============================================================ */
+
+.qq-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--qq-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-7);
+}
+
+.qq-page__title {
+  font-size: var(--qq-text-2xl);
+  font-weight: var(--qq-weight-semibold);
+  margin: 0;
+}
+
+.qq-section__title {
+  font-size: var(--qq-text-xl);
+  font-weight: var(--qq-weight-medium);
+  margin: 0 0 var(--qq-space-4);
+}
+
+.qq-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--qq-space-5);
+}
+
+.qq-preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-2);
+  align-items: flex-start;
+  padding: var(--qq-space-5);
+  border: var(--qq-border-thick) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-lg);
+  background: var(--qq-color-surface);
+  text-align: left;
+}
+
+.qq-preset-card[aria-pressed='true'] {
+  border-color: var(--qq-color-brand);
+  background: var(--qq-color-brand-subtle);
+}
+
+.qq-preset-card__name {
+  font-size: var(--qq-text-lg);
+  font-weight: var(--qq-weight-semibold);
+}
+
+.qq-preset-card__desc {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text-secondary);
+}
+
+.qq-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-4);
+  font-size: var(--qq-text-sm);
+}
+
+.qq-note {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+/* 记忆库 */
+
+.qq-memories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-4);
+}
+
+.qq-memory {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--qq-space-5);
+  padding: var(--qq-space-5);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-md);
+  background: var(--qq-color-surface);
+}
+
+.qq-memory--disabled {
+  opacity: 0.55;
+}
+
+.qq-memory__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.qq-memory__meta {
+  font-size: var(--qq-text-2xs);
+  color: var(--qq-color-text-muted);
+  margin-top: var(--qq-space-2);
+}
+
+/* 场景控制台 */
+
+.qq-scenarios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-4);
+}
+
+.qq-scenario {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-5);
+  padding: var(--qq-space-5);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-md);
+  background: var(--qq-color-surface);
+}
+
+.qq-provider {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-4);
+  padding: var(--qq-space-4) var(--qq-space-5);
+  border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
+  font-size: var(--qq-text-sm);
+}
+
+/* ============================================================
+ * 抽屉与断点（design/interaction.md § 3）
+ * ============================================================ */
+
+.qq-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--qq-color-overlay);
+  z-index: var(--qq-z-overlay);
+  border: none;
+  padding: 0;
+}
+
+@media (max-width: 1279px) {
+  .qq-left {
+    width: var(--qq-sidebar-left-collapsed);
+    flex-basis: var(--qq-sidebar-left-collapsed);
+  }
+
+  .qq-left:not(.qq-left--drawer) .qq-collapsible {
+    display: none;
+  }
+
+  .qq-left:hover {
+    width: var(--qq-sidebar-left);
+    flex-basis: var(--qq-sidebar-left);
+  }
+
+  .qq-left:hover .qq-collapsible {
+    display: revert;
+  }
+}
+
+@media (max-width: 1023px) {
+  .qq-right {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--qq-z-overlay);
+    box-shadow: var(--qq-shadow-4);
+    transform: translateX(100%);
+    transition: transform var(--qq-duration-base) var(--qq-ease-standard);
+  }
+
+  .qq-right--open {
+    transform: translateX(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  /* 右栏常驻，抽屉状态位不生效 */
+  .qq-right {
+    transform: none;
+  }
+}
+
+@media (max-width: 719px) {
+  .qq-left {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--qq-sidebar-left);
+    flex-basis: var(--qq-sidebar-left);
+    z-index: var(--qq-z-overlay);
+    background: var(--qq-color-bg);
+    box-shadow: var(--qq-shadow-4);
+    transform: translateX(-100%);
+    transition: transform var(--qq-duration-base) var(--qq-ease-standard);
+  }
+
+  .qq-left--open {
+    transform: translateX(0);
+  }
+
+  .qq-left .qq-collapsible {
+    display: revert;
+  }
+}
+
+@media (min-width: 720px) {
+  .qq-drawer-toggle--left {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .qq-drawer-toggle--right {
+    display: none;
+  }
+}
+
+/* ============================================================
+ * 桌宠窗口（design/interaction.md § 1）
+ * ============================================================ */
+
+.qq-pet-body {
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+.qq-pet {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--qq-pet-gap);
+  padding-bottom: var(--qq-pet-gap);
+}
+
+.qq-pet__ball {
+  width: var(--qq-ball-size-pet);
+  height: var(--qq-ball-size-pet);
+  flex: 0 0 var(--qq-ball-size-pet);
+  cursor: grab;
+}
+
+.qq-pet__bubble {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--qq-ball-size-pet) + var(--qq-space-4));
+  max-width: 320px;
+  max-height: calc(6 * var(--qq-text-md) * var(--qq-leading-normal));
+  overflow-y: auto;
+  padding: var(--qq-space-5);
+  border-radius: var(--qq-radius-lg);
+  background: var(--qq-color-surface);
+  box-shadow: var(--qq-shadow-3);
+  font-size: var(--qq-text-md);
+  white-space: pre-wrap;
+  transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
+}
+
+.qq-pet__bubble--fading {
+  opacity: 0;
+}
+
+.qq-pet__input {
+  width: var(--qq-pet-input-w);
+  height: var(--qq-pet-input-h);
+  flex: 0 0 var(--qq-pet-input-h);
+  padding: 0 var(--qq-space-5);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-full);
+  background: var(--qq-color-surface);
+  box-shadow: var(--qq-shadow-2);
+  font-size: var(--qq-text-lg);
+  z-index: var(--qq-z-pet-input);
+  animation: qq-pet-input-in var(--qq-duration-fast) var(--qq-ease-out);
+}
+
+@keyframes qq-pet-input-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qq-pet__hint {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+  background: var(--qq-color-surface);
+  border-radius: var(--qq-radius-full);
+  padding: var(--qq-space-1) var(--qq-space-4);
+}
+
+/* 网页端：丘丘内嵌在左栏顶部，随页面滚动，不可拖动 */
+.qq-web-ball {
+  width: var(--qq-ball-size-web);
+  height: var(--qq-ball-size-web);
+}
+
+.qq-main-ball {
+  width: var(--qq-ball-size-main);
+  height: var(--qq-ball-size-main);
+}

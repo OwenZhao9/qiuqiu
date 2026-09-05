@@ -1,0 +1,256 @@
+/**
+ * 对话编排 + 角色状态机的本地驱动。
+ *
+ * **AD-1：四态由前端本地切换，不等后端。** 迁移表逐条对着
+ * `design/state-machine.md` § 2 实现：
+ *
+ *   T1  idle      → thinking  用户提交文本
+ *   T5  thinking  → speaking  本轮首个 `delta`（`text` 长度 > 0）
+ *   T6  thinking  → idle      `error`；`done` 先于任何 `delta`；用户点停止
+ *   T7  speaking  → idle      `done`；`error`；用户点停止
+ *   T8  speaking  → thinking  回复途中再次提交，先中止当前流
+ *
+ * **AD-5：主窗口是唯一 SSE 持有者。** 每个 `delta` 与 `done` 立刻经
+ * `forwardDelta` / `forwardDone` 转发给桌宠窗口；桌宠自己不连任何流。
+ *
+ * T2 / T3 / T4 / T9 属于语音链路，M5 接入；T10 断连由 `useEventStream` 那边触发。
+ */
+
+import {
+  postChat,
+  type Attachment,
+  type ChatDone,
+  type ChatMeta,
+  type ChatStream,
+  type ErrorPayload
+} from '../api.js';
+import type { QiuqiuBridgeExt } from '../bridge.js';
+import { createStore, type Store } from './store.js';
+import type { CharacterState } from '@qiuqiu/character';
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  /** 还在流式输出。 */
+  streaming: boolean;
+  /** `meta.recall_ids`，回复下方「参考了 N 条记忆」点开就看它。 */
+  recallIds: string[];
+  memoryUsed: boolean;
+  model: string | null;
+  attachments: Attachment[];
+  error: ErrorPayload | null;
+  at: number;
+}
+
+export interface ChatState {
+  sessionId: string;
+  messages: ChatMessage[];
+  /** 四态之一，本地推断。 */
+  character: CharacterState;
+  /** 本轮是否还在跑（`thinking` 或 `speaking`）。 */
+  busy: boolean;
+  /** 用户发过的话，`↑` 往前翻用。最新在末尾。 */
+  outbox: string[];
+  lastError: ErrorPayload | null;
+}
+
+export interface ChatStoreDeps {
+  bridge: QiuqiuBridgeExt;
+  /** 角色状态变化的落点：主窗口里的丘丘实例。 */
+  onCharacterState?(state: CharacterState): void;
+  /** 一轮回复结束后跑拒绝式与情绪推断（`packages/character` 的 `applyReply`）。 */
+  onReplyComplete?(fullText: string, userText: string): void;
+  /** SSE / WS 出错 → 表情 `34`。 */
+  onStreamError?(err: ErrorPayload): void;
+  /** 注入 `postChat`，测试与 mock 用。 */
+  chat?: typeof postChat;
+  now?(): number;
+  newId?(): string;
+}
+
+export interface ChatStore extends Store<ChatState> {
+  send(text: string, attachments?: Attachment[]): void;
+  /** 用户点「停止」：中止本轮，T6 / T7 回 `idle`。 */
+  stop(): void;
+  /** 只切状态（语音链路的 T2 / T4 用，M5 接入）。 */
+  setCharacterState(next: CharacterState): void;
+  destroy(): void;
+}
+
+let seq = 0;
+function defaultId(): string {
+  seq += 1;
+  return 'm' + Date.now().toString(36) + '_' + seq;
+}
+
+export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatStore {
+  const chat = deps.chat ?? postChat;
+  const now = deps.now ?? (() => Date.now());
+  const newId = deps.newId ?? defaultId;
+
+  const store = createStore<ChatState>({
+    sessionId,
+    messages: [],
+    character: 'idle',
+    busy: false,
+    outbox: [],
+    lastError: null
+  });
+
+  let stream: ChatStream | null = null;
+  /** 本轮 assistant 消息的 id，deltas 往它上面拼。 */
+  let replyId: string | null = null;
+  let sawDelta = false;
+  let userText = '';
+
+  function toState(next: CharacterState): void {
+    if (store.get().character === next) return;
+    store.set((s) => ({ ...s, character: next }));
+    // AD-5：桌宠的表情来自主窗口的 setPetState，桌宠自己不推断
+    deps.bridge.setPetState(next);
+    deps.onCharacterState?.(next);
+  }
+
+  function patchReply(fn: (m: ChatMessage) => ChatMessage): void {
+    const id = replyId;
+    if (!id) return;
+    store.set((s) => ({
+      ...s,
+      messages: s.messages.map((m) => (m.id === id ? fn(m) : m))
+    }));
+  }
+
+  function endTurn(): void {
+    stream = null;
+    replyId = null;
+    sawDelta = false;
+    store.set((s) => ({ ...s, busy: false }));
+    toState('idle');
+  }
+
+  function send(text: string, attachments: Attachment[] = []): void {
+    const content = text.trim();
+    if (content === '') return; // 空内容不发，也不报错（design/interaction.md § 2）
+
+    // T8：回复途中再次提交，先中止当前流
+    if (stream) {
+      stream.abort();
+      patchReply((m) => ({ ...m, streaming: false }));
+      stream = null;
+    }
+
+    const userMsg: ChatMessage = {
+      id: newId(),
+      role: 'user',
+      content,
+      streaming: false,
+      recallIds: [],
+      memoryUsed: false,
+      model: null,
+      attachments,
+      error: null,
+      at: now()
+    };
+    const assistantMsg: ChatMessage = {
+      id: newId(),
+      role: 'assistant',
+      content: '',
+      streaming: true,
+      recallIds: [],
+      memoryUsed: false,
+      model: null,
+      attachments: [],
+      error: null,
+      at: now()
+    };
+    replyId = assistantMsg.id;
+    sawDelta = false;
+    userText = content;
+
+    store.set((s) => ({
+      ...s,
+      messages: [...s.messages, userMsg, assistantMsg],
+      outbox: [...s.outbox, content],
+      busy: true,
+      lastError: null
+    }));
+
+    // T1 / T8：本地立刻进 thinking，不等后端第一个字节
+    toState('thinking');
+
+    const handle = chat(
+      { session_id: store.get().sessionId, content, attachments },
+      {
+        onMeta(meta: ChatMeta) {
+          patchReply((m) => ({
+            ...m,
+            model: meta.model,
+            memoryUsed: Boolean(meta.memory_used),
+            recallIds: Array.isArray(meta.recall_ids) ? meta.recall_ids : []
+          }));
+        },
+        onDelta(delta) {
+          if (delta.text.length === 0) return;
+          if (!sawDelta) {
+            sawDelta = true;
+            toState('speaking'); // T5
+          }
+          patchReply((m) => ({ ...m, content: m.content + delta.text }));
+          deps.bridge.forwardDelta(store.get().sessionId, delta.text);
+        },
+        onDone(_done: ChatDone) {
+          const full = store.get().messages.find((m) => m.id === replyId)?.content ?? '';
+          patchReply((m) => ({ ...m, streaming: false }));
+          deps.bridge.forwardDone(store.get().sessionId);
+          if (full.length > 0) deps.onReplyComplete?.(full, userText);
+          endTurn(); // T6（done 先于 delta）或 T7
+        },
+        onAudio() {
+          // TTS 播放推迟到 M5：类型定好了，收到就丢弃
+        },
+        onError(err) {
+          patchReply((m) => ({ ...m, streaming: false, error: err }));
+          store.set((s) => ({ ...s, lastError: err }));
+          deps.onStreamError?.(err);
+          deps.bridge.forwardDone(store.get().sessionId);
+          endTurn(); // T6 / T7
+        }
+      }
+    );
+    stream = handle;
+
+    handle.finished.catch((err: unknown) => {
+      if (stream !== handle) return;
+      const bag = err as { code?: unknown; message?: unknown; hint?: unknown } | null;
+      const payload: ErrorPayload =
+        bag && typeof bag === 'object' && typeof bag.code === 'string'
+          ? {
+              code: bag.code,
+              message: String(bag.message ?? '请求失败'),
+              hint: String(bag.hint ?? '检查后端是否还活着，再重发这句话')
+            }
+          : { code: 'chat_failed', message: String(err), hint: '检查后端是否还活着，再重发这句话' };
+      patchReply((m) => ({ ...m, streaming: false, error: payload }));
+      store.set((s) => ({ ...s, lastError: payload }));
+      deps.onStreamError?.(payload);
+      endTurn();
+    });
+  }
+
+  return {
+    ...store,
+    send,
+    stop() {
+      if (!stream) return;
+      stream.abort();
+      patchReply((m) => ({ ...m, streaming: false }));
+      endTurn();
+    },
+    setCharacterState: toState,
+    destroy() {
+      stream?.abort();
+      stream = null;
+    }
+  };
+}

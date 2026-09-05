@@ -2,9 +2,19 @@
   "name": "@qiuqiu/desktop",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "type": "commonjs",
+  "main": "dist/main.js",
   "scripts": {
-    "build": "echo '骨架占位：尚未实现构建'",
-    "test": "echo '骨架占位：尚未实现测试'"
+    "build": "tsc -p tsconfig.build.json",
+    "start": "electron .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "electron": "^33.3.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }
