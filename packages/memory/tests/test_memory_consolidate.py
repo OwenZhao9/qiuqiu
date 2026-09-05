@@ -53,6 +53,16 @@ class TestInputSource:
         rows = recent_messages(runtime, 3)
         assert [r["content"] for r in rows] == ["7", "8", "9"]
 
+    def test_recent_messages_delegates_to_the_data_layer(self, runtime: MemoryRuntime) -> None:
+        """跨会话「最近 N 条」由 `qiuqiu_data.sqlite.list_recent_messages` 出（契约 v0.1.7）。
+
+        它返回的是**降序**，性格沉淀要正序喂给 Chat，所以这一层负责翻过来。
+        """
+        seed_messages(runtime, [("user", str(i)) for i in range(5)])
+        newest_first = runtime.sqlite.list_recent_messages(limit=3)
+        assert [r["content"] for r in newest_first] == ["4", "3", "2"]
+        assert [r["content"] for r in recent_messages(runtime, 3)] == ["2", "3", "4"]
+
     def test_messages_merged_across_sessions(self, runtime: MemoryRuntime) -> None:
         seed_messages(runtime, [("user", "早")], session_id="s1", start=BASE_TIME)
         seed_messages(
@@ -166,6 +176,13 @@ class TestColdProfile:
         assert len(rows) == 1
         assert rows[0]["id"].startswith(COLD_PROFILE_ID)
         assert "性格档案" in rows[0]["text"]
+
+    def test_profile_source_is_persona_not_journal(self, runtime: MemoryRuntime) -> None:
+        """契约 v0.1.7 给 `Source` 补了 `PERSONA`：性格档案自成一类，不污染日记。"""
+        seed_messages(runtime, CHATTY)
+        consolidate(runtime)
+        row = runtime.lance.query_scalar("cold", limit=10)[0]
+        assert row["source"] == Source.PERSONA.value == "persona"
 
     def test_cold_write_failure_does_not_break_consolidation(self, runtime: MemoryRuntime) -> None:
         """冷表写失败不算失败——`persona_learned` 才是权威副本。"""

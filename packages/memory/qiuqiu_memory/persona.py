@@ -20,9 +20,9 @@
 `current()` **只读热存储快照**（AD-2），不在请求路径上现拼。快照在
 `set_preset` / `set_sliders` / `run_consolidation` 之后重算。
 
-快照存哪：契约 § 5 的八张表里没有 `persona_snapshot`，ARCHITECTURE § 7 只说它是
-「热存储、memory 写 memory 读」。这里落在 SQLite `settings` 的 `persona.snapshot` 键上，
-连同 `persona.preset` 与 `persona.sliders`。等契约补一张表或一个键名约定再迁。
+快照存哪：契约 v0.1.7 § 3 定死了——热存储 `persona_snapshot` 落在 SQLite `settings` 的
+三个键上，memory 写 memory 读，后端不碰：`persona.snapshot`（合成好的 prompt 片段）、
+`persona.preset`、`persona.sliders`。改键名要先改契约。
 """
 
 from __future__ import annotations
@@ -170,7 +170,7 @@ def compose(preset: str | None, sliders: Sliders, learned: Learned) -> str:
 
 
 class PersonaService:
-    """人格的读写门面。四个方法的签名逐字按 CONTRACTS § 3。"""
+    """人格的读写门面。五个方法的签名逐字按 CONTRACTS § 3（v0.1.7 收编了 `reset_learned`）。"""
 
     def __init__(
         self,
@@ -179,7 +179,7 @@ class PersonaService:
     ) -> None:
         self.runtime = runtime if runtime is not None else MemoryRuntime(**runtime_kwargs)
 
-    # ---------- 契约里的四个方法 ----------
+    # ---------- 契约里的五个方法 ----------
 
     def current(self) -> str:
         """当前人格：**只读热存储快照**（AD-2）。没有快照就合成一次并缓存。"""
@@ -219,6 +219,16 @@ class PersonaService:
         self.recompute()
         return learned
 
+    def reset_learned(self) -> Learned:
+        """`POST /persona/reset-learned`：写一版空的相处性格，历史不删（AD-9），重算快照。
+
+        「重置」是往前写一版空的，不是删掉过去（`persona_learned` 只追加）——跟事实不
+        物理删除是同一个态度。签名与语义按契约 v0.1.7 § 3。
+        """
+        self.runtime.sqlite.append_persona_learned({})
+        self.recompute()
+        return Learned()
+
     # ---------- 契约之外，给自己和测试用 ----------
 
     @property
@@ -247,13 +257,3 @@ class PersonaService:
         self.runtime.sqlite.set_setting(_SETTING_SNAPSHOT, snapshot)
         log.info("persona.recompute", preset=self.preset, chars=len(snapshot))
         return snapshot
-
-    def reset_learned(self) -> Learned:
-        """`POST /persona/reset-learned`：写一版空的性格档案，重算快照。
-
-        历史版本不动（`persona_learned` 只追加），所以「重置」是往前写一版空的，
-        不是删掉过去——跟事实不物理删除是同一个态度（AD-9）。
-        """
-        self.runtime.sqlite.append_persona_learned({})
-        self.recompute()
-        return Learned()

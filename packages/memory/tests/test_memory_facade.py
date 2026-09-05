@@ -60,13 +60,11 @@ class TestIngestRouting:
         assert "Duplicate" in again.rejected[0].reason
 
     def test_uncertain_ambient_is_not_written(self, facade: MemoryFacade) -> None:
-        """拿不准的不写。
+        """拿不准的只发事件、不落库。
 
-        契约只写了 `/ingest` 回三种 decision，没写 `uncertain` 该不该落库；
-        ARCHITECTURE § 6 只说了 `reject` 到此为止、`accept` 继续压缩。这里定成
-        「只有 accept 才写」——写错的记忆要用户去记忆库里删，比漏记一条贵得多，
-        而 `filter.uncertain` 事件照发，侧栏与丘丘的 `11` 疑惑表情都不受影响。
-        缺口已写进汇报，等契约收编。
+        契约 v0.1.7 § 3 收编了这条：「`uncertain` 只发事件，不落库。」`filter.uncertain`
+        事件照发，侧栏与丘丘的 `11` 疑惑表情都不受影响。逐字断言在
+        `test_memory_contracts.py::TestUncertainNeverPersists`。
         """
         facade.runtime.sqlite.set_setting(
             "thresholds", json.dumps({"accept": 0.99, "uncertain": 0.01})
@@ -123,6 +121,39 @@ class TestIngestContract:
         assert a.trace_id != b.trace_id
         assert a.trace_id.startswith("trc_")
 
+    def test_caller_trace_id_is_used_verbatim(self, facade: MemoryFacade) -> None:
+        """契约 v0.1.7：`/chat` 生成的那条 trace 一路贯到底，中间件不另起一条。"""
+        result = facade.ingest(
+            SENTENCE,
+            source=Source.DIALOGUE,
+            speaker="user",
+            ts=BASE_TIME,
+            trace_id="trc_from_chat",
+        )
+        assert result.trace_id == "trc_from_chat"
+        assert facade.runtime.bus.history, "这一轮至少发了一条事件"
+        assert {e.trace_id for e in facade.runtime.bus.history} == {"trc_from_chat"}
+
+    def test_caller_trace_id_covers_the_filter_event_too(self, facade: MemoryFacade) -> None:
+        """被动采集这一路上 `filter` 事件也挂在调用方那条 trace 上。"""
+        facade.ingest(
+            "",
+            source=Source.AMBIENT_AUDIO,
+            speaker="user",
+            ts=BASE_TIME,
+            trace_id="trc_from_ingest",
+        )
+        event = next(e for e in facade.runtime.bus.history if e.type == "filter")
+        assert event.trace_id == "trc_from_ingest"
+
+    def test_persona_source_is_not_an_ingest_entry(self, facade: MemoryFacade) -> None:
+        """`Source.PERSONA` 中间件内部用，调用方不传（契约 v0.1.7 § 3）。"""
+        with pytest.raises(ContractError) as caught:
+            facade.ingest("性格档案：…", source=Source.PERSONA, speaker="assistant", ts=BASE_TIME)
+        assert caught.value.to_dict()["code"] == "contract_violation"
+        assert "PERSONA" in str(caught.value)
+        assert facade.runtime.lance.count("hot") == 0
+
     def test_naive_ts_is_read_as_utc(self, facade: MemoryFacade) -> None:
         naive = dt.datetime(2026, 9, 5, 10, 0)
         result = facade.ingest("我叫赵宁", source=Source.DIALOGUE, speaker="user", ts=naive)
@@ -171,6 +202,18 @@ class TestRecall:
         result = facade.recall("他喜欢喝什么", budget=Budget())
         assert result.items == []
         assert result.plan is not None
+
+    def test_caller_trace_id_reaches_the_recall_event(self, facade: MemoryFacade) -> None:
+        """契约 v0.1.7：`recall` 事件挂调用方那条 trace，侧栏才串得起这一轮。"""
+        facade.ingest("我叫赵宁", source=Source.DIALOGUE, speaker="user", ts=BASE_TIME)
+        facade.recall("他叫什么", budget=Budget(), trace_id="trc_same_turn")
+        event = next(e for e in reversed(facade.runtime.bus.history) if e.type == "recall")
+        assert event.trace_id == "trc_same_turn"
+
+    def test_recall_without_trace_id_still_makes_one(self, facade: MemoryFacade) -> None:
+        facade.recall("他叫什么", budget=Budget())
+        event = next(e for e in reversed(facade.runtime.bus.history) if e.type == "recall")
+        assert event.trace_id.startswith("trc_")
 
 
 class TestVisibleMemory:
@@ -222,15 +265,18 @@ class TestVisibleMemory:
         with pytest.raises(ContractError):
             facade.edit_visible(target.id, layer="L7")
 
-    def test_delete_cascades_to_facts_without_dropping_rows(self, facade: MemoryFacade) -> None:
-        """`DELETE /memories/{id}` 级联作废对应事实：写 `valid_to`，不删行（AD-9）。"""
+    def test_delete_disables_row_and_supersedes_facts(self, facade: MemoryFacade) -> None:
+        """契约 v0.1.7：`enabled` 置否 + `fact_ids` 逐条 `mark_superseded`，两边都不删行。"""
         self.seed(facade)
         target = facade.list_visible("L0")[0]
         fact_id = target.fact_ids[0]
 
-        facade.edit_visible(target.id, deleted=True)
+        returned = facade.edit_visible(target.id, deleted=True)
 
-        assert facade.runtime.sqlite.get_visible_memory(target.id) is None
+        assert returned.enabled is False
+        still_there = facade.runtime.sqlite.get_visible_memory(target.id)
+        assert still_there is not None, "visible_memory 那一行不删（AD-9）"
+        assert bool(still_there["enabled"]) is False
         row = facade.runtime.lance.get_many([fact_id], "hot")[0]
         assert row["valid_to"] is not None
         assert facade.runtime.lance.count("hot") == 2, "一行都没删"

@@ -47,6 +47,14 @@ class TestSourceEnum:
         declared = set(spec.event_payload_shapes()["filter"]["source"].literals)
         assert {s.value for s in qiuqiu_memory.AMBIENT_SOURCES} == declared
 
+    def test_persona_is_a_facts_source_but_not_an_ingest_entry(self) -> None:
+        """§ 5 的 `facts.source` 认 `persona`；§ 3 写明它「中间件内部用，调用方不传」。"""
+        assert Source.PERSONA.value in spec.enum_members("Source").values()
+        assert Source.PERSONA not in qiuqiu_memory.INGESTABLE_SOURCES
+        assert {s.value for s in qiuqiu_memory.INGESTABLE_SOURCES} | {"persona"} == set(
+            spec.enum_members("Source").values()
+        )
+
 
 @pytest.fixture(scope="session")
 def declared_facade() -> dict[str, spec.MethodSpec]:
@@ -295,6 +303,39 @@ class TestIngestRoute:
         assert result.decision == "accept"
 
 
+class TestUncertainNeverPersists:
+    """§ 3：「`uncertain` 只发事件，不落库。」句子本身也从契约里读，改一个字这里就炸。"""
+
+    SENTENCE = "**`uncertain` 只发事件，不落库。**"
+
+    def test_the_contract_still_says_so(self) -> None:
+        assert self.SENTENCE in spec.section(3)
+
+    def test_only_accept_continues_to_compression(self, facade: MemoryFacade) -> None:
+        """判定为 `uncertain` 时：`filter` 事件照发，热表零行，`write` 事件一条都没有。"""
+        import json
+
+        assert self.SENTENCE in spec.section(3)
+        facade.runtime.sqlite.set_setting(
+            "thresholds", json.dumps({"accept": 0.99, "uncertain": 0.01})
+        )
+        result = facade.ingest("买牛奶", source=Source.AMBIENT_AUDIO, speaker="user", ts=BASE_TIME)
+
+        assert result.decision == "uncertain"
+        assert result.accepted == []
+        assert facade.runtime.lance.count("hot") == 0
+        assert facade.runtime.sqlite.list_visible_memory() == []
+        kinds = [e.type for e in facade.runtime.bus.history]
+        assert kinds == ["filter"], "只发事件，不落库"
+
+    def test_reject_stops_at_the_same_place(self, facade: MemoryFacade) -> None:
+        """`reject` 与 `uncertain` 一样到此为止，区别只在侧栏怎么呈现（§ 3 / § 6）。"""
+        result = facade.ingest("", source=Source.AMBIENT_AUDIO, speaker="user", ts=BASE_TIME)
+        assert result.decision == "reject"
+        assert facade.runtime.lance.count("hot") == 0
+        assert [e.type for e in facade.runtime.bus.history] == ["filter"]
+
+
 class TestThresholds:
     """§ 1 `/config/thresholds` 的 body 与判定规则。"""
 
@@ -395,6 +436,70 @@ class TestTimeFormat:
     )
     def test_iso_is_utc_with_millis_and_z(self, moment: dt.datetime) -> None:
         assert iso(moment) == "2026-09-04T22:31:00.000Z"
+
+
+class TestNamedEntryPoints:
+    """契约里点名到文件、函数、键名的那几处。改名字就是破坏性改动。"""
+
+    def test_layer_of_is_the_named_bucketing_rule(self) -> None:
+        """§ 1：「归层规则在 `packages/memory/qiuqiu_memory/facade.py::layer_of`」。"""
+        import importlib
+        import re
+
+        line = next(ln for ln in spec.section(1).split("\n") if "归层规则在" in ln)
+        found = re.search(r"`([^`]+)::(\w+)`", line)
+        assert found, "§ 1 里那句「归层规则在 …」被改了"
+        dotted = found.group(1).removeprefix("packages/memory/").removesuffix(".py")
+        module = importlib.import_module(dotted.replace("/", "."))
+        assert callable(getattr(module, found.group(2)))
+
+    def test_layer_semantics_follow_the_stability_table(self) -> None:
+        """§ 1 的三层稳定度表：L0 身份 / L1 偏好 / L2 近况。"""
+        from qiuqiu_memory.facade import layer_of
+
+        assert layer_of("用户叫赵宁") == "L0"
+        assert layer_of("用户的生日是十月一日") == "L0"
+        assert layer_of("用户喜欢喝美式咖啡") == "L1"
+        assert layer_of("用户明天下午三点要去医院") == "L2"
+
+    def test_delete_route_lands_on_edit_visible(self, facade: MemoryFacade) -> None:
+        """§ 1：`DELETE /memories/{id}` → `edit_visible(mid, deleted=True)`，
+        `enabled` 置否 + `fact_ids` 逐条 `mark_superseded`，不删行。"""
+        assert "`edit_visible(mid, deleted=True)`" in spec.section(1)
+        facade.ingest("我叫赵宁", source=Source.DIALOGUE, speaker="user", ts=BASE_TIME)
+        target = facade.list_visible()[0]
+
+        facade.edit_visible(target.id, deleted=True)
+
+        assert [m.enabled for m in facade.list_visible()] == [False], "不删行"
+        row = facade.runtime.lance.get_many(target.fact_ids, "hot")[0]
+        assert row["valid_to"] is not None
+
+    def test_persona_snapshot_lands_on_the_three_settings_keys(
+        self, persona: PersonaService
+    ) -> None:
+        """§ 3：热存储 `persona_snapshot` 落 `settings` 的三个键，memory 写 memory 读。"""
+        import re
+
+        line = next(ln for ln in spec.section(3).split("\n") if "persona_snapshot" in ln)
+        declared = set(re.findall(r"`(persona\.\w+)`", line))
+        assert declared == {"persona.snapshot", "persona.preset", "persona.sliders"}
+
+        persona.set_preset("warm")
+        stored = {k for k in declared if persona.runtime.sqlite.get_setting(k) is not None}
+        assert stored == declared
+
+    def test_nightly_is_the_named_demotion_entry(self) -> None:
+        """§ 3：降冷入口是 `qiuqiu_memory.pipeline.tiering.nightly(runtime)`（AD-10）。"""
+        import importlib
+        import inspect as _inspect
+        import re
+
+        line = next(ln for ln in spec.section(3).split("\n") if "降冷的入口在" in ln)
+        found = re.search(r"`([\w.]+)\.(\w+)\((\w+)\)`", line)
+        module = importlib.import_module(found.group(1))
+        entry = getattr(module, found.group(2))
+        assert list(_inspect.signature(entry).parameters)[0] == found.group(3)
 
 
 class TestPublicSurface:

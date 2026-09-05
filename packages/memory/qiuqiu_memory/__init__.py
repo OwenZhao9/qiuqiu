@@ -7,7 +7,9 @@
     facade = MemoryFacade(stores=qiuqiu_data.init())
     persona = PersonaService(facade.runtime)          # 复用同一个 runtime
 
-`MemoryFacade` 五个方法、`PersonaService` 四个方法的签名逐字按 CONTRACTS § 3。
+`MemoryFacade` 五个方法、`PersonaService` 五个方法的签名逐字按 CONTRACTS § 3。
+`ingest()` / `recall()` 是同步方法，后端在事件循环里调要走 `await asyncio.to_thread(...)`，
+`trace_id` 由调用方传进来，一次调用发出的所有事件挂同一条 trace。
 事件信封与四类 payload 按 § 1，先写 `event_log` 拿自增 id，信封 `id` 是 `evt_` 加它。
 
 六个环节在 `pipeline/`：筛选、压缩、合成、检索、冷热调度、性格沉淀。
@@ -25,6 +27,7 @@ from .persona import BOUNDARY, PRESETS, PersonaService
 from .runtime import MemoryRuntime
 from .types import (
     AMBIENT_SOURCES,
+    INGESTABLE_SOURCES,
     PATHS,
     Budget,
     FactId,
@@ -44,7 +47,7 @@ from .types import (
 
 __version__ = "0.1.0"
 
-CONTRACT_VERSION = "v0.1.6"
+CONTRACT_VERSION = "v0.1.7"
 """本包实现的契约版本。改契约先改 `docs/CONTRACTS.md`，再改这里。"""
 
 __all__ = [
@@ -58,6 +61,7 @@ __all__ = [
     "FactId",
     "FilterDecision",
     "Hit",
+    "INGESTABLE_SOURCES",
     "IngestResult",
     "LAYERS",
     "Learned",

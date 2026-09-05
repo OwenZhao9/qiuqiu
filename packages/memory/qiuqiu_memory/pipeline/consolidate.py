@@ -10,7 +10,8 @@
 **增量合并**：新版本与 `persona_learned.latest()` 合，新值覆盖、缺失沿用。所以一次没归纳
 出称呼不会把上次学到的称呼抹掉——`Learned.to_dict()` 只输出非 `None` 的键就是为了这个。
 
-写两处：`persona_learned` 追加一版（历史永不覆盖），冷存储写一条性格档案。
+写两处：`persona_learned` 追加一版（历史永不覆盖），冷存储写一条性格档案——那条的
+`facts.source` 是 `Source.PERSONA`（契约 v0.1.7），自成一类，不混进 `journal`。
 之后由 `PersonaService.recompute()` 重算热存储快照（AD-2）。
 
 触发方是后端定时任务（轮数达 `settings.consolidate_every`，默认 20），**本层不自带调度器**。
@@ -19,14 +20,13 @@
 from __future__ import annotations
 
 import re
-from collections import deque
 from typing import Any
 
 import structlog
 
 from ..llm import ChatUnavailable, complete_json
 from ..text import entities_of, estimate_tokens, tokenize
-from ..types import Learned, iso, to_utc
+from ..types import Learned, Source, iso, to_utc
 
 __all__ = ["DEFAULT_ROUNDS", "consolidate", "recent_messages"]
 
@@ -62,41 +62,14 @@ _HUMOR_RE = re.compile(r"(哈哈|hh|233|笑死|梗|逗|调侃|皮一下|开个�
 _SERIOUS_RE = re.compile(r"(正经|认真点|别闹|严肃|不要开玩笑)")
 
 
-PAGE = 500
-"""翻 `messages` 表时的单页条数。"""
-
-
-def _session_tail(runtime: Any, session_id: str, limit: int) -> list[dict[str, Any]]:
-    """一个会话里**最后** `limit` 条消息。
-
-    `qiuqiu_data.sqlite.list_messages` 只有「按 `created_at` 升序 + limit/offset」，
-    直接 `limit=N` 拿到的是**最早** N 条，正好跟这里要的相反。没有 count 也没有倒序，
-    只能翻页翻到尾，用一个定长窗口滚着接。桌面单机的消息表量级不大，这个代价可以接受。
-    """
-    window: deque[dict[str, Any]] = deque(maxlen=max(1, limit))
-    offset = 0
-    while True:
-        rows = runtime.sqlite.list_messages(session_id, limit=PAGE, offset=offset)
-        if not rows:
-            break
-        window.extend(rows)
-        if len(rows) < PAGE:
-            break
-        offset += PAGE
-    return list(window)
-
-
 def recent_messages(runtime: Any, limit: int = DEFAULT_ROUNDS) -> list[dict[str, Any]]:
-    """最近 N 条原始消息，按时间升序。**只碰 `messages` 表**（AD-4）。
+    """最近 N 条原始消息，**按时间升序**。只碰 `messages` 表（AD-4）。
 
-    `qiuqiu_data.sqlite` 没有跨会话的「最近 N 条」，所以这里先列会话、各取尾巴再归并。
-    契约缺口已在汇报里写明，等 data 补 `list_recent_messages(limit)` 之后这段可以删掉。
+    走 `qiuqiu_data.sqlite.list_recent_messages(limit)`（契约 v0.1.7 § 5 收编）：跨会话、
+    按 `created_at DESC, id DESC` 取最近 N 条。它给的是降序、最近的在 `[0]`，而喂给 Chat
+    的转写要「越靠后越新」，所以这里 `reversed()` 一下再返回。
     """
-    rows: list[dict[str, Any]] = []
-    for session in runtime.sqlite.list_sessions(archived=None, limit=100):
-        rows.extend(_session_tail(runtime, session["id"], limit))
-    rows.sort(key=lambda r: (str(r.get("created_at") or ""), str(r.get("id") or "")))
-    return rows[-limit:]
+    return list(reversed(runtime.sqlite.list_recent_messages(limit=max(0, limit))))
 
 
 def _transcript(rows: list[dict[str, Any]]) -> str:
@@ -180,9 +153,8 @@ def _write_cold_profile(runtime: Any, learned: Learned, version: int) -> str | N
                     "tokens": tokenize(body),
                     "entities": ["性格档案", "用户"],
                     "speaker": "assistant",
-                    # 契约的 source 取值域里没有「性格档案」这一类，先归到 journal，
-                    # 建议契约补一个 `persona`，缺口已写进汇报。
-                    "source": "journal",
+                    # 性格档案自己一类，不混进日记（契约 v0.1.7 给 `Source` 补的 PERSONA）。
+                    "source": Source.PERSONA.value,
                     "valid_from": moment,
                     "last_hit_at": moment,
                 }

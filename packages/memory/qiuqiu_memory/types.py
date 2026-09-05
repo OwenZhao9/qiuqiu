@@ -20,6 +20,7 @@ __all__ = [
     "FactId",
     "FilterDecision",
     "Hit",
+    "INGESTABLE_SOURCES",
     "IngestResult",
     "Learned",
     "MemoryEvent",
@@ -49,10 +50,20 @@ class Source(Enum):
     JOURNAL = "journal"  # 日记随笔，跳过筛选，另出摘要
     AMBIENT_AUDIO = "ambient_audio"
     AMBIENT_IMAGE = "ambient_image"
+    PERSONA = "persona"  # 性格沉淀写冷存储的性格档案；中间件内部用，调用方不传（v0.1.7）
 
 
 AMBIENT_SOURCES: frozenset[Source] = frozenset({Source.AMBIENT_AUDIO, Source.AMBIENT_IMAGE})
 """必须先过筛选的两种来源（AD-3）。"""
+
+INGESTABLE_SOURCES: frozenset[Source] = frozenset(Source) - {Source.PERSONA}
+"""`ingest()` 认的来源。
+
+`PERSONA` 不在里面：契约 v0.1.7 写明它「中间件内部用，调用方不传」，只由性格沉淀
+（`pipeline/consolidate.py`）往冷表写性格档案时贴在 `facts.source` 上。走 `ingest()`
+进来的性格档案会被压缩成原子事实、进合成、进记忆库，那是三条不该发生的事，所以这一层
+直接拒。
+"""
 
 
 def utcnow() -> dt.datetime:
@@ -147,22 +158,20 @@ class MergeOp:
 
 @dataclass(slots=True)
 class IngestResult:
-    """`ingest()` 的返回。前四个字段逐字按 CONTRACTS § 3。
+    """`ingest()` 的返回。六个字段逐字按 CONTRACTS § 3。
 
-    后两个是**契约的超集**，加它们是因为后端拿不到就没法答复：
+    后两个是**契约 v0.1.7 收编的**（§ 8 第 2 条），此前是本包报上去的缺口：
 
-    - ``decision``：`POST /ingest` 的响应体要回 `{trace_id, decision}`，而契约里的
-      `IngestResult` 没有这一项。主动输入恒为 `"accept"`，被动采集是筛选的判定。
-    - ``summary``：`JOURNAL` 那段额外的摘要，日记界面要显示它。
-
-    两条都已写进汇报，等契约收编；后端只读不写，删掉它们也不影响前四个字段。
+    - ``decision``：`POST /ingest` 的响应体 `{trace_id, decision}` 直接透传这一项。
+      主动输入恒为 `"accept"`，被动采集是筛选的判定。
+    - ``summary``：仅 `JOURNAL`，日记界面显示这段摘要。
     """
 
     trace_id: str
     accepted: list[FactId] = field(default_factory=list)
     rejected: list[Rejection] = field(default_factory=list)
     merged: list[MergeOp] = field(default_factory=list)
-    decision: str | None = None
+    decision: str = "accept"
     summary: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

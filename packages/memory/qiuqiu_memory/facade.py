@@ -10,9 +10,12 @@
 **分流在这一层，不在后端**（AD-3）：`DIALOGUE` / `JOURNAL` 跳过筛选直接压缩，
 `AMBIENT_*` 先过筛选，每次判断发一条 `filter` 事件。
 
-**同步接口调异步模型。** 契约里 `ingest()` / `recall()` 是普通 `def`，内部经
+**同步接口调异步模型。** 契约 § 3 写明 `ingest()` / `recall()` 是同步方法，内部经
 `runtime.run()` 把协程丢到后台事件循环。后端在 FastAPI 里应当
 `await asyncio.to_thread(facade.ingest, ...)`，别在自己的循环里直接调。
+
+**一条 trace 贯穿一次调用。** `ingest()` / `recall()` 都收 `trace_id`（契约 v0.1.7），
+调用方传了就用调用方的，这一次调用发出的每一条事件信封与 `run_metrics` 都挂在它上面。
 
 **失败处理**（ARCHITECTURE § 3）：Chat 调不通时本次 `ingest` 返回空 `accepted`，
 不重试；原话由后端留在 `messages` 表里。召回则退到确定性规划，照样出结果。
@@ -37,6 +40,7 @@ from .pipeline.synthesize import synthesize
 from .text import preview
 from .types import (
     AMBIENT_SOURCES,
+    INGESTABLE_SOURCES,
     Budget,
     FactId,
     IngestResult,
@@ -54,14 +58,13 @@ __all__ = ["LAYERS", "MemoryFacade", "layer_of", "new_trace_id"]
 log = structlog.get_logger("qiuqiu_memory.facade")
 
 LAYERS: tuple[str, ...] = ("L0", "L1", "L2")
-"""`visible_memory.layer` 的取值域（CONTRACTS § 5）。
-
-契约只定了取值，没定含义。这里定成三层稳定度，**记在这儿等契约收编**：
+"""`visible_memory.layer` 的取值域（CONTRACTS § 5），含义按契约 v0.1.7（§ 1 的表）：
 
 - `L0` 身份：名字、称呼、生日、职业这类几乎不变的事实
 - `L1` 偏好：喜欢什么、讨厌什么、习惯怎样，变得慢
 - `L2` 近况：最近发生的事、临时的安排，变得快
 
+是**稳定度**分层，不是重要度也不是时间。契约点名归层规则在 `layer_of`，函数名别改。
 分层只影响记忆库界面怎么分组，不影响召回——召回按三路走，不看 layer。
 """
 
@@ -75,7 +78,11 @@ def new_trace_id() -> str:
 
 
 def layer_of(text: str) -> str:
-    """把一条事实归到 L0 / L1 / L2。规则见 `LAYERS`。"""
+    """把一条事实归到 L0 / L1 / L2。规则见 `LAYERS`。
+
+    **函数名是契约的一部分**：CONTRACTS § 1 点名「归层规则在
+    `packages/memory/qiuqiu_memory/facade.py::layer_of`」。
+    """
     if _L0_RE.search(text or ""):
         return "L0"
     if _L1_RE.search(text or ""):
@@ -106,19 +113,31 @@ class MemoryFacade:
         speaker: str,
         ts: dt.datetime,
         blob_id: str | None = None,
+        trace_id: str | None = None,
     ) -> IngestResult:
-        """写入一段输入。被动采集先筛选，主动输入直接压缩（AD-3）。"""
+        """写入一段输入。被动采集先筛选，主动输入直接压缩（AD-3）。
+
+        `trace_id` 由调用方传（契约 v0.1.7）：`/chat` 与 `/ingest` 生成一条，这一次调用
+        发出的 `filter` `write` `merge` 事件与 `run_metrics` 全挂在它上面，侧栏才串得起
+        「这一轮记了什么」。不传就在这儿生成一条，返回值里照常带回。
+        """
         if not isinstance(source, Source):
             raise ContractError(
                 f"source 必须是 Source 枚举，收到 {source!r}。",
-                hint="用 qiuqiu_memory.Source 的四个成员之一。",
+                hint="用 qiuqiu_memory.Source 的成员之一。",
+            )
+        if source not in INGESTABLE_SOURCES:
+            raise ContractError(
+                f"{source.name} 不是 ingest() 的来源。",
+                hint="Source.PERSONA 是中间件内部用的（CONTRACTS § 3），"
+                "性格档案由 PersonaService.run_consolidation() 写冷表，别走 ingest()。",
             )
         if speaker not in {"user", "assistant"}:
             raise ContractError(
                 f"speaker 只能是 user 或 assistant，收到 {speaker!r}。",
                 hint="AI 自己的回复也要写进记忆，speaker 传 assistant（AD-6）。",
             )
-        trace_id = new_trace_id()
+        trace_id = trace_id or new_trace_id()
         moment = to_utc(ts)
 
         if source in AMBIENT_SOURCES:
@@ -200,10 +219,14 @@ class MemoryFacade:
         *,
         budget: Budget,
         now: dt.datetime | None = None,
+        trace_id: str | None = None,
     ) -> RecallResult:
-        """召回。`now` 缺省为当前时间，场景回放传偏移后的时间。"""
+        """召回。`now` 缺省为当前时间，场景回放传偏移后的时间。
+
+        `trace_id` 同 `ingest()`：调用方传就用调用方的，`recall` 事件挂在它上面。
+        """
         moment = to_utc(now) if now is not None else self.runtime.now()
-        trace_id = new_trace_id()
+        trace_id = trace_id or new_trace_id()
         return self.runtime.run(
             retrieve(self.runtime, query, budget=budget, now=moment, trace_id=trace_id)
         )
@@ -224,9 +247,9 @@ class MemoryFacade:
         """改一条可见记忆。
 
         认得的键：`content` `layer` `enabled` `source` `fact_ids`，外加一个
-        `deleted=True`——那是 `DELETE /memories/{id}` 的落点：**级联作废**对应的事实
-        （写 `valid_to`，不删行，AD-9），再把这一行从 `visible_memory` 里去掉。
-        契约 § 3 没给删除留方法，缺口已写进汇报。
+        `deleted=True`——那是 `DELETE /memories/{id}` 的落点（契约 v0.1.7 定死的语义）：
+        该条 `enabled` 置否，并对 `fact_ids` 逐条 `mark_superseded`，**两边都不删行**
+        （AD-9）。用户看得见的是「这条没了」，底下留着痕迹，误删还能翻回来。
         """
         row = self.runtime.sqlite.get_visible_memory(mid)
         if row is None:
@@ -251,22 +274,26 @@ class MemoryFacade:
 
         if fields.get("deleted"):
             self._invalidate_facts(current.fact_ids)
-            self.runtime.sqlite.delete_visible_memory(mid)
             log.info("visible.deleted", id=mid, facts=len(current.fact_ids))
-            return current
+            enabled = False
+        else:
+            enabled = bool(fields.get("enabled", current.enabled))
 
         updated = self.runtime.sqlite.upsert_visible_memory(
             mid,
             fields.get("layer", current.layer),
             str(fields.get("content", current.content)),
             source=fields.get("source", current.source),
-            enabled=bool(fields.get("enabled", current.enabled)),
+            enabled=enabled,
             fact_ids=list(fields.get("fact_ids", current.fact_ids)),
         )
         return VisibleMemory.from_row(updated)
 
     def _invalidate_facts(self, fact_ids: list[FactId]) -> None:
-        """级联作废：两层都写 `valid_to`，**不删行**（AD-9）。"""
+        """级联作废：`fact_ids` 逐条 `mark_superseded`，两层都写 `valid_to`，**不删行**（AD-9）。
+
+        一次一条是 `lance.mark_superseded` 的签名（契约 v0.1.7 § 8 第 10 条按实现对齐）。
+        """
         moment = self.runtime.now()
         for fact_id in fact_ids:
             for tier in ("hot", "cold"):
