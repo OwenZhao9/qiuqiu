@@ -1,0 +1,63 @@
+NOTICE · vendor/emotion-ball
+============================
+
+丘丘（qiuqiu）的视觉形象与表情引擎来自第三方开源项目 Emotion Ball。
+本目录是**原样复制**的上游文件，不做任何修改。
+
+上游
+----
+
+- 仓库：https://github.com/sam70361/aora-bot
+- commit：e3b6148c818da4a8e1966f2bc89cdb3cee473b73
+- 取用日期：2026-09-05
+
+取自哪些路径（逐字节一致，sha256 见下）
+--------------------------------------
+
+| 本目录 | 上游路径 | sha256 |
+|---|---|---|
+| `js/rings.js`    | `emotion-ball/js/rings.js`    | `7fd196046650b8273d87c9b85a899554d90f35c62d676eea1c681630e721ec20` |
+| `js/emotions.js` | `emotion-ball/js/emotions.js` | `c938eb9601ba4b37c67e78fa0e4c1294d1882b498111600b83a8ebfe2aeb8d77` |
+| `js/ball.js`     | `emotion-ball/js/ball.js`     | `4d7928b66e19da61f0aceaa161d6b2e1c7a83bb49c83cd449e80844deb70a587` |
+| `js/engine.js`   | `emotion-ball/js/engine.js`   | `6c48deb09e097f50655b546c84b5bda066a741520d8e5e2c064c6a7e813b1756` |
+| `LICENSE`                | 仓库根 `LICENSE`                | 上游社区许可原文 |
+| `LICENSE-COMMERCIAL.md`  | 仓库根 `LICENSE-COMMERCIAL.md`  | 上游商业许可原文 |
+| `NOTICE.md`              | 仓库根 `NOTICE.md`              | 上游使用声明原文 |
+
+上游展示站的 `i18n.js` `app.js` `hero-particles.js` 与 `css/style.css` 不引入；
+`mood-mates/` 子项目当前不使用。
+
+授权（docs/ARCHITECTURE.md § 2 的第一条约束）
+--------------------------------------------
+
+上游仓库里有两类授权不同的内容，丘丘两类都用到：
+
+1. **球形角色的视觉形象**（`blob` / `wedge` / `gem` 身体造型、配色、彩带等特效视觉，
+   以及它们组合成的整体角色形象）——**仅供个人技术学习与研究，禁止任何商业用途**，
+   上游明确说明该部分不提供、也**永不提供**商业授权。
+
+2. **表情引擎源代码与表情配置数据**（状态机、弹簧插值、球面投影、渲染层、
+   配置注册中心、眼环与眼形参数、动画原语、关键帧序列）——**双许可：非商业使用免费；
+   商业用途可向上游另行获取商业授权**。商业使用时必须搭配使用方自有或另行合法授权的
+   角色形象。
+
+因此，对丘丘这个项目：
+
+- 丘丘当前的球体外观**只能停留在 demo 与研究阶段**。
+- **转产品（任何商业化）之前必须整体替换角色形象**，并为引擎另行取得商业授权，
+  或换用可商用的实现。上游 `mood-mates/` 的原创角色（云宝 Nimbo / 亮亮 Twinkle）
+  是同源引擎、可商用的首选候补。
+- `packages/character` 已按这条把「表情映射表」与「渲染适配层」拆开：
+  换形象只需要替换 `src/engine.ts` 一层，`src/state-machine.ts`
+  `src/event-map.ts` `src/emotion.ts` 只依赖 `emotionId` 字符串，原样复用。
+
+三条硬规矩
+----------
+
+1. 本目录下的**任何文件都不许修改**。所有定制只经公开 API
+   `EmotionBall.config.register()`（纯数据主题补丁）与 `EmotionBall.create()` 的选项完成，
+   做法见 `design/character.md` § 2、§ 3。
+2. 上游的 `LICENSE`、`LICENSE-COMMERCIAL.md`、`NOTICE.md` 三个文件保留原文，不删不改。
+3. 引入方式是四个 `<script>` 标签，顺序固定：
+   `rings.js` → `emotions.js` → `ball.js` → `engine.js`。
+   `engine.js` 在末尾自动注册 `emotions.js` 提供的 32 套种子配置。
