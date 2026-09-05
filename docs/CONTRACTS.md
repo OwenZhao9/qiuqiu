@@ -92,7 +92,6 @@ Response: { "trace_id": string, "decision": "accept"|"reject"|"uncertain" }
 ### 记忆库（用户可见层）
 
 ```
-POST   /events/{id}/resolve  Body: { "keep": boolean }   → { "id": string, "resolved": "kept"|"dropped" }
 GET    /memories?layer=L0|L1|L2          → VisibleMemory[]
 PATCH  /memories/{id}   Body: Partial<VisibleMemory>
 DELETE /memories/{id}                    → VisibleMemory（级联作废对应事实，不删行）
@@ -545,7 +544,7 @@ v0.1.8 逐条裁决。**两条否掉了分支的权宜做法**，其余采纳：
 4. `POST /current-model` 定为 `{ capability, model }` → `{ capability, model, provider }`。前端猜的是 `{ capability, provider, model? }`，以后端为准——选路只看 `.env`（AD-8），`provider` 是结果不是入参
 5. `POST /compare` 定形。一条配置只有「带不带记忆与人格」一个旋钮，且**不 ingest 不落 messages**：同一句跑两遍写两次等于把它记重了
 6. `GET /scenarios` 与 `POST /scenario/{name}/play` 收编进契约，加 `speed`。原先只在 `scenarios/README.md` 里，前端只能把四个场景名写死
-7. `POST /events/{id}/resolve`。`design/memory-panel.md` 要求 `uncertain` 那张卡有「留下 / 丢掉」按钮，而 v0.1.7 定了 `uncertain` 只发事件不落库，两头对不上，缺一条把它转成 accept 或确认丢弃的路由
+7. `uncertain` 那张卡的「留下 / 丢掉」按钮**推迟到 M3**，本轮不定路由。`design/memory-panel.md` 要求这两个按钮，前端也画出来了；但 v0.1.7 第 3 条定的「`uncertain` 只发事件不落库」意味着事件里只剩 `input_preview`——80 字截断带省略号。照它「留下」，存进记忆的就是被截断的半句话，比按钮点不动更糟。真要做，得先定「拿不准的原文停在哪里等用户决定」，那是 M3 记忆闭环的事。这是 v0.1.7 第 3 条的连带后果，当时没追到底
 8. `DELETE /memories/{id}` 与 persona 三条写接口都返回改完的完整对象，省前端一次回读
 9. `POST /blobs` 的 `kind` 按 `Content-Type` 猜、表单可覆盖，响应加 `kind` 与 `bytes`
 

@@ -5,7 +5,8 @@
 - `ambient_image`：读 blob → `VisionModel.describe()` → `ingest(source=AMBIENT_IMAGE)`。
   Vision 失败按 ARCHITECTURE § 3 返回带 hint 的错误，**不静默跳过**
 - `ambient_audio`：读 blob → `VAD.evaluate()` → 有语音才 `ASR.transcribe()` →
-  `ingest(source=AMBIENT_AUDIO)`。VAD 判无语音就到此为止，decision 记 `reject`
+  `ingest(source=AMBIENT_AUDIO)`。VAD 判无语音就到此为止，decision 记 `reject`，
+  并经 `facade.note_filter()` 让中间件代发一条 `filter` 事件（契约 v0.1.8 § 3）
 
 VAD / ASR 这一轮还没接真实实现（M5）。缺失时按 AD-16 返回带 hint 的 503，**不换 mock**——
 `MODELS_MOCK=1` 是唯一的 mock 入口。筛选是中间件的活（AD-3），后端不做预筛。
@@ -53,14 +54,27 @@ async def ingest(body: IngestIn, state: StateDep) -> dict[str, Any]:
             text = await _audio_text(state, body.blob_id)
 
         if text is None:
-            log.info("ingest.no_speech", trace_id=trace_id, blob_id=body.blob_id)
+            # VAD 拦下的片段进不到中间件，所以中间件不会发 filter 事件。把这条判断
+            # 报上去让它代发一条（契约 v0.1.8 § 3 `note_filter`）——ambient-noise
+            # 那个演示要看的正是这些拒绝，侧栏空着等于演示白做。
+            event_id = state.facade.note_filter(
+                decision="reject",
+                score=0.0,
+                reason=NO_SPEECH_REASON,
+                source=Source(body.source),
+                input_preview=f"[音频片段 {body.blob_id}]",
+                trace_id=trace_id,
+            )
+            log.info("ingest.no_speech", trace_id=trace_id, blob_id=body.blob_id, event_id=event_id)
             return {"trace_id": trace_id, "decision": "reject", "reason": NO_SPEECH_REASON}
 
         result = await state.off_loop(
             state.facade.ingest,
             text,
             source=Source(body.source),
-            speaker="user",
+            # 被动采集的说话人未知，一律 `ambient`，**不能记成 `user`**
+            # （契约 v0.1.8 § 5：multi-person 演示里客厅有三个人）
+            speaker="ambient",
             ts=moment,
             blob_id=body.blob_id,
             trace_id=trace_id,

@@ -109,3 +109,13 @@ def test_speed_controls_pacing(client: TestClient, scenarios_dir: Path) -> None:
     started = time.perf_counter()
     client.post("/scenario/paced/play", json={"speed": 1})
     assert time.perf_counter() - started >= 0.28
+
+
+def test_scenarios_listing_exists(client: TestClient) -> None:
+    """契约 v0.1.8 § 1 收编 `GET /scenarios`。原先只在 README 里，
+    前端只能把四个场景名写死在代码里。"""
+    rows = client.get("/scenarios").json()
+    assert isinstance(rows, list)
+    for row in rows:
+        assert set(row) == {"name", "title"}
+        assert row["name"] and row["title"]

@@ -354,3 +354,41 @@ class TestPlumbing:
         facade = MemoryFacade(runtime)
         facade.close()
         facade.close()
+
+
+class TestNoteFilter:
+    """契约 v0.1.8 § 3：调用方自己做的筛选判断，由中间件代发事件。"""
+
+    def test_note_filter_publishes_a_filter_event_without_writing_facts(
+        self, facade: MemoryFacade
+    ) -> None:
+        """VAD 在后端，被它拦下的片段进不到中间件。没有这个入口，
+        `ambient-noise`（99% 是废话）演示的侧栏就是空的——而它要演的正是这些拒绝。"""
+        before = len(facade.runtime.sqlite.events_since(0, limit=1000))
+        event_id = facade.note_filter(
+            decision="reject",
+            score=0.0,
+            reason="VAD 判定这一段没有人声",
+            source=Source.AMBIENT_AUDIO,
+            input_preview="[音频片段 blob_1]",
+        )
+        rows = facade.runtime.sqlite.events_since(0, limit=1000)
+        assert event_id.startswith("evt_")
+        assert len(rows) == before + 1
+        last = rows[-1]
+        assert last["type"] == "filter"
+        raw = last["payload_json"]  # event_log 的列名是 payload_json
+        payload = raw if isinstance(raw, dict) else json.loads(raw)
+        assert payload["decision"] == "reject"
+        assert payload["source"] == "ambient_audio"
+        assert payload["reason"] == "VAD 判定这一段没有人声"
+
+    def test_note_filter_rejects_unknown_decisions(self, facade: MemoryFacade) -> None:
+        with pytest.raises(ValueError):
+            facade.note_filter(
+                decision="maybe",
+                score=0.5,
+                reason="x",
+                source=Source.AMBIENT_AUDIO,
+                input_preview="x",
+            )

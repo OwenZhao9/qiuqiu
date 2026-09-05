@@ -15,6 +15,7 @@ from . import (
     persona,
     providers,
     scenario,
+    sessions,
     thresholds,
     voice,
 )
@@ -24,6 +25,7 @@ __all__ = ["API_PATHS", "MODULES", "api_router"]
 MODULES = (
     health,
     chat,
+    sessions,
     events,
     ingest,
     memories,

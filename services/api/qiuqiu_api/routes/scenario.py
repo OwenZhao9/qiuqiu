@@ -15,7 +15,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..deps import StateDep
-from ..scenarios import load_scenario, play
+from ..scenarios import list_scenarios, load_scenario, play
 from ..state import new_trace_id
 
 router = APIRouter(tags=["scenario"])
@@ -25,6 +25,21 @@ class PlayIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     speed: float = Field(default=1.0, ge=0.0, le=1000.0)
+
+
+@router.get("/scenarios")
+async def list_all(state: StateDep) -> list[dict[str, str]]:
+    """列出可回放的场景。契约 v0.1.8 § 1 收编——原先只在 `scenarios/README.md` 里，
+    前端只能把四个场景名写死在代码里。`title` 读脚本自己的，读不出就退回名字。"""
+    out: list[dict[str, str]] = []
+    for name in list_scenarios(state.config.scenarios_dir):
+        try:
+            scenario = load_scenario(state.config.scenarios_dir, name)
+            title = scenario.title or name
+        except Exception:  # noqa: BLE001 - 单个脚本坏了不该让整张列表挂掉
+            title = name
+        out.append({"name": name, "title": title})
+    return out
 
 
 @router.post("/scenario/{name}/play")

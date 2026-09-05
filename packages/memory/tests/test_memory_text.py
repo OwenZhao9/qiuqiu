@@ -118,3 +118,24 @@ class TestMisc:
     def test_estimate_tokens_counts_characters(self) -> None:
         assert estimate_tokens("abc") == 3
         assert estimate_tokens("") == 0
+
+
+class TestAmbientSpeaker:
+    """契约 v0.1.8 § 5：被动采集的说话人未知，代词不解析。"""
+
+    def test_unknown_speaker_leaves_pronouns_alone(self) -> None:
+        """把环境音里的「我」解析成「用户」，就是把别人的话记成用户自己说的。
+
+        `multi-person`（客厅里有三个人）正是这个场景：三个人的「我」指三个不同的人，
+        一个都不该被认成用户。宁可留着代词不自包含，也不能记错归属。
+        """
+        from qiuqiu_memory.text import resolve_pronouns
+
+        said = "我明天要去医院"
+        assert resolve_pronouns(said, speaker="ambient") == said
+        assert resolve_pronouns(said, speaker="user") != said  # 主动输入照常解析
+
+    def test_ambient_has_a_third_person_label(self) -> None:
+        from qiuqiu_memory.text import speaker_label
+
+        assert speaker_label("ambient") == "某人"

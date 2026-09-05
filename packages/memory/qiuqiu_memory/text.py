@@ -115,7 +115,7 @@ def clauses(text: str) -> list[str]:
 
 # ---------- 代词消解 ----------
 
-_SPEAKER_LABELS = {"user": "用户", "assistant": "丘丘"}
+_SPEAKER_LABELS = {"user": "用户", "assistant": "丘丘", "ambient": "某人"}
 
 
 def speaker_label(speaker: str) -> str:
@@ -130,6 +130,11 @@ def resolve_pronouns(text: str, *, speaker: str = "user") -> str:
     第三人称的「他 / 她 / 它」在没有上下文时无从判断，原样保留——宁可不改，
     不能改错。
     """
+    if speaker == "ambient":
+        # 说话人未知，「我」是谁就无从判断。把它解析成「用户」会把别人说的话
+        # 记成用户自己说的——multi-person 演示里客厅有三个人，正是这个场景。
+        # 宁可留着代词不自包含，也不能记错归属。
+        return text or ""
     me = speaker_label(speaker)
     you = _SPEAKER_LABELS["assistant"] if speaker == "user" else _SPEAKER_LABELS["user"]
     out = text or ""

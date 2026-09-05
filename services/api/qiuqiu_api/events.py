@@ -6,7 +6,7 @@
 
 不重不漏靠这个顺序，顺序错了就会漏：
 
-1. **先订阅**：`subscribe()` 的注册发生在第一次 `__anext__`，所以先把泵任务跑起来，
+1. **先订阅**：`subscribe()` 在调用时同步完成注册（契约 v0.1.8 § 3），
    让它卡在等队列上，此刻起新事件都进队列
 2. **再补发**：注册完成之后才查 `events_since(since)`。这时候查到的一定是「订阅前
    就已经落库的」，订阅之后落库的那些即使这次也查到了，也只是重复
@@ -88,9 +88,14 @@ async def stream_memory_events(
     """
     queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=_QUEUE_SIZE)
 
+    # 订阅必须在补发之前完成，而且要**确定**完成——契约 v0.1.8 § 3 保证 `subscribe()`
+    # 返回时已经在册。所以这一行之后落库的事件一定进得了队列，补发与实时之间没有缝。
+    # 原先是先起泵任务再让步两次去猜，那等于把这里的正确性绑在中间件的内部实现上。
+    stream = state.facade.subscribe()
+
     async def pump() -> None:
         try:
-            async for event in state.facade.subscribe():
+            async for event in stream:
                 if queue.full():  # 丢最旧的，别让 SSE 慢读者拖住记忆管线
                     queue.get_nowait()
                 queue.put_nowait(event)
@@ -101,11 +106,6 @@ async def stream_memory_events(
 
     task = asyncio.create_task(pump())
     try:
-        # 让泵任务跑到「已注册、正在等队列」为止。两次让步足够穿过 subscribe() 里
-        # 那层异步生成器的启动开销，之后落库的事件都进得了队列。
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-
         cursor = since
         page = state.config.events_page
         while True:

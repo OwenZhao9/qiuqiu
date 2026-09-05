@@ -132,10 +132,11 @@ class MemoryFacade:
                 hint="Source.PERSONA 是中间件内部用的（CONTRACTS § 3），"
                 "性格档案由 PersonaService.run_consolidation() 写冷表，别走 ingest()。",
             )
-        if speaker not in {"user", "assistant"}:
+        if speaker not in {"user", "assistant", "ambient"}:
             raise ContractError(
-                f"speaker 只能是 user 或 assistant，收到 {speaker!r}。",
-                hint="AI 自己的回复也要写进记忆，speaker 传 assistant（AD-6）。",
+                f"speaker 只能是 user / assistant / ambient，收到 {speaker!r}。",
+                hint="AI 自己的回复也要写进记忆，speaker 传 assistant（AD-6）；"
+                "被动采集的说话人未知，传 ambient，别记成 user（契约 v0.1.8 § 5）。",
             )
         trace_id = trace_id or new_trace_id()
         moment = to_utc(ts)
