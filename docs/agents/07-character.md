@@ -33,12 +33,12 @@
 - [ ] `applyEvent(event: MemoryEvent)`：按 CONTRACTS § 6 表切表情
 - [ ] `filter.reject` 不切换
 - [ ] `recall` 有 `cold_promoted` 时用 `40`，否则 `37`
-- [ ] 事件表情持续时间（默认 1.5s）后回当前状态的表情
+- [ ] 事件表情持续 1600ms 后回当前状态的表情（CONTRACTS § 6）
 
 ### 情绪推断（`src/emotion.ts`）
 
-- [ ] `inferEmotion(replyText, userText?) -> EmotionId`，规则从 `design/emotion-rules.md` 翻译
-- [ ] 回复结束时调用，结果经 `setEmotion` 应用，持续 2s 后回 `idle`
+- [ ] `inferEmotion(replyText, userText?) -> EmotionId`，规则从 `design/emotion-rules.md` 翻译，无命中回退 `02`
+- [ ] 回复结束时调用，结果经 `setEmotion` 应用，持续 1600ms 后回当前状态的表情；拒绝式命中时跳过情绪推断
 
 ### 导出（`src/index.ts`）
 
@@ -58,7 +58,7 @@ export type { QiuqiuInstance, CharacterState, EmotionId };
 
 - 在空白页面 `createQiuqiu()` 后丘丘出现、会眨眼、鼠标注视跟随
 - `setState("thinking")` 切 `30`，`setState("speaking")` 切 `39`
-- 喂一段 `write` 事件切 `10`，1.5s 后回 `02`
+- 喂一段 `write` 事件切 `10`，1600ms 后回当前状态的表情
 - `feedEnvelope` 喂正弦波，嘴巴张合可见
 - `inferEmotion("太好了！")` 返回 `10`，`inferEmotion("抱歉我做不到")` 返回 `12` 或 `18`（按设计文档）
 - `vitest` 通过，含 CONTRACTS § 6 契约测试

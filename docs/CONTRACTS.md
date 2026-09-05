@@ -376,24 +376,60 @@ init()   一次建齐目录、表与索引，可重复调用
 
 丘丘用 Emotion Ball 的 `emotionId`。映射由 `packages/character` 维护，`design/` 定规范。
 
-| 触发 | emotionId | Emotion Ball 名 |
-|---|---|---|
-| 状态 idle | `02` | 待机放空 |
-| 状态 listening | `35` | 等待输入 |
-| 状态 thinking | `30` | 思考中 |
-| 状态 speaking | `39` | 输出回复 |
-| 事件 filter.reject | 不切换 | — |
-| 事件 filter.uncertain | `11` | 疑惑 |
-| 事件 write | `10` | 开心 |
-| 事件 merge | `19` | 满意 |
-| 事件 recall（命中） | `37` | 复述回忆 |
-| 事件 recall（下探冷存储） | `40` | 检索资料 |
-| 回复含拒绝 | `38` | 拒绝/受限 |
-| 请求出错 | `34` | 出错 |
+### 状态表情
 
-情绪推断（回复文本 → `10–21` 区间）由 `packages/character/emotion.ts` 负责，规则见 `design/emotion-rules.md`。
+| 状态 | emotionId | Emotion Ball 名 |
+|---|---|---|
+| `idle` | `02` | 待机放空 |
+| `listening` | `35` | 等待输入 |
+| `thinking` | `30` | 思考中 |
+| `speaking` | `39` | 输出回复 |
+
+状态表情最短停留 **500 ms**，只约束表情不约束状态语义——气泡文字、音频播放、网络请求全部不等。
+
+### 事件表情
+
+事件表情**优先于状态表情**，持续 **1600 ms**，之后回到「当前」状态的表情（不是进入事件时的那个状态）。**不排队**：期间来新事件立即覆盖并重置计时；同一时刻到达多条取优先级最高的，相同优先级取后到的。
+
+| 触发 | 判定 | emotionId | Emotion Ball 名 | 优先级 |
+|---|---|---|---|---|
+| 请求出错 | SSE / WS `error` 事件 | `34` | 出错 | 90 |
+| 回复含拒绝 | `done` 后对全文跑 `design/emotion-rules.md` § 4 的拒绝式 | `38` | 拒绝/受限 | 80 |
+| `recall`（下探冷存储） | `payload.cold_promoted.length > 0` | `40` | 检索资料 | 70 |
+| `recall`（命中） | `payload.hits.length > 0` 且 `cold_promoted` 为空 | `37` | 复述回忆 | 60 |
+| `merge` | `type === "merge"` | `19` | 满意 | 50 |
+| `write` | `payload.facts.length > 0` | `10` | 开心 | 50 |
+| `filter.uncertain` | `payload.decision === "uncertain"` | `11` | 疑惑 | 40 |
+| 情绪推断 | `done` 后对全文跑 `design/emotion-rules.md` | `10`–`21` 之一 | — | 30 |
+| `filter.reject` | `payload.decision === "reject"` | **不切换** | — | — |
+| `filter.accept` | `payload.decision === "accept"` | **不切换** | — | — |
+| `recall`（空命中） | `hits` 与 `cold_promoted` 都为空 | **不切换** | — | — |
+
+三条「不切换」的事件仍然照常进记忆侧栏（`design/memory-panel.md`），只是不动丘丘的脸。
+
+**「回复含拒绝」与情绪推断互斥。** 拒绝式命中时跳过情绪推断，不再叠一次表情。
+
+### 引擎自驱
+
+下面三个 ID 不由事件或状态触发，由 `packages/character` 的闲置策略驱动，阈值见 `design/character.md` § 4。列在这里是为了说明丘丘的表情不止上表 12 种。
+
+| 时机 | emotionId | Emotion Ball 名 |
+|---|---|---|
+| `idle` 满 90 s | `04` | 发呆 |
+| `idle` 满 300 s | `00` | 睡眠 |
+| 从 `00` 离开 `idle` 的过场 | `01` | 唤醒 |
+
+### 情绪推断
+
+回复文本 → `10`–`21` 区间，由 `packages/character/src/emotion.ts` 负责，17 条规则见 `design/emotion-rules.md`，**无规则命中时回退 `02`**。
+
+### 发声脉动
 
 **`feedEnvelope(rms)` 驱动的是容器级「发声脉动」，不是嘴巴张合。** Emotion Ball 的形象没有嘴，引擎也不暴露逐帧姿态写入口；`design/state-machine.md` 给出的映射曲线作用在容器 `transform` 上。签名不变，语义以本条为准。
+
+`packages/character` 把平滑后的包络值写进 stage 容器的 CSS 变量 **`--qq-voice`**，取值 `0`–`1`、三位小数。`apps/web` 要自定义脉动表现时读这个变量；宿主不引任何 CSS 也能跑，`createQiuqiu()` 造的 stage 元素自带必要内联样式。噪声门、伽马、起落时间常数与逐点取值表见 `design/state-machine.md` § 4。
+
+### 主题色
 
 **主题色不能走 `opts.color`。** 引擎每帧无条件覆写体色，会废掉 `21` 生气变红、`14` 害羞变粉、`34` 出错红白闪。改用公开 API `EmotionBall.config.register()` 打纯数据主题补丁，不改 `vendor/` 任何文件，补丁表见 `design/character.md`。
 
@@ -414,9 +450,11 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.5**（`recall.hits[]` 与 `merge.absorbed[]` `invalidated[]` 增 `text`，否则侧栏只能显示 id，「记忆过程看得见」这条第一质量属性落空；补 `/config/thresholds` 的 body schema；§ 6 写明 `feedEnvelope` 是容器脉动不是嘴巴，以及主题色不能走 `opts.color`）
+当前：**v0.1.6**（§ 6 重写：事件表情表补判定条件列与优先级列，补 `filter.accept` 与 `recall` 空命中两行「不切换」，事件表情持续时间定为 1600 ms，写明拒绝式与情绪推断互斥、情绪推断无命中回退 `02`，补引擎自驱的 `01` `04` `00`，写明发声脉动的 CSS 变量名 `--qq-voice`）
 
 历史：
+
+- v0.1.5 — `recall.hits[]` 与 `merge.absorbed[]` `invalidated[]` 增 `text`，否则侧栏只能显示 id，「记忆过程看得见」这条第一质量属性落空；补 `/config/thresholds` 的 body schema；§ 6 写明 `feedEnvelope` 是容器脉动不是嘴巴，以及主题色不能走 `opts.color`
 
 - v0.1.4 — 补齐 `facts` 的 `speaker` `source` 与 `visible_memory.layer` 取值域；点明向量维度是破坏性契约；新增「数据层接口」小节
 
