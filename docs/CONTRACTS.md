@@ -100,6 +100,18 @@ interface VisibleMemory {
 }
 ```
 
+`layer` 是**稳定度**分层，不是重要度，也不是时间：
+
+| layer | 含义 | 例子 |
+|---|---|---|
+| `L0` | 身份，几乎不变 | 名字、称呼、生日、职业 |
+| `L1` | 偏好，变得慢 | 喜欢什么、讨厌什么、习惯怎样 |
+| `L2` | 近况，变得快 | 最近发生的事、临时安排 |
+
+归层规则在 `packages/memory/qiuqiu_memory/facade.py::layer_of`。前端按这三层分组显示。
+
+`DELETE /memories/{id}` 在中间件侧落到 `edit_visible(mid, deleted=True)`：该条 `enabled` 置否并对 `fact_ids` 逐条 `mark_superseded`，**不删行**（AD-9）。
+
 ### 人格
 
 ```
@@ -200,6 +212,7 @@ class Source(Enum):
     JOURNAL = "journal"            # 日记随笔，跳过筛选，另出摘要
     AMBIENT_AUDIO = "ambient_audio"
     AMBIENT_IMAGE = "ambient_image"
+    PERSONA = "persona"            # 性格沉淀写冷存储的性格档案；中间件内部用，调用方不传
 
 @dataclass
 class IngestResult:
@@ -207,6 +220,8 @@ class IngestResult:
     accepted: list[FactId]
     rejected: list[Rejection]      # Rejection = { reason, score, preview }
     merged: list[MergeOp]
+    decision: str = "accept"       # accept / reject / uncertain，POST /ingest 直接透传
+    summary: str | None = None     # 仅 JOURNAL，日记界面显示这段摘要
 
 @dataclass
 class Budget:
@@ -223,13 +238,19 @@ class RecallResult:
 
 class MemoryFacade:
     def ingest(self, text: str, *, source: Source, speaker: str, ts: datetime,
-               blob_id: str | None = None) -> IngestResult: ...
-    def recall(self, query: str, *, budget: Budget,
-               now: datetime | None = None) -> RecallResult: ...   # now 缺省为当前时间，场景回放传偏移后的时间
+               blob_id: str | None = None, trace_id: str | None = None) -> IngestResult: ...
+    def recall(self, query: str, *, budget: Budget, now: datetime | None = None,
+               trace_id: str | None = None) -> RecallResult: ...   # now 缺省为当前时间，场景回放传偏移后的时间
     def list_visible(self, layer: str | None = None) -> list[VisibleMemory]: ...
     def edit_visible(self, mid: str, **fields) -> VisibleMemory: ...
     def subscribe(self) -> AsyncIterator[MemoryEvent]: ...
 ```
+
+**`trace_id` 由调用方传。** ARCHITECTURE 第 7 节要求一条 `trace_id` 贯穿 `ingest`、事件信封与 `run_metrics`；`/chat` 与 `/ingest` 生成它，经这两个参数传进来，中间件发出的 `filter` `write` `merge` `recall` 事件都挂在同一条 trace 上。不传时中间件自己生成一条，返回值里照常带回。
+
+**`uncertain` 只发事件，不落库。** 筛选判定为 `accept` 才继续压缩与写入；`uncertain` 与 `reject` 都到此为止，区别只在侧栏的呈现（§ 6 里 `uncertain` 切 `11`，`reject` 不切表情）。理由：错记一条要用户去记忆库里手动删，比漏记一条贵。
+
+`ingest()` 与 `recall()` 是**同步方法**。后端在事件循环里调用要走 `await asyncio.to_thread(...)`。
 
 人格相关另在 `qiuqiu_memory/persona.py`：
 
@@ -239,7 +260,12 @@ class PersonaService:
     def set_preset(self, preset: str | None): ... # 触发快照重算
     def set_sliders(self, sliders: Sliders): ...
     def run_consolidation(self) -> Learned       # 性格沉淀：读 SQLite 原始会话，归纳，写冷存储，重算快照
+    def reset_learned(self) -> Learned           # POST /persona/reset-learned：写一版空的相处性格，历史不删（AD-9），重算快照
 ```
+
+降冷的入口在 `qiuqiu_memory.pipeline.tiering.nightly(runtime)`，由后端定时任务调（AD-10：判断标准由 memory 定，执行由 data 做）。后端不直接调 `qiuqiu_data.tiering`。
+
+**热存储 `persona_snapshot` 落在 SQLite `settings`** 的三个键上，memory 写 memory 读，后端不碰：`persona.snapshot`（合成好的 prompt 片段）、`persona.preset`、`persona.sliders`。
 
 ## 4 · 模型适配接口（Python）
 
@@ -332,7 +358,7 @@ class RealtimeEvent:
 | `tokens` | string[] | 字面路 |
 | `entities` | string[] | 标签路 |
 | `speaker` | string | 归属人，取值 `user` \| `assistant`，与 § 1 `write` 事件一致 |
-| `source` | string | 来源，取值为 § 3 `Source` 枚举的 value：`dialogue` \| `journal` \| `ambient_audio` \| `ambient_image` |
+| `source` | string | 来源，取值为 § 3 `Source` 枚举的 value：`dialogue` \| `journal` \| `ambient_audio` \| `ambient_image` \| `persona`（性格档案，只由性格沉淀写冷表） |
 | `valid_from` | timestamp | |
 | `valid_to` | timestamp? | 空 = 当前有效 |
 | `superseded_by` | string? | 被哪条取代 |
@@ -358,12 +384,15 @@ run_metrics(trace_id, stage, provider, tokens_in, tokens_out, latency_ms, ts)  -
 
 ```
 lance    upsert / get / get_many / query_vector / query_fts / query_scalar
-         mark_superseded(ids, valid_to, superseded_by)     写 valid_to，不删行
-         touch(ids, at)                                    更新 last_hit_at
-         delete_rows(ids, tier)                            只给冷热搬运用，AD-9 允许的唯一删行场景
+         mark_superseded(fact_id, superseded_by=None, valid_to=None, tier="hot") -> bool
+                                                           一次一条，写 valid_to 与 superseded_by，不删行
+         touch(fact_ids, at=None, tier="hot")              更新 last_hit_at
+         delete_rows(fact_ids, tier)                       只给冷热搬运用，AD-9 允许的唯一删行场景
          count / ensure_indexes / optimize / table_names
-sqlite   migrate() 幂等；八张表的读写；event_log 按自增 id 的 since 游标查询；
-         persona_learned.latest()；record_metric(trace_id, stage, provider, ...)
+sqlite   migrate() 幂等；八张表的读写；event_log 按自增 id 的 since 游标查询（events_since / latest_event_id）；
+         latest_persona_learned()；record_metric(trace_id, stage, provider, ...)
+         list_messages(session_id, limit=200, offset=0)    按 created_at 升序
+         list_recent_messages(limit=50)                    跨会话、按 created_at 降序取最近 N 条，性格沉淀用
 tiering  promote(fact_ids) / demote_stale(days=30) / nightly()，时钟可注入
 blobs    put(bytes, kind) -> blob_id / get(blob_id) -> bytes / path(blob_id)
          blob_id 形如 "{kind}/{sha256}"，自带 kind；kind 取值 image | text | audio
@@ -450,9 +479,27 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.6**（§ 6 重写：事件表情表补判定条件列与优先级列，补 `filter.accept` 与 `recall` 空命中两行「不切换」，事件表情持续时间定为 1600 ms，写明拒绝式与情绪推断互斥、情绪推断无命中回退 `02`，补引擎自驱的 `01` `04` `00`，写明发声脉动的 CSS 变量名 `--qq-voice`）
+当前：**v0.1.7**（收编 `memory` 报的十一条契约缺口，见下）
 
 历史：
+
+- v0.1.6 — § 6 重写：事件表情表补判定条件列与优先级列，补 `filter.accept` 与 `recall` 空命中两行「不切换」，事件表情持续时间定为 1600 ms，写明拒绝式与情绪推断互斥、情绪推断无命中回退 `02`，补引擎自驱的 `01` `04` `00`，写明发声脉动的 CSS 变量名 `--qq-voice`
+
+v0.1.7 十一条，全部来自 `memory` 分支报上来的缺口，逐条裁决：
+
+1. **`ingest()` `recall()` 增 `trace_id`**。ARCHITECTURE 第 7 节要求一条 trace 贯穿 `ingest`、事件信封与 `run_metrics`，但 § 3 的签名里没有入口，中间件只能自己生成。后果是一次 `/chat` 与它触发的 `recall` / `write` / `merge` 事件挂在不同 trace 上，侧栏串不起「这一轮记了什么」——而「记忆过程看得见」是第一质量属性。缺省仍由中间件生成，不破坏现有调用
+2. **`IngestResult` 增 `decision` 与 `summary`**。`POST /ingest` 的响应体要回 `decision`，契约的返回值里没有；`JOURNAL` 「另出摘要」也没有承载字段
+3. **`uncertain` 只发事件不落库**。§ 1 定了三种 decision，但只有 `accept` 与 `reject` 写了后续行为。裁决理由写在 § 3：错记要用户手动删，比漏记贵
+4. **`DELETE /memories/{id}` 落到 `edit_visible(mid, deleted=True)`**。§ 3 五个方法里没有删除，后端只能猜
+5. **`persona_snapshot` 的落点**定为 SQLite `settings` 的 `persona.snapshot` / `persona.preset` / `persona.sliders` 三个键。ARCHITECTURE 第 7 节只说它是热存储，§ 5 的八张表里找不到它
+6. **`visible_memory.layer` 的含义**定为稳定度三层：`L0` 身份 / `L1` 偏好 / `L2` 近况。原先只定了取值域，前端没法分组显示
+7. **`PersonaService` 增 `reset_learned()`**。§ 1 有 `POST /persona/reset-learned` 路由，§ 3 没有对应方法
+8. **降冷入口**定为 `qiuqiu_memory.pipeline.tiering.nightly(runtime)`。AD-10 说判断标准由 memory 定、执行由 data 做，但没写后端该调哪个
+9. **`Source` 增 `PERSONA`**。性格沉淀要往冷表写一条性格档案，原四个取值都不合适，先前归到 `journal` 会污染日记。中间件内部用，调用方不传
+10. **`lance.mark_superseded` 的签名以实现为准**：一次一条，`(fact_id, superseded_by=None, valid_to=None, tier="hot")`。文档原先写的是复数 `ids` 且参数顺序不同，批量作废在这一层没有真实需求，改文档对齐实现
+11. **`sqlite` 增 `list_recent_messages(limit)`**。性格沉淀要跨会话的最近 N 条，现有 `list_messages` 按 `created_at` 升序且限定单会话，直接取会拿到最早 N 条，正好相反；中间件只能列全部会话各自翻到尾再滚窗口
+
+另外把「`ingest()` 与 `recall()` 是同步方法、后端要 `asyncio.to_thread`」写进 § 3——三个分支都会踩。
 
 - v0.1.5 — `recall.hits[]` 与 `merge.absorbed[]` `invalidated[]` 增 `text`，否则侧栏只能显示 id，「记忆过程看得见」这条第一质量属性落空；补 `/config/thresholds` 的 body schema；§ 6 写明 `feedEnvelope` 是容器脉动不是嘴巴，以及主题色不能走 `opts.color`
 
