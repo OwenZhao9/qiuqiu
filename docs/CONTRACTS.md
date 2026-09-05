@@ -42,6 +42,11 @@ GET /events?since=<cursor>
 Response: text/event-stream，断线用 since 续传
 ```
 
+帧格式：**不写 `event:` 名**，全部走默认的 `message`；前端一个 `onmessage` 收下再按信封的
+`type` 分发。`id:` 行写 `event_log` 的自增 id（纯数字，不带 `evt_` 前缀），浏览器 `EventSource`
+断线重连会自动带 `Last-Event-ID` 头，后端认这个头，等同于 `?since=`。`?since=` 同时接受
+`12` 与 `evt_12` 两种写法。游标是**严格大于**：`since=12` 返回 id 13 起，不含 12。
+
 统一信封：
 
 ```json
@@ -62,7 +67,7 @@ payload 按类型：
 filter → { "decision": "accept"|"reject"|"uncertain", "score": 0–1, "reason": string,
            "source": "ambient_audio"|"ambient_image", "input_preview": string }
 
-write  → { "raw": string, "speaker": "user"|"assistant",
+write  → { "raw": string, "speaker": "user"|"assistant"|"ambient",
            "facts": [{ "id": string, "text": string, "entities": string[], "valid_from": iso }],
            "dropped_spans": string[] }
 
@@ -87,9 +92,10 @@ Response: { "trace_id": string, "decision": "accept"|"reject"|"uncertain" }
 ### 记忆库（用户可见层）
 
 ```
+POST   /events/{id}/resolve  Body: { "keep": boolean }   → { "id": string, "resolved": "kept"|"dropped" }
 GET    /memories?layer=L0|L1|L2          → VisibleMemory[]
 PATCH  /memories/{id}   Body: Partial<VisibleMemory>
-DELETE /memories/{id}                    → 级联作废对应事实
+DELETE /memories/{id}                    → VisibleMemory（级联作废对应事实，不删行）
 ```
 
 ```ts
@@ -112,6 +118,21 @@ interface VisibleMemory {
 
 `DELETE /memories/{id}` 在中间件侧落到 `edit_visible(mid, deleted=True)`：该条 `enabled` 置否并对 `fact_ids` 逐条 `mark_superseded`，**不删行**（AD-9）。
 
+### 会话与历史
+
+```
+GET /sessions?archived=false             → Session[]
+GET /sessions/{id}/messages?limit=&before=  → Message[]
+```
+
+```ts
+interface Session  { id: string; title: string; archived: boolean; created_at: iso; updated_at: iso; }
+interface Message  { id: string; session_id: string; role: "user"|"assistant";
+                     content: string; model: string|null; favorite: boolean; created_at: iso; }
+```
+
+会话由 `POST /chat` 自动创建。这两条只读，前端用来渲染历史；写入始终经 `/chat`。
+
 ### 人格
 
 ```
@@ -119,6 +140,11 @@ GET  /persona              → { preset: PresetId|null, sliders: Sliders, learne
 PUT  /persona/preset       Body: { "preset": "warm"|"quiet"|"cute"|"sassy"|null }
 PUT  /persona/sliders      Body: Sliders
 POST /persona/reset-learned
+```
+
+三条写接口都返回与 `GET /persona` 同形的四字段对象，省前端一次回读。
+
+```
 ```
 
 ```ts
@@ -149,9 +175,17 @@ WS /voice/stream?voice_session_id=<id>
 ### 其他
 
 ```
+POST /compare              Body: { "query": string, "session_id"?: string,
+                                   "configs": [{ "name": string, "memory": boolean }] }
+                           → { query, results: [{ name, text, tokens_in, tokens_out, latency_ms }], delta }
+GET  /scenarios            → [{ "name": string, "title": string }]
+POST /scenario/{name}/play Body: { "speed"?: number }   speed=1.0 原速，0 不等待
+
 GET  /config/thresholds   PUT /config/thresholds
-GET  /providers  POST /current-model
-POST /blobs  (multipart)   → { "blob_id": string }
+GET  /providers            → ProviderInfo[]（透传 registry.list_providers()）
+POST /current-model        Body: { "capability": "chat"|"vision", "model": string }
+                           → { capability, model, provider: ProviderInfo }
+POST /blobs  (multipart)   → { "blob_id": string, "kind": "image"|"text"|"audio", "bytes": number }
 GET  /health
 ```
 
@@ -195,16 +229,24 @@ interface QiuqiuBridge {
   setPetState(state: "idle"|"listening"|"thinking"|"speaking", emotionId?: string): void;
   // 桌宠 → 主窗口：内联输入条提交
   submitFromPet(text: string): void;
+  // 桌宠 → 主进程：窗口行为。透明窗口里这三件事渲染进程自己做不了
+  setPetPassthrough(ignore: boolean): void;   // 鼠标穿透开关
+  setPetExpanded(expanded: boolean): void;    // 展开输入条时改窗口尺寸，主进程保住球心
+  popupPetMenu(state: { ambientPaused: boolean }): void;  // 原生右键菜单，HTML 菜单会被窗口边界裁掉
   // 订阅
   onDelta(cb: (sessionId: string, text: string) => void): void;
+  onDone(cb: (sessionId: string) => void): void;
   onPetState(cb: (state: string, emotionId?: string) => void): void;
+  onSubmitFromPet(cb: (text: string) => void): void;   // 主窗口收桌宠发的话，AD-5 链路靠它闭合
+  onPetFocus(cb: () => void): void;                    // 全局快捷键唤起后展开输入条
+  onAmbientToggle(cb: (paused: boolean) => void): void; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
 }
 window.__QIUQIU_API__ = "http://127.0.0.1:8000";
 ```
 
 ## 3 · MemoryFacade（Python）
 
-`packages/memory/qiuqiu_memory/facade.py`。服务层只能调这五个方法。
+`packages/memory/qiuqiu_memory/facade.py`。服务层只能调这七个方法。
 
 ```python
 class Source(Enum):
@@ -222,6 +264,15 @@ class IngestResult:
     merged: list[MergeOp]
     decision: str = "accept"       # accept / reject / uncertain，POST /ingest 直接透传
     summary: str | None = None     # 仅 JOURNAL，日记界面显示这段摘要
+
+`subscribe()` **在调用时同步完成注册**，不等第一次 `__anext__`。调用方可以紧接着按
+`since` 补发历史而不丢中间的事件——注册与补发之间没有窗口。这是契约的一部分，实现不得
+改成惰性注册。
+
+`note_filter()` 供后端记录**它自己做出的**筛选判断，典型是 VAD 判无人声、片段根本没
+进中间件的情况。它只发一条 `filter` 事件（照常写 `event_log`），不做压缩也不写事实，
+返回事件 id。有了它，被 VAD 拦下的片段在侧栏也留得下痕迹——「记忆过程看得见」是第一
+质量属性，最常见的那类拒绝不能是空白。事件仍由中间件发布，AD-14 不破。
 
 @dataclass
 class Budget:
@@ -244,6 +295,8 @@ class MemoryFacade:
     def list_visible(self, layer: str | None = None) -> list[VisibleMemory]: ...
     def edit_visible(self, mid: str, **fields) -> VisibleMemory: ...
     def subscribe(self) -> AsyncIterator[MemoryEvent]: ...
+    def note_filter(self, *, decision: str, score: float, reason: str, source: Source,
+                    preview: str, trace_id: str | None = None) -> str: ...
 ```
 
 **`trace_id` 由调用方传。** ARCHITECTURE 第 7 节要求一条 `trace_id` 贯穿 `ingest`、事件信封与 `run_metrics`；`/chat` 与 `/ingest` 生成它，经这两个参数传进来，中间件发出的 `filter` `write` `merge` `recall` 事件都挂在同一条 trace 上。不传时中间件自己生成一条，返回值里照常带回。
@@ -357,7 +410,7 @@ class RealtimeEvent:
 | `vector` | float32[1024] | 语义路。**维度是破坏性契约**，改维度要重建两张表并升主版本 |
 | `tokens` | string[] | 字面路 |
 | `entities` | string[] | 标签路 |
-| `speaker` | string | 归属人，取值 `user` \| `assistant`，与 § 1 `write` 事件一致 |
+| `speaker` | string | 归属人，取值 `user` \| `assistant` \| `ambient`。`ambient` 表示从环境采集、说话人未知——被动采集一律用它，**不得记成 `user`**（`multi-person` 演示场景里客厅有三个人，全记成用户就是错的）。分辨环境里的不同人（说话人分离）推迟 |
 | `source` | string | 来源，取值为 § 3 `Source` 枚举的 value：`dialogue` \| `journal` \| `ambient_audio` \| `ambient_image` \| `persona`（性格档案，只由性格沉淀写冷表） |
 | `valid_from` | timestamp | |
 | `valid_to` | timestamp? | 空 = 当前有效 |
@@ -479,7 +532,41 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.7**（收编 `memory` 报的十一条契约缺口，见下）
+当前：**v0.1.8**（收编 `backend` 十三条与 `frontend` 十四条，去重合并为二十条，见下）
+
+v0.1.8 逐条裁决。**两条否掉了分支的权宜做法**，其余采纳：
+
+**§ 1 路由与事件**
+
+1. `/events` 的 SSE 帧不写 `event:` 名，`id:` 行写 `event_log` 自增 id。前端一个 `onmessage` 收下按 `type` 分发，比四次 `addEventListener` 省事；`id:` 让浏览器断线重连自动带 `Last-Event-ID`
+2. 游标**严格大于**。两个分支各自猜了一种，不写死必然对不上
+3. 补 `GET /sessions` 与 `GET /sessions/{id}/messages`。两个分支都报了同一条：`sessions` `messages` 表归后端写，前端却没有路由读，刷新就丢历史。只读，写入仍只经 `/chat`
+4. `POST /current-model` 定为 `{ capability, model }` → `{ capability, model, provider }`。前端猜的是 `{ capability, provider, model? }`，以后端为准——选路只看 `.env`（AD-8），`provider` 是结果不是入参
+5. `POST /compare` 定形。一条配置只有「带不带记忆与人格」一个旋钮，且**不 ingest 不落 messages**：同一句跑两遍写两次等于把它记重了
+6. `GET /scenarios` 与 `POST /scenario/{name}/play` 收编进契约，加 `speed`。原先只在 `scenarios/README.md` 里，前端只能把四个场景名写死
+7. `POST /events/{id}/resolve`。`design/memory-panel.md` 要求 `uncertain` 那张卡有「留下 / 丢掉」按钮，而 v0.1.7 定了 `uncertain` 只发事件不落库，两头对不上，缺一条把它转成 accept 或确认丢弃的路由
+8. `DELETE /memories/{id}` 与 persona 三条写接口都返回改完的完整对象，省前端一次回读
+9. `POST /blobs` 的 `kind` 按 `Content-Type` 猜、表单可覆盖，响应加 `kind` 与 `bytes`
+
+**§ 2 IPC——七条，不补桌宠跑不起来**
+
+10. `onDone` `onSubmitFromPet` 补上。原先 `forwardDone` 与 `submitFromPet` 有发无收，**AD-5 的链路断在这里**：桌宠发的话主窗口接不住
+11. `setPetPassthrough` `setPetExpanded` `popupPetMenu` 补上。鼠标穿透、改窗口尺寸、弹原生菜单，透明窗口里渲染进程自己都做不了
+12. `onPetFocus` `onAmbientToggle` 补上。全局快捷键唤起后要展开输入条；被动采集的暂停开关托盘与右键菜单共用，两个渲染进程都要知道
+
+**§ 3 门面——两条否掉分支的做法**
+
+13. **否掉「环境音一律记成 `user`」**。`speaker` 取值增 `ambient`。`multi-person`（客厅里有三个人）是四个演示场景之一，把三个人的话都记成用户自己说的，记的就是错的。说话人分离推迟
+14. **否掉「VAD 拦下的片段不发事件」**。补 `MemoryFacade.note_filter()`。VAD 在后端，被它拦下的片段中间件根本看不到，于是不发 `filter` 事件——可 `ambient-noise`（99% 是废话）这个演示要看的正是这些拒绝，侧栏会是空的。「记忆过程看得见」排第一质量属性，最常见的那类拒绝不能没有痕迹
+15. `subscribe()` 改为**调用时同步注册**。原先注册发生在第一次 `__anext__`，后端只能靠 `await asyncio.sleep(0)` 让两次去等它，实测一次就够、两次是余量——但这把后端的正确性绑在中间件的内部实现上，正是契约要防的事。注册与补发之间有窗口就会**静默丢事件**
+
+**其余**
+
+16. `/ingest` 的 audio 附件失败与 Vision 对齐：不生成转写，原话照常进 prompt 与 ingest
+17. `ingest()` 只收一个 `blob_id`，多附件挂第一个。收复数推迟
+18. `/voice/session` 在级联能力缺失时仍返回成功与 `mode`，错误在 WS 上以 `error` 帧报出，`/health` 的 `missing` 里也看得到
+19. `providers` 表本轮零读写。供应商配置住 `.env`，表保留，M5 接界面配置时再启用
+20. 桌宠窗口位置属于**纯本地 UI 状态，不进后端**。写 Electron `userData`，不占 `settings` 表
 
 历史：
 
