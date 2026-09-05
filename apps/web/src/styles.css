@@ -1505,276 +1505,223 @@ select {
 /* ── 记忆框图（论文骨架）─────────────────────────────────────────
    三段横排，亮起来的是这一轮真的走过的路。三段各一个色调，
    沿用产品图里的分区做法。 */
-/* ── 记忆框图 ─────────────────────────────────────────────────────
-   结构取自 arXiv 2604.01007（几何抄自 docs/omni-framework-cn.html），
-   加两件事：走到的块亮起来、尚未实现的块灰掉。
-
-   线型：实线是数据往前走一步，虚线是指针 / 丢弃 / 回读。 */
+/* ── 记忆框图 ──────────────────────────────────────────────────
+   HTML 排版，不是钉死坐标的 SVG：栏窄了三段自己换行往下排，字号不变。
+   只有漏斗与预算金字塔是小块 SVG / CSS 形状——它们是图形不是排版。 */
 
 .qq-map {
   padding: var(--qq-space-5);
-  overflow-x: auto;
 }
 
-/* 图是 1160 宽的 viewBox。缩到 980 以下时字号跟着等比缩，10 px 的注就糊了，
-   所以给个下限，宁可横向滚动也不糊。 */
-.qq-map svg {
-  min-width: 1060px;
-  /* 斜角与细线在非整数缩放下会发虚，让浏览器按几何精度渲染 */
-  shape-rendering: geometricPrecision;
-  text-rendering: geometricPrecision;
+.qq-map__zones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--qq-space-6);
+  align-items: start;
 }
 
-/* 三段分区底 */
 .qq-map__zone {
-  fill: var(--qq-color-bg-subtle);
-  stroke: var(--qq-color-border-strong);
-  stroke-opacity: 0.8;
-  stroke-width: 1.2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--qq-space-2);
+  padding: var(--qq-space-5);
+  border: var(--qq-border-thin) solid var(--qq-color-border-strong);
+  border-radius: var(--qq-radius-lg);
+  background: var(--qq-color-bg-subtle);
 }
 
 .qq-map__zone[data-tone='1'] {
-  fill: var(--qq-color-uncertain-bg);
+  background: var(--qq-color-uncertain-bg);
 }
 
 .qq-map__zone[data-tone='2'] {
-  fill: var(--qq-color-write-bg);
+  background: var(--qq-color-write-bg);
 }
 
 .qq-map__zone[data-tone='3'] {
-  fill: var(--qq-color-recall-bg);
+  background: var(--qq-color-recall-bg);
 }
 
-.qq-map__zone-t {
-  font-size: 16px;
-  font-weight: var(--qq-weight-bold);
-  text-anchor: middle;
-  fill: var(--qq-color-text);
+.qq-map__zone-h {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: var(--qq-space-3);
 }
 
-.qq-map__zone-t[data-tone='1'] {
-  fill: var(--qq-color-uncertain);
+.qq-map__zone-h b {
+  font-size: var(--qq-text-lg);
 }
 
-.qq-map__zone-t[data-tone='2'] {
-  fill: var(--qq-color-write);
+.qq-map__zone-h span,
+.qq-map__box-en {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
 }
 
-.qq-map__zone-t[data-tone='3'] {
-  fill: var(--qq-color-recall);
+.qq-map__zone[data-tone='1'] .qq-map__zone-h b {
+  color: var(--qq-color-uncertain);
 }
 
-.qq-map__zone-en,
-.qq-map__s {
-  font-size: 10.5px;
-  text-anchor: middle;
-  /* 原来用 muted，在浅色分区底上几乎看不清。降一档到 secondary */
-  fill: var(--qq-color-text-secondary);
+.qq-map__zone[data-tone='2'] .qq-map__zone-h b {
+  color: var(--qq-color-write);
+}
+
+.qq-map__zone[data-tone='3'] .qq-map__zone-h b {
+  color: var(--qq-color-recall);
 }
 
 /* 方块 */
-.qq-map__box rect {
-  fill: var(--qq-color-surface);
-  stroke: var(--qq-color-border-strong);
-  stroke-width: 1.3;
+.qq-map__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: var(--qq-space-3) var(--qq-space-4);
+  border: var(--qq-border-thin) solid var(--qq-color-border-strong);
+  border-radius: var(--qq-radius-sm);
+  background: var(--qq-color-surface);
+  text-align: center;
   transition:
-    fill var(--qq-duration-base) var(--qq-ease-out),
-    stroke var(--qq-duration-base) var(--qq-ease-out);
+    background var(--qq-duration-base) var(--qq-ease-out),
+    border-color var(--qq-duration-base) var(--qq-ease-out);
 }
 
-.qq-map__t {
-  font-size: 13px;
+.qq-map__box--lg {
+  padding: var(--qq-space-4) var(--qq-space-5);
+}
+
+.qq-map__box-t {
+  font-size: var(--qq-text-sm);
   font-weight: var(--qq-weight-semibold);
-  text-anchor: middle;
-  fill: var(--qq-color-text);
 }
 
-.qq-map__lg {
-  font-size: 14px;
+.qq-map__box-sub {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-secondary);
 }
 
-/* 靠左 / 靠右 / 竖排的文字，覆盖默认的居中 */
-.qq-map__l {
-  text-anchor: start;
+/* 跟图上不一样的地方，用强调色标出来 */
+.qq-map__box-note,
+.qq-map__graph-h {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-uncertain);
 }
 
-.qq-map__r {
-  text-anchor: end;
-}
-
-.qq-map__rot {
-  text-anchor: middle;
-  writing-mode: vertical-rl;
-}
-
-/* 丘丘跟论文不一样的地方，写在块里面，用强调色 */
-.qq-map__note-in {
-  font-size: 10px;
-  text-anchor: middle;
-  fill: var(--qq-color-uncertain);
-}
-
-/* 走到了 */
-.qq-map__box.qq-map--on rect {
-  fill: var(--qq-color-write-bg);
-  stroke: var(--qq-color-write);
-  stroke-width: 1.6;
+.qq-map__box.qq-map--on {
+  background: var(--qq-color-write-bg);
+  border-color: var(--qq-color-write);
   animation: qq-map-pulse 2.2s var(--qq-ease-standard) infinite;
 }
 
-.qq-map__box.qq-map--on .qq-map__t {
-  fill: var(--qq-color-write);
+.qq-map__box.qq-map--on .qq-map__box-t {
+  color: var(--qq-color-write);
 }
 
-/* 丘丘没做的块：灰掉、虚边，一眼看得出图上这一块是论文的不是我们的 */
-.qq-map__box.qq-map--none rect,
-.qq-map__graph.qq-map--none rect,
-.qq-map__graph.qq-map--none ellipse {
-  fill: none;
-  stroke: var(--qq-color-border);
-  stroke-dasharray: 4 3;
+/* 尚未实现的块：虚边、灰字 */
+.qq-map__box.qq-map--none,
+.qq-map__graph.qq-map--none {
+  background: none;
+  border-style: dashed;
+  border-color: var(--qq-color-border);
 }
 
-.qq-map__box.qq-map--none .qq-map__t,
-.qq-map__graph.qq-map--none text {
-  fill: var(--qq-color-text-muted);
+.qq-map__box.qq-map--none .qq-map__box-t,
+.qq-map__graph.qq-map--none b {
+  color: var(--qq-color-text-muted);
 }
 
-.qq-map__graph.qq-map--none .qq-map__edge {
-  stroke: var(--qq-color-border);
-  stroke-width: 1;
-  stroke-dasharray: 4 3;
-  fill: none;
+/* 四条模态：一行一条，窄了各自换行 */
+.qq-map__lanes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-2);
 }
 
-/* 漏斗 */
-.qq-map__funnel path {
-  fill: var(--qq-color-surface);
-  stroke: var(--qq-color-uncertain);
-  stroke-width: 1.4;
+.qq-map__lane {
+  display: grid;
+  grid-template-columns: 1fr auto 1.4fr;
+  align-items: center;
+  gap: var(--qq-space-2);
 }
 
-.qq-map__funnel .qq-map__funnel-l {
-  fill: none;
-  stroke: var(--qq-color-uncertain);
-  stroke-width: 1;
-  opacity: 0.35;
+.qq-map__lane-arrow {
+  width: 14px;
+  height: 2px;
+  background: var(--qq-color-border-strong);
+  position: relative;
 }
 
-.qq-map__funnel.qq-map--on path {
-  stroke: var(--qq-color-write);
+.qq-map__lane-arrow::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -3px;
+  border: 4px solid transparent;
+  border-left-color: var(--qq-color-border-strong);
 }
 
-.qq-map__x {
-  font-size: 12px;
-  font-weight: var(--qq-weight-bold);
-  fill: var(--qq-color-text-muted);
+.qq-map__lane-arrow.qq-map--on,
+.qq-map__lane-arrow.qq-map--on::after {
+  background: var(--qq-color-write);
+  border-left-color: var(--qq-color-write);
 }
 
-.qq-map__x.qq-map--on {
-  fill: var(--qq-color-reject);
+/* 竖向连接：一条线加一个朝下的箭头，亮起来时流光往下跑 */
+.qq-map__link {
+  position: relative;
+  align-self: center;
+  width: 2px;
+  height: 26px;
+  background: var(--qq-color-border-strong);
 }
 
-/* 存储的架子与原子单元卡 */
-.qq-map__shelf rect,
-.qq-map__shelf {
-  fill: var(--qq-color-surface);
-  stroke: var(--qq-color-recall);
-  stroke-opacity: 0.85;
-  stroke-width: 1.3;
+.qq-map__link--dashed {
+  background: repeating-linear-gradient(var(--qq-color-border-strong) 0 4px, transparent 4px 8px);
 }
 
-.qq-map__shelf--cold {
-  fill: var(--qq-color-bg-subtle);
-  stroke: var(--qq-color-border);
+.qq-map__link::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: -3px;
+  border: 4px solid transparent;
+  border-top-color: var(--qq-color-border-strong);
 }
 
-.qq-map__mau rect {
-  fill: var(--qq-color-bg-subtle);
-  stroke: var(--qq-color-border-strong);
-  transition: fill var(--qq-duration-base) var(--qq-ease-out);
+.qq-map__link.qq-map--on {
+  background: var(--qq-color-write);
 }
 
-.qq-map__mau--cold rect {
-  fill: var(--qq-color-surface);
+.qq-map__link.qq-map--on::after {
+  border-top-color: var(--qq-color-write);
 }
 
-.qq-map__mau.qq-map--on rect {
-  fill: var(--qq-color-write-bg);
-  stroke: var(--qq-color-write);
+.qq-map__link.qq-map--on::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(var(--qq-color-write) 0 40%, transparent 40%);
+  animation: qq-map-flow 1s linear infinite;
 }
 
-.qq-map__mau-h {
-  font-size: 11px;
-  font-weight: var(--qq-weight-semibold);
-  fill: var(--qq-color-text);
+.qq-map__link-label {
+  position: absolute;
+  left: 10px;
+  top: 4px;
+  white-space: nowrap;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
 }
 
-.qq-map__mau-l {
-  font-size: 10px;
-  fill: var(--qq-color-text-secondary);
-}
-
-/* 并集圆与预算金字塔 */
-.qq-map__union circle {
-  fill: var(--qq-color-surface);
-  stroke: var(--qq-color-recall);
-  stroke-width: 1.4;
-}
-
-.qq-map__union.qq-map--on circle {
-  fill: var(--qq-color-recall-bg);
-  stroke-width: 2;
-}
-
-.qq-map__tier path {
-  fill: var(--qq-color-recall-bg);
-  stroke: var(--qq-color-recall);
-  stroke-opacity: 0.7;
-}
-
-.qq-map__tier.qq-map--on path {
-  fill: var(--qq-color-write-bg);
-  stroke: var(--qq-color-write);
-  stroke-opacity: 1;
-}
-
-/* 连线 */
-.qq-map__arrow {
-  fill: none;
-  stroke: var(--qq-color-border-strong);
-  stroke-width: 1.5;
-}
-
-.qq-map__arrow.qq-map--on {
-  stroke: var(--qq-color-write);
-  stroke-width: 1.8;
-}
-
-.qq-map__tip {
-  fill: var(--qq-color-border-strong);
-}
-
-.qq-map__tip.qq-map--on {
-  fill: var(--qq-color-write);
-}
-
-/* ── 流动 ──────────────────────────────────────────────────────
-   静态箭头只说明连通；跑起来的虚线才说明「此刻数据正在这里过」，
-   而且看得出方向。 */
-
-.qq-map__flow {
-  stroke: var(--qq-color-write);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 3 13;
-  fill: none;
-  animation: qq-map-dash 1s linear infinite;
-}
-
-@keyframes qq-map-dash {
+@keyframes qq-map-flow {
+  from {
+    transform: translateY(-100%);
+  }
   to {
-    stroke-dashoffset: -16;
+    transform: translateY(100%);
   }
 }
 
@@ -1788,16 +1735,236 @@ select {
   }
 }
 
+/* 漏斗那一块 */
+.qq-map__filter {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--qq-space-3);
+  padding: var(--qq-space-3);
+}
+
+.qq-map__funnel {
+  width: 84px;
+  height: 64px;
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-uncertain);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.qq-map__funnel .qq-map__funnel-l {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0.4;
+}
+
+.qq-map__filter.qq-map--on .qq-map__funnel {
+  stroke: var(--qq-color-write);
+}
+
+.qq-map__filter-t {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-secondary);
+}
+
+.qq-map__filter-t b {
+  font-size: var(--qq-text-sm);
+}
+
+.qq-map__drop {
+  grid-column: 1 / -1;
+  justify-self: start;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-map__drop.qq-map--on {
+  color: var(--qq-color-reject);
+}
+
+.qq-map__drop span {
+  margin-right: 4px;
+  font-weight: var(--qq-weight-bold);
+}
+
+/* 存储的架子与原子单元卡 */
+.qq-map__shelf {
+  padding: var(--qq-space-3);
+  border: var(--qq-border-thin) solid var(--qq-color-recall);
+  border-radius: var(--qq-radius-md);
+  background: var(--qq-color-surface);
+}
+
+.qq-map__shelf--cold {
+  border-color: var(--qq-color-border);
+  background: var(--qq-color-bg-subtle);
+}
+
+.qq-map__shelf-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--qq-space-2);
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-map__shelf-h b {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text);
+}
+
+.qq-map__maus {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: var(--qq-space-2);
+}
+
+.qq-map__mau {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--qq-space-2) var(--qq-space-3);
+  border: var(--qq-border-thin) solid var(--qq-color-border-strong);
+  border-radius: var(--qq-radius-xs);
+  background: var(--qq-color-bg-subtle);
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.qq-map__mau b {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text);
+}
+
+.qq-map__mau--cold {
+  background: var(--qq-color-surface);
+}
+
+.qq-map__mau.qq-map--on {
+  background: var(--qq-color-write-bg);
+  border-color: var(--qq-color-write);
+}
+
+/* 知识图谱：尚未实现，画成灰的 */
+.qq-map__graph {
+  padding: var(--qq-space-3);
+  border: var(--qq-border-thin) dashed var(--qq-color-border);
+  border-radius: var(--qq-radius-md);
+}
+
+.qq-map__nodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: var(--qq-space-2);
+  margin-top: var(--qq-space-2);
+}
+
+.qq-map__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--qq-space-2);
+  border: var(--qq-border-thin) dashed var(--qq-color-border);
+  border-radius: var(--qq-radius-full);
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+/* 三路检索 */
+.qq-map__paths {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--qq-space-2);
+}
+
+/* 并集 */
+.qq-map__union {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: center;
+  gap: 1px;
+  padding: var(--qq-space-3) var(--qq-space-5);
+  border: 2px solid var(--qq-color-recall);
+  border-radius: var(--qq-radius-full);
+  background: var(--qq-color-surface);
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-secondary);
+}
+
+.qq-map__union b {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text);
+}
+
+.qq-map__union.qq-map--on {
+  background: var(--qq-color-write-bg);
+  border-color: var(--qq-color-write);
+}
+
+/* 预算金字塔：三层，一层比一层窄 */
+.qq-map__budget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-2);
+  padding: var(--qq-space-3);
+}
+
+.qq-map__budget-h {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-map__budget-h b {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text);
+}
+
+.qq-map__tiers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.qq-map__tier {
+  padding: var(--qq-space-2);
+  border: var(--qq-border-thin) solid var(--qq-color-recall);
+  border-radius: var(--qq-radius-xs);
+  background: var(--qq-color-recall-bg);
+  text-align: center;
+  font-size: var(--qq-text-xs);
+}
+
+.qq-map__tier.qq-map--on {
+  background: var(--qq-color-write-bg);
+  border-color: var(--qq-color-write);
+}
+
+.qq-map__budget-detail {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-secondary);
+}
+
 .qq-map__note {
-  margin: var(--qq-space-4) 0 0;
+  margin: var(--qq-space-5) 0 0;
   font-size: var(--qq-text-sm);
   color: var(--qq-color-text-secondary);
   line-height: var(--qq-leading-relaxed);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .qq-map__flow,
-  .qq-map__box.qq-map--on rect {
+  .qq-map__box.qq-map--on,
+  .qq-map__link.qq-map--on::before {
     animation: none;
   }
 }
@@ -1841,15 +2008,10 @@ select {
 /* 紧凑模式：主页那条限高，图整体缩放，不挤掉对话 */
 /* 论文那张图比原来自己画的那张密得多，压到 344 px 高就只剩色块看不清字了。
    放到窗口高的 46%（上限 460）：既读得出块名，收起来也只要点一下标题。 */
+/* 主页那一条：限高，超了竖着滚。**不需要横向滚**——三段是自适应网格，
+   栏窄了自己换行往下排，字号不变。 */
 .qq-map--compact {
   padding: 0 var(--qq-space-4) var(--qq-space-4);
-  max-height: min(580px, 58vh);
-}
-
-.qq-map--compact svg {
-  max-height: min(560px, 56vh);
-  /* 必须有下限。这张图 1240 宽，中栏在 1200 的窗口里只有 600 出头——
-     不设下限就整体缩到 48%，10 px 的注变成 5 px，全糊。
-     宁可横向滚动也不能看不清。 */
-  min-width: 1060px;
+  max-height: min(600px, 58vh);
+  overflow-y: auto;
 }
