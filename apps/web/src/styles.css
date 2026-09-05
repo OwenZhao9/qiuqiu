@@ -1080,41 +1080,63 @@ select {
    套一个不透明的圆角矩形等于在桌面上贴了一块白板，丘丘就不像站在桌面上、
    像是被关在一个框里。可读性改用描边光晕解决：文字外面一圈同色晕，
    压在任何壁纸上都读得出来，而且没有边界。 */
-.qq-pet__bubble {
-  /* **不能用 position: absolute 钉在丘丘上方。**
-     桌宠窗口是透明无边框的，画在窗口外面的一律被裁掉；收起态窗口只有 200 px
-     高、丘丘正好占满，钉在上方的气泡整块都在窗口外，只在顶边露出一条。
-     改成正常排在丘丘前面的一块，窗口高度由主进程按量出来的气泡高度撑开
-     （PetApp 报 setPetBubble，geometry.petSize 算窗口）。 */
+/* 漫画对话框：白底、深色描边、底下一个指向丘丘的小尖角。
+   不能用 position: absolute 钉在丘丘上方——桌宠窗口是透明无边框的，画在窗口
+   外面的一律被裁掉。它是正常排在丘丘前面的一块，窗口高度由主进程按量出来的
+   高度撑开（PetApp 报 setPetBubble，geometry.petSize 算窗口）。
+
+   分两层：外层 balloon 画框和尖角，内层 bubble 负责超长时滚动。
+   合成一层的话 `overflow-y: auto` 会把尖角那两个伪元素一起裁掉。 */
+.qq-pet__balloon {
+  position: relative;
   flex: 0 0 auto;
-  width: 100%;
-  max-height: calc(6 * var(--qq-text-md) * var(--qq-leading-normal));
+  align-self: center;
+  max-width: 100%;
+  padding: var(--qq-space-4) var(--qq-space-5);
+  border: 2px solid var(--qq-pet-bubble-line);
+  border-radius: var(--qq-radius-xl);
+  background: var(--qq-pet-bubble-fill);
+  box-shadow: 0 2px 0 var(--qq-pet-bubble-line);
+  transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
+}
+
+.qq-pet__bubble {
+  max-height: calc(7 * var(--qq-text-md) * var(--qq-leading-normal));
   overflow-y: auto;
-  padding: 0 var(--qq-space-2);
-  background: none;
-  box-shadow: none;
   color: var(--qq-pet-ink);
   font-size: var(--qq-text-md);
   font-weight: var(--qq-weight-medium);
   line-height: var(--qq-leading-normal);
-  text-align: center;
+  text-align: left;
   white-space: pre-wrap;
-  /* 八向 1 px 实晕 + 一层扩散晕。纯 blur 的晕在细笔画上糊，
-     八向实晕保证每一笔都有底 */
-  text-shadow:
-    1px 0 0 var(--qq-pet-halo),
-    -1px 0 0 var(--qq-pet-halo),
-    0 1px 0 var(--qq-pet-halo),
-    0 -1px 0 var(--qq-pet-halo),
-    1px 1px 0 var(--qq-pet-halo),
-    -1px 1px 0 var(--qq-pet-halo),
-    1px -1px 0 var(--qq-pet-halo),
-    -1px -1px 0 var(--qq-pet-halo),
-    0 0 8px var(--qq-pet-halo);
-  transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
 }
 
-.qq-pet__bubble--fading {
+/* 尖角：两个三角叠在一起，下面那个是描边、上面那个是填充，
+   错开正好露出跟对话框一样粗的边。它落在对话框与丘丘之间的间隙里。 */
+.qq-pet__balloon::before,
+.qq-pet__balloon::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.qq-pet__balloon::before {
+  margin-left: -12px;
+  border-width: 14px 12px 0;
+  border-color: var(--qq-pet-bubble-line) transparent transparent;
+}
+
+.qq-pet__balloon::after {
+  margin-left: -8px;
+  border-width: 9px 8px 0;
+  border-color: var(--qq-pet-bubble-fill) transparent transparent;
+}
+
+.qq-pet__balloon--fading {
   opacity: 0;
 }
 

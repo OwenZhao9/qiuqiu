@@ -143,7 +143,7 @@ export function PetApp(): React.JSX.Element {
       requestAnimationFrame(() => {
         pending = false;
         const el = document.elementFromPoint(e.clientX, e.clientY);
-        const solid = Boolean(el?.closest('.qq-pet__ball, .qq-pet__input, .qq-pet__bubble'));
+        const solid = Boolean(el?.closest('.qq-pet__ball, .qq-pet__input, .qq-pet__balloon'));
         if (solid === !ignoring) return;
         ignoring = !solid;
         bridge.setPetPassthrough(ignoring);
@@ -278,9 +278,11 @@ export function PetApp(): React.JSX.Element {
   return (
     <div className="qq-pet" data-expanded={expanded ? 'true' : 'false'}>
       {bubble ? (
+        // 两层：外层是对话框本身（描边、底色、尖角），内层负责超长时滚动。
+        // 合成一层的话，`overflow-y: auto` 会把尖角那两个伪元素一起裁掉
         <div
           ref={bubbleRef}
-          className={'qq-pet__bubble' + (fading ? ' qq-pet__bubble--fading' : '')}
+          className={'qq-pet__balloon' + (fading ? ' qq-pet__balloon--fading' : '')}
           onMouseEnter={() => {
             hovering.current = true;
           }}
@@ -290,7 +292,7 @@ export function PetApp(): React.JSX.Element {
           onClick={() => bridge.openMain()}
           role="status"
         >
-          {bubble}
+          <div className="qq-pet__bubble">{bubble}</div>
         </div>
       ) : null}
 
