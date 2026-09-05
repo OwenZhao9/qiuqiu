@@ -32,11 +32,11 @@ describe('petContextMenu', () => {
 });
 
 describe('trayMenu', () => {
-  it('托盘四项：打开主窗口 / 显示隐藏丘丘 / 重置位置 / 退出', () => {
+  it('托盘五项：打开主窗口 / 跟丘丘说话 / 显示隐藏丘丘 / 重置位置 / 退出', () => {
     const labels = trayMenu({ petVisible: true })
       .filter((m) => m.type !== 'separator')
       .map((m) => m.label);
-    expect(labels).toEqual(['打开主窗口', '隐藏丘丘', '重置位置', '退出丘丘']);
+    expect(labels).toEqual(['打开主窗口', '跟丘丘说话', '隐藏丘丘', '重置位置', '退出丘丘']);
   });
 
   it('桌宠藏起来时那一项变成「显示丘丘」', () => {

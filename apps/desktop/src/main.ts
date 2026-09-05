@@ -37,6 +37,7 @@ import {
 } from './geometry.js';
 import { FOCUS_PET_ACCELERATOR, petContextMenu, trayMenu, type MenuItemSpec } from './menus.js';
 import { createPetInbox } from './pet-inbox.js';
+import { DOCK_ICON_DATA_URL } from './dock-icon.js';
 import { TRAY_ICON_DATA_URL } from './tray-icon.js';
 
 /** 开发时连 vite 的开发服务器，打包后加载 `apps/web/dist` 的产物。 */
@@ -81,8 +82,14 @@ const petInbox = createPetInbox();
 /** 送一句桌宠发的话给主窗口；主窗口还没就绪就先攒着。 */
 function deliverFromPet(text: string): void {
   ensureMain();
-  if (!mainWindow || mainWindow.isDestroyed() || petInbox.hold(text)) return;
-  mainWindow.webContents.send(TO_RENDERER.submitFromPet, text);
+  const alive = Boolean(mainWindow && !mainWindow.isDestroyed());
+  const held = alive ? petInbox.hold(text) : true;
+  // 这条链路排查过几次，日志留着：桌宠发的话没到主窗口时，看这一行就知道断在哪
+  log(
+    `submitFromPet 字数=${text.length} 主窗口在=${alive} 已就绪=${petInbox.isReady()} 攒着=${held} 队列=${petInbox.size()}`
+  );
+  if (!alive || held) return;
+  mainWindow!.webContents.send(TO_RENDERER.submitFromPet, text);
 }
 
 /* ------------------------------------------------------------------ *
@@ -292,6 +299,19 @@ function togglePet(): void {
   else petWindow.show();
 }
 
+/** 主进程日志。桌宠与主窗口之间的链路排查全靠它。 */
+function log(line: string): void {
+  console.log(`[qiuqiu] ${line}`);
+}
+
+/** 唤起桌宠并展开输入条。全局快捷键与托盘菜单共用。 */
+function focusPet(): void {
+  if (!petWindow || petWindow.isDestroyed()) petWindow = createPetWindow();
+  petWindow.show();
+  petWindow.focus();
+  petWindow.webContents.send(TO_RENDERER.petFocus);
+}
+
 function resetPet(): void {
   if (!petWindow || petWindow.isDestroyed()) return;
   const bounds = defaultPetBounds(workArea(), petExpanded);
@@ -307,6 +327,9 @@ function runAction(action: string): void {
   switch (action) {
     case 'open-main':
       showMain();
+      break;
+    case 'focus-pet':
+      focusPet();
       break;
     case 'hide-pet':
       petWindow?.hide();
@@ -341,6 +364,7 @@ function toTemplate(spec: MenuItemSpec[]): MenuItemConstructorOptions[] {
       label: item.label,
       type: item.type === 'checkbox' ? 'checkbox' : 'normal',
       checked: item.checked,
+      accelerator: item.accelerator,
       click: () => runAction(item.action ?? '')
     };
   });
@@ -445,6 +469,7 @@ function wireIpc(): void {
 
   ipcMain.on(TO_MAIN.mainReady, () => {
     const queued = petInbox.ready();
+    log(`mainReady，补送 ${queued.length} 条`);
     if (!mainWindow || mainWindow.isDestroyed()) return;
     for (const text of queued) mainWindow.webContents.send(TO_RENDERER.submitFromPet, text);
   });
@@ -476,6 +501,16 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', showMain);
 
   void app.whenReady().then(() => {
+    // 开发时跑的是未打包的 Electron：程序坞里的名字是 Electron、图标是那个原子。
+    // 名字与图标本来在 Info.plist 里，打包之后才有；这两行让开发时也认得出来
+    app.setName('丘丘');
+    if (app.dock) {
+      app.dock.setIcon(nativeImage.createFromDataURL(DOCK_ICON_DATA_URL));
+      // 显式 show：托盘应用很容易被当成后台附件而拿不到程序坞图标，
+      // 那样用户找不到主窗口，只能从托盘进
+      void app.dock.show();
+    }
+
     wireIpc();
     mainWindow = createMainWindow();
     petWindow = createPetWindow();
@@ -504,12 +539,7 @@ if (!app.requestSingleInstanceLock()) {
     // `register` 抢不到会返回 false，别当它成功了。macOS 上 Cmd+Shift+Q 是系统的
     // 「退出登录」，系统优先，抢不到——而用户按下去就真的退出登录了。
     // 换掉之前先把这件事喊出来，不要静默地当快捷键没坏。
-    const gotShortcut = globalShortcut.register(FOCUS_PET_ACCELERATOR, () => {
-      if (!petWindow || petWindow.isDestroyed()) petWindow = createPetWindow();
-      petWindow.show();
-      petWindow.focus();
-      petWindow.webContents.send(TO_RENDERER.petFocus);
-    });
+    const gotShortcut = globalShortcut.register(FOCUS_PET_ACCELERATOR, focusPet);
     if (!gotShortcut) {
       console.warn(
         `[qiuqiu] 全局快捷键 ${FOCUS_PET_ACCELERATOR} 没抢到，唤起桌宠这个功能现在是坏的。` +

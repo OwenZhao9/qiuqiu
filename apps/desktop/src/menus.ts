@@ -8,11 +8,13 @@
  */
 
 export type MenuAction =
-  'open-main' | 'hide-pet' | 'toggle-pet' | 'reset-pet' | 'toggle-ambient' | 'quit';
+  'open-main' | 'focus-pet' | 'hide-pet' | 'toggle-pet' | 'reset-pet' | 'toggle-ambient' | 'quit';
 
 export interface MenuItemSpec {
   label?: string;
   action?: MenuAction;
+  /** 菜单项右侧显示的快捷键。 */
+  accelerator?: string;
   type?: 'separator' | 'checkbox';
   checked?: boolean;
   /** 默认项，加粗。 */
@@ -43,6 +45,8 @@ export function petContextMenu(state: { ambientPaused: boolean }): MenuItemSpec[
 export function trayMenu(state: { petVisible: boolean }): MenuItemSpec[] {
   return [
     { label: '打开主窗口', action: 'open-main', bold: true },
+    // 全局快捷键可能被别的应用抢走，托盘里得有个不依赖热键的入口
+    { label: '跟丘丘说话', action: 'focus-pet', accelerator: FOCUS_PET_ACCELERATOR },
     { label: state.petVisible ? '隐藏丘丘' : '显示丘丘', action: 'toggle-pet' },
     { label: '重置位置', action: 'reset-pet' },
     SEPARATOR,
