@@ -12,6 +12,7 @@ import { Composer } from './components/Composer.js';
 import { useChord } from './useChord.js';
 import { QiuqiuBall } from './components/QiuqiuBall.js';
 import { gazeFromDelta, type CharacterState, type QiuqiuInstance } from '@qiuqiu/character';
+import { createLean } from './lean.js';
 
 /** 单击判定：`pointerup` 距 `pointerdown` ≤ 400 ms 且位移 ≤ 4 px。 */
 export const CLICK_MS = 400;
@@ -77,6 +78,8 @@ export function PetApp(): React.JSX.Element {
         if (!q) return;
         const { nx, ny } = gazeFromDelta(dx, dy, PET_GAZE_RADIUS_PX);
         q.setGaze(nx, ny);
+        // 光标当光源：球面高光跟着挪。钉死的高光是「这是一张图」最明显的破绽
+        q.setLight(nx, ny);
       })
     ];
     return () => {
@@ -154,12 +157,58 @@ export function PetApp(): React.JSX.Element {
   const pending = useRef<{ dx: number; dy: number } | null>(null);
   const flushing = useRef(0);
 
+  /* ---- 拖动时的滞后与回弹 ----
+     窗口是刚体，说到哪就到哪；软乎乎的球被拽着走该稍微落在后面、身子往后倾，
+     松手晃一下才停。物理在 lean.ts，这里只负责把姿态写进 CSS 变量。 */
+  // 姿态写在外层这个 div 上，CSS 自定义属性会继承下去给 `.qq-pet__ball`
+  // ——`QiuqiuBall` 那个 div 的 ref 已经被引擎占了，塞不进第二个
+  const ballRef = useRef<HTMLDivElement>(null);
+  const lean = useRef(createLean()).current;
+  const leanRaf = useRef(0);
+  const leanAt = useRef(0);
+
+  const tickLean = useCallback(() => {
+    const now = performance.now();
+    const dt = leanAt.current ? (now - leanAt.current) / 1000 : 1 / 60;
+    leanAt.current = now;
+    const p = lean.step(dt);
+    const el = ballRef.current;
+    if (el) {
+      el.style.setProperty('--qq-lean-x', `${p.x.toFixed(2)}px`);
+      el.style.setProperty('--qq-lean-y', `${p.y.toFixed(2)}px`);
+      el.style.setProperty('--qq-lean-r', `${p.rotate.toFixed(2)}deg`);
+    }
+    if (lean.atRest()) {
+      leanRaf.current = 0;
+      leanAt.current = 0;
+      return;
+    }
+    leanRaf.current = requestAnimationFrame(tickLean);
+  }, [lean]);
+
+  const wakeLean = useCallback(() => {
+    if (leanRaf.current) return;
+    leanAt.current = 0;
+    leanRaf.current = requestAnimationFrame(tickLean);
+  }, [tickLean]);
+
+  useEffect(() => {
+    return () => {
+      if (leanRaf.current) cancelAnimationFrame(leanRaf.current);
+    };
+  }, []);
+
   const flush = useCallback(() => {
     flushing.current = 0;
     const d = pending.current;
     pending.current = null;
-    if (d && (d.dx !== 0 || d.dy !== 0)) bridge.dragPet(d.dx, d.dy);
-  }, [bridge]);
+    if (d && (d.dx !== 0 || d.dy !== 0)) {
+      bridge.dragPet(d.dx, d.dy);
+      // 这一帧走了多少，就是丘丘该往后落多少
+      lean.push(d.dx, d.dy);
+      wakeLean();
+    }
+  }, [bridge, lean, wakeLean]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -190,13 +239,15 @@ export function PetApp(): React.JSX.Element {
         cancelAnimationFrame(flushing.current);
         flush();
       }
+      lean.release();
+      wakeLean();
       if (!g) return;
       const moved = Math.hypot(e.screenX - g.x, e.screenY - g.y);
       if (!g.dragging && Date.now() - g.t <= CLICK_MS && moved <= DRAG_SLOP_PX) {
         setExpanded((v) => !v);
       }
     },
-    [flush]
+    [flush, lean, wakeLean]
   );
 
   return (
@@ -219,6 +270,8 @@ export function PetApp(): React.JSX.Element {
       ) : null}
 
       <div
+        className="qq-pet__anchor"
+        ref={ballRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

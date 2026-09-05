@@ -184,6 +184,36 @@ export const GAZE_RADIUS_PX = 320;
  * 把光标相对球心的偏移归一化到 [-1, 1] 喂进去。
  */
 /**
+ * 球体渐变的默认光心，与 vendor 建 `radialGradient` 时写的 `cx="38%" cy="32%"` 同值。
+ * 光源在左上偏上，丘丘的立体感就是这个渐变给的。
+ */
+export const LIGHT_BASE = { cx: 38, cy: 32 } as const;
+
+/** 光心跟着光标能走多远，百分点。走太多球面会看着像被戳了个洞。 */
+export const LIGHT_SPAN = { x: 13, y: 10 } as const;
+
+/** 归一化的光向 → 渐变光心的百分比坐标。`nx` / `ny` 与注视量同一套。 */
+export function lightCenter(nx: number, ny: number): { cx: number; cy: number } {
+  const clamp = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
+  return {
+    cx: LIGHT_BASE.cx + clamp(nx) * LIGHT_SPAN.x,
+    cy: LIGHT_BASE.cy + clamp(ny) * LIGHT_SPAN.y
+  };
+}
+
+/**
+ * 找 vendor 建的球体径向渐变。
+ *
+ * `ball.js` 建它时写死 `id = <实例 id> + 'g'`，之后只改三个 `stop` 的颜色，
+ * 再也不碰 `cx` / `cy`——所以这两个属性可以安全地由我们接管。
+ * 不改 vendor 任何文件，只是往它画出来的节点上写属性，跟装扮层同一条路子。
+ */
+function findBodyGradient(mount: HTMLElement): SVGElement | null {
+  const grad = mount.querySelector('svg > defs > radialGradient');
+  return (grad as SVGElement | null) ?? null;
+}
+
+/**
  * 像素偏移 → 归一化注视量。
  *
  * `dx` / `dy` 是光标相对球心的偏移，正方向右下。`radius` 是饱和半径：
@@ -203,7 +233,8 @@ function attachGaze(
   ball: EmotionBallEngine,
   mount: HTMLElement,
   doc: Document,
-  radius: number
+  radius: number,
+  onLight?: (nx: number, ny: number) => void
 ): () => void {
   const onMove = (ev: PointerEvent | MouseEvent): void => {
     const rect = mount.getBoundingClientRect();
@@ -212,9 +243,11 @@ function attachGaze(
     const cy = rect.top + rect.height / 2;
     const { nx, ny } = gazeFromDelta(ev.clientX - cx, ev.clientY - cy, radius);
     ball.setGaze(nx, ny);
+    onLight?.(nx, ny);
   };
   const onLeave = (): void => {
     ball.clearGaze();
+    onLight?.(0, 0);
   };
 
   doc.addEventListener('pointermove', onMove, { passive: true });
@@ -291,6 +324,22 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
   // 引擎已经把 SVG 画进 mount 了，这时候才挂得上装扮层
   let costume: Costume | null = mountCostume(mount, look);
 
+  /**
+   * 光源方向。把球体渐变的光心朝光标那边挪一点，装扮层的泽面高光跟着走。
+   *
+   * 真实物体的高光会随光源移动，钉死在左上角的高光是「一张图」最明显的破绽。
+   * 这条跟注视共用同一组归一化坐标，等于白拿。
+   */
+  // 惰性取：不假设引擎在 `create` 返回时就已经把 SVG 画完了
+  let gradient: SVGElement | null = null;
+  function setLight(nx: number, ny: number): void {
+    gradient ??= findBodyGradient(mount);
+    const { cx, cy } = lightCenter(nx, ny);
+    gradient?.setAttribute('cx', `${cx.toFixed(1)}%`);
+    gradient?.setAttribute('cy', `${cy.toFixed(1)}%`);
+    costume?.setLight(nx, ny);
+  }
+
   const sink: EmotionSink = {
     setEmotion(id) {
       ball.handleAIMessage({ emotionId: id });
@@ -326,7 +375,7 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
 
   const detachGaze =
     (opts.gaze ?? 'pointer') === 'pointer'
-      ? attachGaze(ball, mount, doc, opts.gazeRadius ?? GAZE_RADIUS_PX)
+      ? attachGaze(ball, mount, doc, opts.gazeRadius ?? GAZE_RADIUS_PX, setLight)
       : null;
 
   let destroyed = false;
@@ -363,6 +412,9 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
     },
     clearGaze() {
       ball.clearGaze();
+    },
+    setLight(nx: number, ny: number) {
+      setLight(nx, ny);
     },
 
     getLook: () => look,

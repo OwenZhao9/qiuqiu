@@ -104,6 +104,8 @@ export interface Costume {
   readonly look: CharacterLook;
   /** 手动跑一帧同步。正常由内部 rAF 驱动，测试里直接调。 */
   sync(): void;
+  /** 光源方向变了，泽面高光跟着挪。`nx` / `ny` ∈ [-1, 1]，正方向右下。 */
+  setLight(nx: number, ny: number): void;
   /** 摘掉：停 rAF、把插进去的节点全部移除。 */
   destroy(): void;
 }
@@ -207,17 +209,19 @@ export function mountCostume(
 
   // 泽面：左上一道斜光。方向跟引擎自带的径向渐变一致（光心在 38% / 32%），
   // 加一道硬边高光把哑光的球面推成瓷面
-  mid.appendChild(
-    el('ellipse', {
-      class: 'qq-costume__gloss',
-      cx: 0,
-      cy: 0,
-      rx: 34,
-      ry: 21,
-      fill: `url(#${uid}-gloss)`,
-      transform: 'translate(64 54) rotate(-32)'
-    })
-  );
+  const GLOSS_AT: [number, number] = [64, 54];
+  /** 泽面跟着光源挪多少，viewBox 单位。比渐变光心挪得少，不然会飘出球面。 */
+  const GLOSS_SPAN = 16;
+  const gloss = el('ellipse', {
+    class: 'qq-costume__gloss',
+    cx: 0,
+    cy: 0,
+    rx: 34,
+    ry: 21,
+    fill: `url(#${uid}-gloss)`,
+    transform: `translate(${GLOSS_AT[0]} ${GLOSS_AT[1]}) rotate(-32)`
+  });
+  mid.appendChild(gloss);
 
   // 蝴蝶结：戴在头顶偏左，避开眼睛能游走到的高度
   const bow = el('g', {
@@ -420,6 +424,12 @@ export function mountCostume(
   return {
     look,
     sync,
+    setLight(nx: number, ny: number) {
+      const c = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
+      const x = GLOSS_AT[0] + c(nx) * GLOSS_SPAN;
+      const y = GLOSS_AT[1] + c(ny) * GLOSS_SPAN * 0.8;
+      gloss.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(-32)`);
+    },
     destroy() {
       if (!alive) return;
       alive = false;

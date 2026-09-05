@@ -215,7 +215,7 @@
    * 丘丘四周留给落地投影的透明余量，与 `geometry.ts` 的 `PET_BLEED` 同值。
    * 没有它投影会被透明窗口的边裁平；没有投影丘丘就像贴在屏幕上的贴纸。
    */
-  --qq-pet-bleed: 20px;
+  --qq-pet-bleed: 28px;
 
   --qq-pet-window: 200px;
   --qq-pet-input-w: 320px;

@@ -203,6 +203,13 @@ export interface QiuqiuInstance {
   setGaze(nx: number, ny: number): void;
   /** 收回注视，眼睛回正。 */
   clearGaze(): void;
+  /**
+   * 光源方向，`nx` / `ny` 与注视量同一套（[-1, 1]，正方向右下）。
+   *
+   * 把球体渐变的光心朝那边挪一点，装扮层的泽面高光跟着走。真实物体的高光
+   * 会随光源移动；钉死在左上角的高光是「这是一张图」最明显的破绽。
+   */
+  setLight(nx: number, ny: number): void;
 
   /** 当前形象。 */
   getLook(): CharacterLook;

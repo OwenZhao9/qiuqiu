@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mountCostume, findBodyGroup, parseEyeTransform, EYE_HALF } from '../src/costume.js';
-import { createQiuqiu, gazeFromDelta } from '../src/engine.js';
+import { createQiuqiu, gazeFromDelta, lightCenter, LIGHT_BASE, LIGHT_SPAN } from '../src/engine.js';
 import {
   applyQiuqiuTheme,
   currentLook,
@@ -397,5 +397,77 @@ describe('setGaze / clearGaze', () => {
     ]);
     q.destroy();
     host.remove();
+  });
+});
+
+describe('lightCenter · 高光跟着光源走', () => {
+  it('光源在正前方时就是引擎自带的光心 38% / 32%', () => {
+    expect(lightCenter(0, 0)).toEqual({ cx: LIGHT_BASE.cx, cy: LIGHT_BASE.cy });
+  });
+
+  it('光标往右，光心跟着往右', () => {
+    expect(lightCenter(1, 0).cx).toBe(LIGHT_BASE.cx + LIGHT_SPAN.x);
+    expect(lightCenter(-1, 0).cx).toBe(LIGHT_BASE.cx - LIGHT_SPAN.x);
+  });
+
+  it('超出 [-1, 1] 夹住——光心跑出球面会像被戳了个洞', () => {
+    expect(lightCenter(9, 9)).toEqual({
+      cx: LIGHT_BASE.cx + LIGHT_SPAN.x,
+      cy: LIGHT_BASE.cy + LIGHT_SPAN.y
+    });
+  });
+});
+
+describe('setLight', () => {
+  it('改的是 vendor 那个径向渐变的光心，不碰它的颜色', () => {
+    const eb = makeStubEmotionBall();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const q = createQiuqiu(host, { engine: eb, gaze: false, idle: false });
+
+    // 引擎把 SVG 画进 `q.mount`。替身不画，这里照 ball.js 的样子补上
+    const { mount } = makeBallDom();
+    const defs = mount.querySelector('defs')!;
+    const grad = document.createElementNS(SVGNS, 'radialGradient');
+    grad.setAttribute('id', 'eb0g');
+    grad.setAttribute('cx', '38%');
+    grad.setAttribute('cy', '32%');
+    const stop = document.createElementNS(SVGNS, 'stop');
+    stop.setAttribute('stop-color', '#F2E7D3');
+    grad.appendChild(stop);
+    defs.appendChild(grad);
+    q.mount.appendChild(mount.querySelector('svg')!);
+
+    q.setLight(1, -1);
+    expect(grad.getAttribute('cx')).toBe(`${LIGHT_BASE.cx + LIGHT_SPAN.x}.0%`);
+    expect(grad.getAttribute('cy')).toBe(`${LIGHT_BASE.cy - LIGHT_SPAN.y}.0%`);
+    expect(stop.getAttribute('stop-color'), '颜色不该被动').toBe('#F2E7D3');
+    q.destroy();
+    host.remove();
+  });
+
+  it('没有渐变节点时不炸（测试替身不画 SVG）', () => {
+    const eb = makeStubEmotionBall();
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const q = createQiuqiu(host, { engine: eb, gaze: false, idle: false });
+    expect(() => q.setLight(0.5, 0.5)).not.toThrow();
+    q.destroy();
+    host.remove();
+  });
+});
+
+describe('装扮的泽面高光', () => {
+  it('跟着光源挪，方向一致', () => {
+    const { mount } = makeBallDom();
+    const c = mountCostume(mount, 'anime', { raf: () => 0, cancel: () => {}, animate: false })!;
+    const gloss = mount.querySelector('.qq-costume__gloss') as SVGElement;
+    const before = gloss.getAttribute('transform')!;
+    c.setLight(1, 0);
+    const after = gloss.getAttribute('transform')!;
+    expect(after).not.toBe(before);
+    const x = Number(/translate\(([-\d.]+)/.exec(after)![1]);
+    expect(x, '光标在右，泽面往右挪').toBeGreaterThan(64);
+    c.destroy();
   });
 });

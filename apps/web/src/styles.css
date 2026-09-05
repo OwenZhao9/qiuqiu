@@ -1035,7 +1035,8 @@ select {
 
 /* 悬浮微动：4.5 s 一个来回，上下 4 px。
    这是「不像贴纸」最管用的一招，比投影还管用——贴纸的定义就是不动。
-   幅度刻意做小：看得出在飘，又不至于晃得人分心。 */
+   幅度刻意做小：看得出在飘，又不至于晃得人分心。
+   挂在外层，跟拖动的倾斜分两层，免得两个 transform 打架。 */
 @keyframes qq-pet-float {
   0%,
   100% {
@@ -1046,13 +1047,24 @@ select {
   }
 }
 
-.qq-pet__ball {
+.qq-pet__anchor {
   animation: qq-pet-float 4.5s var(--qq-ease-standard) infinite;
 }
 
+/* 拖动时的滞后与回弹。姿态由 lean.ts 的弹簧算好，写成三个自定义属性传下来。
+   绕靠下的点转，像个站着的东西被拽了一下，而不是绕中心打转。 */
+.qq-pet__ball {
+  transform: translate(var(--qq-lean-x, 0px), var(--qq-lean-y, 0px)) rotate(var(--qq-lean-r, 0deg));
+  transform-origin: 50% 82%;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .qq-pet__ball {
+  .qq-pet__anchor {
     animation: none;
+  }
+
+  .qq-pet__ball {
+    transform: none;
   }
 }
 

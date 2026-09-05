@@ -26,16 +26,16 @@ import {
 const WORK: Area = { x: 0, y: 25, width: 1440, height: 875 };
 
 describe('尺寸', () => {
-  it('收起 240 × 240：丘丘 200 加四周各 20 的投影余量', () => {
+  it('收起 256 × 256：丘丘 200 加四周各 28 的投影与倾斜余量', () => {
     // 窗口不能跟丘丘一样大——透明窗口 overflow: hidden，落地投影会被四条边
     // 裁成直线；而把投影删掉丘丘又变成一张贴纸。所以留地方，不删投影
     expect(PET_BALL).toBe(200);
-    expect(PET_BLEED).toBe(20);
-    expect(PET_COLLAPSED).toEqual({ width: 240, height: 240 });
+    expect(PET_BLEED).toBe(28);
+    expect(PET_COLLAPSED).toEqual({ width: 256, height: 256 });
   });
 
-  it('展开 336 × 288：高度多出间隙 8 加输入条 40', () => {
-    expect(PET_EXPANDED).toEqual({ width: 336, height: 288 });
+  it('展开 336 × 304：高度多出间隙 8 加输入条 40', () => {
+    expect(PET_EXPANDED).toEqual({ width: 336, height: 304 });
     expect(PET_EXPANDED.height - PET_COLLAPSED.height).toBe(48);
   });
 });
@@ -45,11 +45,11 @@ describe('petBounds · 球心不动', () => {
   const shut = { expanded: false, bubble: 0 };
   const open = { expanded: true, bubble: 0 };
 
-  it('收起 → 展开：宽 240 → 336、高 +48（间隙 + 输入条），球心不动', () => {
+  it('收起 → 展开：宽 256 → 336、高 +48（间隙 + 输入条），球心不动', () => {
     const out = petBounds(collapsed, shut, open);
     expect(out.width).toBe(336);
     expect(out.height - collapsed.height).toBe(48);
-    expect(out.x).toBe(collapsed.x - (336 - 240) / 2);
+    expect(out.x).toBe(collapsed.x - (336 - 256) / 2);
     expect(out.y, '往下长，y 不动').toBe(collapsed.y);
   });
 
@@ -79,7 +79,7 @@ describe('petBounds · 球心不动', () => {
     // 气泡钉在丘丘上方就整块在窗口外，只在顶边露出一条
     const withBubble = { expanded: false, bubble: 44 };
     const out = petBounds(collapsed, shut, withBubble);
-    expect(out.height, '高度要长出气泡加 8 px 间隙').toBe(240 + 44 + 8);
+    expect(out.height, '高度要长出气泡加 8 px 间隙').toBe(256 + 44 + 8);
     expect(out.y, '往上长，所以 y 要减掉同样多').toBe(collapsed.y - 52);
     expect(ballCenter(out, withBubble)).toEqual(ballCenter(collapsed, shut));
   });
@@ -102,7 +102,7 @@ describe('petBounds · 球心不动', () => {
   it('气泡与输入条同时在，两块都算上', () => {
     const both = { expanded: true, bubble: 44 };
     const out = petBounds(collapsed, shut, both);
-    expect(out.height).toBe(288 + 44 + 8);
+    expect(out.height).toBe(304 + 44 + 8);
     expect(ballCenter(out, both)).toEqual(ballCenter(collapsed, shut));
   });
 });
@@ -110,16 +110,16 @@ describe('petBounds · 球心不动', () => {
 describe('petSize', () => {
   it('没气泡就不留那 8 px 间隙', () => {
     expect(petSize({ expanded: false, bubble: 0 })).toEqual({
-      width: 240,
-      height: 240,
+      width: 256,
+      height: 256,
       above: 0
     });
   });
 
   it('有气泡才加间隙，高度向上取整', () => {
     expect(petSize({ expanded: false, bubble: 43.2 })).toEqual({
-      width: 240,
-      height: 292,
+      width: 256,
+      height: 308,
       above: 52
     });
   });
