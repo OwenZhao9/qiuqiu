@@ -49,10 +49,10 @@ describe('VoicePicker', () => {
     render(<VoicePicker />);
     await screen.findByText('Vivi');
     // Vivi 两条链路都有，不该有这行提示；高冷御姐没有，该有
-    const notes = screen.getAllByText('实时语音下用默认音色');
+    const notes = screen.getAllByText('通话时回退成默认音色');
     expect(notes.length).toBeGreaterThan(0);
     const vivi = screen.getByRole('radio', { name: /Vivi/ });
-    expect(vivi.textContent).not.toContain('实时语音下用默认音色');
+    expect(vivi.textContent).not.toContain('通话时回退成默认音色');
   });
 
   it('存失败时退回原值并把 hint 显示出来', async () => {

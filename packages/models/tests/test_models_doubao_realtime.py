@@ -137,7 +137,7 @@ class TestEventTranslation:
         """模型回复是逐段来的，**必须在 ChatEnded 时拼成整句发 final=True**。
 
         后端只在 `final` 时写记忆。少了这一步，AI 说过的话一条都进不了记忆库，
-        AD-6（AI 的回复也进记忆）就白做了——实测就是这么漏的。
+        AD-6（AI 的回复也进记忆）不成立——实测就是这么漏的。
         """
         buf: list[str] = []
         for seg in ("你好呀！", "我叫丘丘，", "很高兴认识你。"):

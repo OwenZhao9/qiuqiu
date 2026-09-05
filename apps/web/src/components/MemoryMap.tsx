@@ -1,22 +1,20 @@
 /**
- * 记忆框图。**照论文原图搬过来的**，不是另画一张。
+ * 记忆框图。
  *
- * 底图逐块对应 arXiv 2604.01007 的 `assets/framework.png`，坐标与形状取自
- * `docs/omni-framework-cn.html`（那份是对着原图重绘并翻译的，没改环节）：
- * 四模态各自的廉价判据 → 漏斗形的新颖度过滤器 → 生成记忆原子单元 →
- * 热冷两层存储与知识图谱 → 三路检索 → 并集合并 → token 预算金字塔 → 答案。
+ * 结构与坐标取自 arXiv 2604.01007 的 `assets/framework.png`，几何抄自
+ * `docs/omni-framework-cn.html`：四模态各自的廉价判据 → 漏斗形的新颖度过滤器 →
+ * 生成记忆原子单元 → 热冷两层存储与知识图谱 → 三路检索 → 并集合并 →
+ * token 预算金字塔 → 答案。
  *
- * 在原图上加的只有两件事，一件都不改结构：
+ * 在此之上加两件事：
  *
- * 1. **亮起来**——这一轮真的走到哪一块，哪一块亮，连线上跑一段流动的虚线
- * 2. **标出丘丘跟论文不一样的地方**——没做的块画成灰的并注明，做法不同的
- *    块在原名下面写丘丘的做法。图上不能只有论文没有实现，那是在骗人
+ * 1. 走到的块亮起来，连线上跑一段流动的虚线
+ * 2. 尚未实现的块画成灰的并注明；做法不同的块在原名下面写实际做法
  *
- * 线型沿用原图的约定，不是自己定的：
+ * 线型：
  *
- * - **实线** = 数据往前走一步
- * - **虚线** = 不是往前走的那种连接：热→冷的指针 `p`、被判冗余漏出去的那一路、
- *   检索时从存储回读
+ * - 实线 = 数据往前走一步
+ * - 虚线 = 热→冷的指针 `p`、被判冗余漏出去的那一路、检索时从存储回读
  *
  * 数据只来自事件（AD-14）。
  */
@@ -28,14 +26,14 @@ import { derivePipeline, type SearchPath } from '../store/pipeline.js';
 const W = 1160;
 const H = 620;
 
-/** 一块的状态。`off` 没走到，`on` 这一轮走到了，`none` 是丘丘根本没做这一块。 */
+/** 一块的状态。`off` 没走到，`on` 这一轮走到了，`none` 是这一块尚未实现。 */
 type Lit = 'off' | 'on' | 'none';
 
 function cls(base: string, lit: Lit): string {
   return base + (lit === 'on' ? ' qq-map--on' : lit === 'none' ? ' qq-map--none' : '');
 }
 
-/** 论文原图里的一个方块。`note` 写丘丘跟论文哪里不一样。 */
+/** 一个方块。`note` 写实际做法与图上不同的地方。 */
 function Box({
   x,
   y,
@@ -210,13 +208,13 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
           Selective Ingestion
         </text>
 
-        {/* 四种模态各有各的廉价判据。丘丘做了前三种，视频没做 */}
+        {/* 四种模态各有各的廉价判据。前三种已实现，视频未实现 */}
         {(
           [
             ['文字', '词汇重合度去重', 'Jaccard', null, ingest],
-            ['图片', '画面相似度比对', 'CLIP', '丘丘走 Vision 转描述', false],
+            ['图片', '画面相似度比对', 'CLIP', '实为 Vision 转描述', false],
             ['音频', '语音活动检测', 'VAD', null, ingest && filtered],
-            ['视频', '抽帧', 'Frame sampling', '丘丘没做', null]
+            ['视频', '抽帧', 'Frame sampling', '未实现', null]
           ] as const
         ).map(([mode, how, en, note, live], i) => {
           const y = 76 + i * 48;
@@ -367,13 +365,13 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
           tone={2}
           title="实体抽取"
           en="Entity Extraction"
-          note="丘丘没做"
+          note="未实现"
           lit="none"
           rx={8}
         />
         <Arrow d="M578,406 L578,424" lit={false} tone={2} />
 
-        {/* 知识图谱：丘丘没建图，这一整块是灰的 */}
+        {/* 知识图谱未实现，整块画成灰的 */}
         <g className="qq-map__graph qq-map--none">
           <rect x={374} y={428} width={408} height={152} rx={9} />
           {(
@@ -403,7 +401,7 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
             <path key={d} className="qq-map__edge" d={d} markerEnd="url(#qq-tip)" />
           ))}
           <text className="qq-map__s qq-map__r" x={766} y={448}>
-            实体归并 · 丘丘没做
+            实体归并 · 未实现
           </text>
           <text className="qq-map__s qq-map__r" x={766} y={462}>
             第三路走标签，不跳图
@@ -441,12 +439,12 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
         <Arrow d="M980,108 L980,122" lit={recall} tip={false} />
         <Arrow d="M868,122 L1094,122" lit={recall} tip={false} />
 
-        {/* 三路。论文第三路是图检索，丘丘走标签 */}
+        {/* 三路。第三路图检索未实现，走标签 */}
         {(
           [
             ['semantic', 830, 100, '稠密检索', '按意思', 'FAISS 向量', null],
             ['lexical', 936, 90, '稀疏检索', '按字面', 'BM25 关键词', null],
-            ['symbolic', 1032, 100, '图检索', '按关系', 'h 跳邻居', '丘丘按标签']
+            ['symbolic', 1032, 100, '图检索', '按关系', 'h 跳邻居', '实为按标签']
           ] as const
         ).map(([path, x, w, title, how, en, note]) => {
           const walked = p.paths.includes(path as SearchPath);
@@ -564,10 +562,9 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
 
       {compact ? null : (
         <p className="qq-map__note">
-          底图照搬论文 <span className="qq-mono">arXiv 2604.01007</span> 的框图，环节与线型都没改：
-          实线是数据往前走一步，虚线是指针、丢弃与回读。亮起来的是这一轮真的走过的路，
-          全部来自记忆事件。<b>灰掉的块是丘丘没做的</b>——视频抽帧、实体抽取与知识图谱；
-          论文第三路检索是图上跳 h 步，丘丘走的是标签。
+          实线是数据往前走一步，虚线是指针、丢弃与回读。亮起来的块是这一轮走过的路，
+          取自记忆事件。灰掉的块尚未实现：视频抽帧、实体抽取、知识图谱；第三路检索走标签，
+          不跳图。结构出自 <span className="qq-mono">arXiv 2604.01007</span>。
         </p>
       )}
     </div>

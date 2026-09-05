@@ -919,6 +919,17 @@ select {
   color: var(--qq-color-text-muted);
 }
 
+.qq-voices__group {
+  margin: var(--qq-space-5) 0 var(--qq-space-1);
+  font-size: var(--qq-text-md);
+  font-weight: var(--qq-weight-semibold);
+  color: var(--qq-color-text);
+}
+
+.qq-voice--tts {
+  border-style: dashed;
+}
+
 .qq-voice__note {
   font-size: var(--qq-text-xs);
   color: var(--qq-color-text-muted);
@@ -1048,9 +1059,7 @@ select {
   cursor: grab;
 }
 
-/* 悬浮微动：4.5 s 一个来回，上下 4 px。
-   这是「不像贴纸」最管用的一招，比投影还管用——贴纸的定义就是不动。
-   幅度刻意做小：看得出在飘，又不至于晃得人分心。
+/* 悬浮微动：4.5 s 一个来回，上下 4 px。幅度做小，看得出在飘又不晃眼。
    挂在外层，跟拖动的倾斜分两层，免得两个 transform 打架。 */
 @keyframes qq-pet-float {
   0%,
@@ -1492,10 +1501,10 @@ select {
    三段横排，亮起来的是这一轮真的走过的路。三段各一个色调，
    沿用产品图里的分区做法。 */
 /* ── 记忆框图 ─────────────────────────────────────────────────────
-   底图照搬论文 arXiv 2604.01007 的框图（几何取自 docs/omni-framework-cn.html），
-   在上面只加两件事：走到的块亮起来、丘丘没做的块灰掉。
+   结构取自 arXiv 2604.01007（几何抄自 docs/omni-framework-cn.html），
+   加两件事：走到的块亮起来、尚未实现的块灰掉。
 
-   线型沿用原图：实线是数据往前走一步，虚线是指针 / 丢弃 / 回读。 */
+   线型：实线是数据往前走一步，虚线是指针 / 丢弃 / 回读。 */
 
 .qq-map {
   padding: var(--qq-space-5);
@@ -1789,8 +1798,7 @@ select {
 }
 
 /* ── 主页上那条记忆结构 ───────────────────────────────────────────
-   默认展开：这是产品的卖点，藏起来就白做了。但它不能抢对话的位置，
-   所以限高，可以点标题收起。 */
+   默认展开，限高，可以点标题收起。 */
 
 .qq-mapstrip {
   flex: none;

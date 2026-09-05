@@ -284,7 +284,7 @@ def _translate(frame: proto.Frame, buffer: list[str] | None = None) -> list[Real
 
     if event == proto.Event.CHAT_ENDED:
         # **这一句必须发 final=True**：后端只在 final 时写记忆，
-        # 不发的话 AI 说过的话一条都进不了记忆库，AD-6 就白做了
+        # 不发的话 AI 说过的话一条都进不了记忆库，AD-6 不成立
         full = "".join(buffer)
         buffer.clear()
         return (

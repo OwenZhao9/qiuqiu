@@ -3,11 +3,12 @@
  *
  * 只有女声，后端就只给女声，这里不做过滤。
  *
- * 选中即存，不设「保存」按钮——就一个字段，多一次点击没有意义。乐观更新：先亮起来
+ * 选中即存，不设「保存」按钮：只有一个字段。乐观更新：先亮起来
  * 再发请求，失败了退回原值并把 `hint` 显示出来。
  *
- * `realtime_supported` 为假的音色，端到端链路会回退默认音色。这一点必须在界面上说，
- * 否则用户选了「高冷御姐」却听见 Vivi，会以为是坏了。
+ * 端到端实时语音只支持豆包的四个精品音色，女声两个（Vivi、小何）。其余音色
+ * `realtime_supported` 为假，通话时回退成 Vivi。列表按这一点分成两组，
+ * 避免选了「高冷御姐」通话里却是 Vivi。
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -45,7 +46,7 @@ export function VoicePicker(): React.JSX.Element {
       putVoice(id)
         .then((body) => setChosen(body.voice))
         .catch((err: unknown) => {
-          setChosen(previous); // 失败退回原值，别让界面骗人
+          setChosen(previous); // 失败退回原值，界面与后端保持一致
           setError(
             err instanceof ApiError
               ? err
@@ -61,32 +62,56 @@ export function VoicePicker(): React.JSX.Element {
     return <p className="qq-muted">读取中…</p>;
   }
 
+  const all = options ?? [];
+  const groups: Array<{ key: string; title: string; note: string; list: VoiceOption[] }> = [
+    {
+      key: 'both',
+      title: '通话与朗读通用',
+      note: '端到端实时语音支持的音色，通话里听到的就是它。',
+      list: all.filter((v) => v.realtime_supported)
+    },
+    {
+      key: 'tts',
+      title: '仅朗读',
+      note: '端到端实时语音不支持这些音色，通话时会回退成默认音色（Vivi）。',
+      list: all.filter((v) => !v.realtime_supported)
+    }
+  ].filter((g) => g.list.length > 0);
+
   return (
     <div>
-      <div className="qq-voices" role="radiogroup" aria-label="音色">
-        {(options ?? []).map((voice) => {
-          const active = voice.id === chosen;
-          return (
-            <button
-              type="button"
-              key={voice.id}
-              role="radio"
-              aria-checked={active}
-              disabled={saving !== null}
-              className={'qq-voice' + (active ? ' qq-voice--on' : '')}
-              onClick={() => choose(voice.id)}
-            >
-              <span className="qq-voice__label">{voice.label}</span>
-              <span className="qq-voice__blurb">{voice.blurb}</span>
-              {voice.realtime_supported ? null : (
-                <span className="qq-voice__note" title="实时语音只有四个精品音色">
-                  实时语音下用默认音色
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {groups.map((group) => (
+        <section key={group.key}>
+          <h3 className="qq-voices__group">{group.title}</h3>
+          <p className="qq-note">{group.note}</p>
+          <div className="qq-voices" role="radiogroup" aria-label={'音色 · ' + group.title}>
+            {group.list.map((voice) => {
+              const active = voice.id === chosen;
+              return (
+                <button
+                  type="button"
+                  key={voice.id}
+                  role="radio"
+                  aria-checked={active}
+                  disabled={saving !== null}
+                  className={
+                    'qq-voice' +
+                    (active ? ' qq-voice--on' : '') +
+                    (voice.realtime_supported ? '' : ' qq-voice--tts')
+                  }
+                  onClick={() => choose(voice.id)}
+                >
+                  <span className="qq-voice__label">{voice.label}</span>
+                  <span className="qq-voice__blurb">{voice.blurb}</span>
+                  {voice.realtime_supported ? null : (
+                    <span className="qq-voice__note">通话时回退成默认音色</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
       {error ? (
         <div className="qq-error">
           {error.message}

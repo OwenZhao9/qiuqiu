@@ -56,7 +56,7 @@ async def ingest(body: IngestIn, state: StateDep) -> dict[str, Any]:
         if text is None:
             # VAD 拦下的片段进不到中间件，所以中间件不会发 filter 事件。把这条判断
             # 报上去让它代发一条（契约 v0.1.8 § 3 `note_filter`）——ambient-noise
-            # 那个演示要看的正是这些拒绝，侧栏空着等于演示白做。
+            # 那个演示要看的正是这些拒绝。
             event_id = state.facade.note_filter(
                 decision="reject",
                 score=0.0,

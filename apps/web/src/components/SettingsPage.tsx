@@ -131,7 +131,9 @@ export function SettingsPage(): React.JSX.Element {
 
       <section>
         <h2 className="qq-section__title">音色</h2>
-        <p className="qq-note">丘丘的声音。选中即生效，文字对话与语音对话共用同一个。</p>
+        <p className="qq-note">
+          丘丘的声音。选中即生效。通话时用它；文字对话的朗读还没接上，选了听不出区别。
+        </p>
         <VoicePicker />
       </section>
 
