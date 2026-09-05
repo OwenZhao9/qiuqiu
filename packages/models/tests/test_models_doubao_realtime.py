@@ -193,10 +193,32 @@ class TestSessionConfig:
         assert isinstance(cfg["asr"]["extra"], dict)
         assert isinstance(cfg["tts"]["extra"], dict)
 
-    def test_system_prompt_goes_into_system_role(self) -> None:
+    def test_o_route_puts_the_prompt_in_system_role(self) -> None:
         """人格与召回都从这里进模型（AD-2、AD-13）。"""
-        cfg = dr.DoubaoRealtime("1", "t")._session_config("你叫丘丘", dr.DEFAULT_SPEAKER)
+        cfg = dr.DoubaoRealtime("1", "t", model="1.2.1.1")._session_config(
+            "你叫丘丘", dr.DEFAULT_SPEAKER
+        )
         assert cfg["dialog"]["system_role"] == "你叫丘丘"
+        assert "character_manifest" not in cfg["dialog"]
+
+    def test_character_route_puts_the_prompt_in_character_manifest(self) -> None:
+        """SC（角色扮演）路线只读 `character_manifest`，不读 `system_role`。
+
+        写错了**不会报错**：模型安静地用服务端预设的角色，人格层整个丢掉。
+        实测 SC2.0 下自称「夏栀」而不是「丘丘」。
+        """
+        cfg = dr.DoubaoRealtime("1", "t", model="2.2.0.0")._session_config(
+            "你叫丘丘", "saturn_zh_female_keainvsheng_tob"
+        )
+        assert cfg["dialog"]["character_manifest"] == "你叫丘丘"
+        assert "system_role" not in cfg["dialog"]
+
+    @pytest.mark.parametrize(
+        ("model", "is_character"),
+        [("1.2.1.1", False), ("2.2.0.0", True), ("2.0.0.0", True), ("1.0.0.0", False)],
+    )
+    def test_route_is_decided_by_the_major_version(self, model: str, is_character: bool) -> None:
+        assert dr.is_character_route(model) is is_character
 
 
 class TestConfig:

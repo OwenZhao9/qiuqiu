@@ -47,6 +47,11 @@ OUTPUT_SAMPLE_RATE = 24000
 MAX_FRAME_BYTES = 10 * 1024 * 1024
 
 
+def is_character_route(model: str) -> bool:
+    """SC（Strong Character，角色扮演）路线的版本号以 2 开头，O（Omni）路线以 1 开头。"""
+    return model.strip().startswith("2")
+
+
 class DoubaoRealtime:
     """`RealtimeVoice` 协议的豆包实现。一次会话一个连接。"""
 
@@ -120,7 +125,14 @@ class DoubaoRealtime:
             },
             "dialog": {
                 "bot_name": "丘丘",
-                "system_role": system_prompt,
+                # **人设字段随模型路线换**：O 路线读 `system_role`，SC（角色扮演）路线
+                # 只读 `character_manifest`。写错了不会报错，模型会安静地用服务端预设的
+                # 角色——实测 SC2.0 下自称「夏栀」「姜书昀」，人格层就整个丢了。
+                **(
+                    {"character_manifest": system_prompt}
+                    if is_character_route(self.model)
+                    else {"system_role": system_prompt}
+                ),
                 "dialog_id": "",
                 "extra": {
                     "model": self.model,
