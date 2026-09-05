@@ -342,10 +342,49 @@ class MemoryFacade:
     def subscribe(self) -> AsyncIterator[MemoryEvent]:
         """订阅记忆事件。`async for event in facade.subscribe():`
 
-        注册发生在第一次 `__anext__`，所以订阅者在自己的事件循环里 `async for` 就行。
+        **注册在这一行同步完成**，不等第一次 `__anext__`（CONTRACTS § 3）。调用方
+        因此可以紧接着按 `since` 补发历史，注册与补发之间没有丢事件的窗口——`/events`
+        正是这么用的。别改回惰性注册：那样调用方只能靠让步几次去猜注册好没有，等于
+        把自己的正确性绑在这个方法的内部实现上。
         断线续传不走这里——那是 `/events?since=` 按 `event_log` 自增 id 查（AD-14）。
         """
-        return self.runtime.bus.stream()
+        sub = self.runtime.bus.open()
+        return self.runtime.bus.drain(sub)
+
+    def note_filter(
+        self,
+        *,
+        decision: str,
+        score: float,
+        reason: str,
+        source: Source,
+        input_preview: str,
+        trace_id: str | None = None,
+    ) -> str:
+        """记录一条**调用方自己做出的**筛选判断，只发 `filter` 事件，不压缩不写事实。
+
+        用处只有一个：VAD 在后端，被它判成静音的片段根本进不到中间件，于是不会有
+        `filter` 事件，侧栏就少一条——可 `ambient-noise`（99% 是废话）这个演示要看的
+        正是这些拒绝。事件仍由中间件发布（AD-14 不破），后端只是把判断报上来。
+
+        返回事件 id。
+        """
+        if decision not in {"accept", "reject", "uncertain"}:
+            raise ValueError(f"decision 只能是 accept / reject / uncertain，收到 {decision!r}")
+        event = self.runtime.bus.publish(
+            MemoryEvent(
+                type="filter",
+                trace_id=trace_id or new_trace_id(),
+                payload={
+                    "decision": decision,
+                    "score": score,
+                    "reason": reason,
+                    "source": source.value if isinstance(source, Source) else str(source),
+                    "input_preview": input_preview,
+                },
+            )
+        )
+        return event.id
 
     # ------------------------------------------------------------------- 收尾
 

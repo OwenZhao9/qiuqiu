@@ -11,7 +11,7 @@ def test_check_passes_offline(capsys: pytest.CaptureFixture[str]) -> None:
     assert check() == 0
     report = capsys.readouterr().out.strip().splitlines()[-1]
     assert '"ok": true' in report
-    assert "v0.1.7" in report
+    assert "v0.1.8" in report
 
 
 def test_main_routes_check_flag() -> None:

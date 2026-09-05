@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import inspect
 from collections.abc import AsyncIterator
@@ -105,7 +106,34 @@ class TestFacadeSignatures:
         assert edit.parameters["fields"].kind is inspect.Parameter.VAR_KEYWORD
 
     def test_subscribe_returns_an_async_iterator(self, facade: MemoryFacade) -> None:
-        assert isinstance(facade.subscribe(), AsyncIterator)
+        """契约 v0.1.8：注册同步完成，所以必须在协程里调（订阅要绑定调用方的事件循环）。"""
+
+        async def check() -> bool:
+            stream = facade.subscribe()
+            try:
+                return isinstance(stream, AsyncIterator)
+            finally:
+                await stream.aclose()
+
+        assert asyncio.run(check())
+
+    def test_subscribe_registers_synchronously(self, facade: MemoryFacade) -> None:
+        """v0.1.8 的核心保证：`subscribe()` 返回时订阅已经在册。
+
+        惰性注册的话，调用方只能靠让步几次去猜注册好没有，注册与补发之间的窗口里
+        发布的事件会被静默丢掉——而 `/events` 正是「先订阅再补发」这么用的。
+        """
+
+        async def check() -> tuple[int, int]:
+            before = facade.runtime.bus.subscriber_count
+            stream = facade.subscribe()
+            try:
+                return before, facade.runtime.bus.subscriber_count
+            finally:
+                await stream.aclose()
+
+        before, after = asyncio.run(check())
+        assert (before, after) == (0, 1), "subscribe() 返回时订阅必须已经在册，一次让步都不该等"
 
     def test_ingest_and_recall_are_plain_defs(self) -> None:
         """契约里它们是同步方法，后端靠 `asyncio.to_thread` 调。"""

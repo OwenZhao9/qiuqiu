@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 def test_health_reports_contract_and_models(client: TestClient) -> None:
     body = client.get("/health").json()
     assert body["status"] == "ok"
-    assert body["contract"] == "v0.1.7"
+    assert body["contract"] == "v0.1.8"
     assert body["voice_mode"] == "cascade"
     capabilities = {m["capability"] for m in body["models"]}
     assert capabilities == {"chat", "vision", "asr", "vad", "tts", "realtime"}

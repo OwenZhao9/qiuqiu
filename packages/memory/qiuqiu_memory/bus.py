@@ -114,14 +114,21 @@ class EventBus:
             if sub in self._subs:
                 self._subs.remove(sub)
 
-    async def stream(self) -> AsyncIterator[MemoryEvent]:
-        """异步生成器：`async for ev in bus.stream()`。`MemoryFacade.subscribe()` 用它。"""
-        sub = self.open()
+    async def drain(self, sub: Subscription) -> AsyncIterator[MemoryEvent]:
+        """把一个**已经注册好**的订阅排空。注册与消费分开，是为了让调用方拿到
+        「此刻起的事件一条不漏」这个保证——见 `MemoryFacade.subscribe()`。"""
         try:
             while True:
                 yield await sub.get()
         finally:
             self.close(sub)
+
+    async def stream(self) -> AsyncIterator[MemoryEvent]:
+        """异步生成器。注册发生在第一次 `__anext__`，**调用方拿不到注册完成的时机**。
+        新代码用 `open()` + `drain()`，那条路的注册是同步的。这个方法留给现有测试。"""
+        sub = self.open()
+        async for event in self.drain(sub):
+            yield event
 
     # ---------- 发布 ----------
 

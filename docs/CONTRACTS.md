@@ -265,15 +265,6 @@ class IngestResult:
     decision: str = "accept"       # accept / reject / uncertain，POST /ingest 直接透传
     summary: str | None = None     # 仅 JOURNAL，日记界面显示这段摘要
 
-`subscribe()` **在调用时同步完成注册**，不等第一次 `__anext__`。调用方可以紧接着按
-`since` 补发历史而不丢中间的事件——注册与补发之间没有窗口。这是契约的一部分，实现不得
-改成惰性注册。
-
-`note_filter()` 供后端记录**它自己做出的**筛选判断，典型是 VAD 判无人声、片段根本没
-进中间件的情况。它只发一条 `filter` 事件（照常写 `event_log`），不做压缩也不写事实，
-返回事件 id。有了它，被 VAD 拦下的片段在侧栏也留得下痕迹——「记忆过程看得见」是第一
-质量属性，最常见的那类拒绝不能是空白。事件仍由中间件发布，AD-14 不破。
-
 @dataclass
 class Budget:
     max_items: int = 12
@@ -296,7 +287,7 @@ class MemoryFacade:
     def edit_visible(self, mid: str, **fields) -> VisibleMemory: ...
     def subscribe(self) -> AsyncIterator[MemoryEvent]: ...
     def note_filter(self, *, decision: str, score: float, reason: str, source: Source,
-                    preview: str, trace_id: str | None = None) -> str: ...
+                    input_preview: str, trace_id: str | None = None) -> str: ...
 ```
 
 **`trace_id` 由调用方传。** ARCHITECTURE 第 7 节要求一条 `trace_id` 贯穿 `ingest`、事件信封与 `run_metrics`；`/chat` 与 `/ingest` 生成它，经这两个参数传进来，中间件发出的 `filter` `write` `merge` `recall` 事件都挂在同一条 trace 上。不传时中间件自己生成一条，返回值里照常带回。
@@ -304,6 +295,16 @@ class MemoryFacade:
 **`uncertain` 只发事件，不落库。** 筛选判定为 `accept` 才继续压缩与写入；`uncertain` 与 `reject` 都到此为止，区别只在侧栏的呈现（§ 6 里 `uncertain` 切 `11`，`reject` 不切表情）。理由：错记一条要用户去记忆库里手动删，比漏记一条贵。
 
 `ingest()` 与 `recall()` 是**同步方法**。后端在事件循环里调用要走 `await asyncio.to_thread(...)`。
+
+`subscribe()` **在调用时同步完成注册**，不等第一次 `__anext__`。调用方可以紧接着按
+`since` 补发历史而不丢中间的事件——注册与补发之间没有窗口。这是契约的一部分，实现不得
+改成惰性注册。代价是它**必须在协程里调**：订阅要绑定调用方所在的事件循环，发布方
+（同步的中间件）才能把事件投进去。
+
+`note_filter()` 供后端记录**它自己做出的**筛选判断，典型是 VAD 判无人声、片段根本没
+进中间件的情况。它只发一条 `filter` 事件（照常写 `event_log`），不做压缩也不写事实，
+返回事件 id。有了它，被 VAD 拦下的片段在侧栏也留得下痕迹——「记忆过程看得见」是第一
+质量属性，最常见的那类拒绝不能是空白。事件仍由中间件发布，AD-14 不破。
 
 人格相关另在 `qiuqiu_memory/persona.py`：
 
