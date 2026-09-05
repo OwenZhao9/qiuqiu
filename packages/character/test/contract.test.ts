@@ -44,8 +44,15 @@ import { makeStubEmotionBall } from './helpers/stub-engine.js';
 
 const CONTRACTS = readFileSync(fromRepo('docs', 'CONTRACTS.md'), 'utf8');
 
-/** 契约当前版本。升版本必须回来改这里，顺便逼着把三张表重新核一遍。 */
-const CONTRACT_VERSION = 'v0.1.6';
+/**
+ * 契约当前版本。**保持精确匹配，不要改成宽松匹配、更不要删。**
+ * 这个钉子的作用就是每次契约升版都逼着回去把 § 6 的三张表与四段散文重核一遍，
+ * 确认无关才改这一行；核对结论记在下面。
+ *
+ * v0.1.7（收编 memory 报的十一条缺口）改的是 § 1 / § 3 / § 5，
+ * § 6 六个小节与 v0.1.6 逐字一致，本文件的断言无需改动。
+ */
+const CONTRACT_VERSION = 'v0.1.7';
 
 /* ------------------------------------------------------------------ *
  * 解析
