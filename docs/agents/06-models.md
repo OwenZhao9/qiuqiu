@@ -75,12 +75,16 @@
 - [ ] 火山方舟 `/images/generations`
 - [ ] 只在 `VOLC_ARK_API_KEY` 存在时注册
 
-**RealtimeVoice · 豆包**（`doubao_realtime.py`，可选）
-- [ ] 火山引擎端到端实时语音 WebSocket 接入，签名按 CONTRACTS § 4 `RealtimeVoice`
-- [ ] `open()` 时把系统提示（含人格与召回）传入；`events()` 分发 audio / transcript / turn_end
-- [ ] `interrupt()` 发打断信号并清空本地播放队列
-- [ ] 只在 `VOLC_ARK_API_KEY` 存在且 `VOICE_MODE=realtime` 时注册
-- [ ] 计量音频 token 到 `run_metrics`
+**RealtimeVoice · 豆包**（`doubao_realtime.py`）**已完成**
+- [x] `wss://openspeech.bytedance.com/api/v3/realtime/dialogue`，自定义二进制协议
+- [x] 协议编解码单独放 `_volc_protocol.py`，用文档给的真实帧逐字节比对
+- [x] `open()` 把人格与召回从 `dialog.system_role` 传入；`events()` 分发四类事件
+- [x] `ASRInfo` → `interrupt` 事件，前端据此停播
+
+**三个坑**：输出默认 OGG/Opus，要 `pcm_s16le` 才是 16 位裸 PCM（写 `pcm` 得到 32 位
+浮点）；上行 16k、下行 24k，所以 audio 事件必带 `sample_rate`；`asr.extra` 与
+`tts.extra` 不能为 null（报 42000020），连接类事件不能带 session id。
+- [x] 只在 `VOLC_SPEECH_*` 齐全且 `VOICE_MODE=realtime` 时注册
 
 **Mock**（`mock.py`）
 - [ ] 六种能力各一个 mock，固定输出，零延迟；`RealtimeVoice` 的 mock 把输入音频原样回放并给固定转写
