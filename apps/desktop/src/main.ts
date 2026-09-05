@@ -146,9 +146,24 @@ function createPetWindow(): BrowserWindow {
 }
 
 function showMain(): void {
-  if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createMainWindow();
-  mainWindow.show();
-  mainWindow.focus();
+  ensureMain();
+  mainWindow?.show();
+  mainWindow?.focus();
+}
+
+/**
+ * 保证主窗口**存在**，但不弹出来、不抢焦点。
+ *
+ * 对话与语音会话都跑在主窗口（AD-5），所以桌宠说话时它必须活着；但那时候
+ * 用户看的是桌宠气泡，把整个界面推到脸上是打断，不是帮忙。
+ */
+function ensureMain(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createMainWindow();
+    // 新建的窗口默认会显示，这里立刻藏起来——它只是需要在后台跑着
+    mainWindow.once('ready-to-show', () => mainWindow?.hide());
+    mainWindow.hide();
+  }
 }
 
 function togglePet(): void {
@@ -286,14 +301,16 @@ function wireIpc(): void {
 
   // AD-5：桌宠 → 主窗口。桌宠自己不发任何 HTTP 请求
   ipcMain.on(TO_MAIN.submitFromPet, (_e, text: string) => {
-    showMain();
+    // 只保证主窗口在后台活着，**不弹出来**：用户看的是桌宠气泡，
+    // 把整个界面推到脸上是打断
+    ensureMain();
     mainWindow?.webContents.send(TO_RENDERER.submitFromPet, text);
   });
 
   // 桌宠按了通话和弦。语音会话跑在主窗口——麦克风与音频播放只该有一份，
   // 两个窗口各开一个会互相抢
   ipcMain.on(TO_MAIN.callFromPet, () => {
-    showMain();
+    ensureMain();
     mainWindow?.webContents.send(TO_RENDERER.callFromPet);
   });
 }

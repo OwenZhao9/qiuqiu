@@ -1531,3 +1531,93 @@ select {
   text-anchor: middle;
   writing-mode: vertical-rl;
 }
+
+/* ── 框图的流动 ────────────────────────────────────────────────────
+   静态箭头只说明连通；跑起来的虚线才说明「此刻数据正在这里过」，
+   而且看得出方向。 */
+
+.qq-map__flow {
+  stroke: var(--qq-color-write);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 3 13;
+  fill: none;
+  animation: qq-map-dash 1s linear infinite;
+}
+
+@keyframes qq-map-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* 走到的块轻轻呼吸，一眼看得出「现在在这儿」 */
+.qq-map__box--on rect {
+  animation: qq-map-pulse 2.2s var(--qq-ease-standard) infinite;
+}
+
+@keyframes qq-map-pulse {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: brightness(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-map__flow,
+  .qq-map__box--on rect {
+    animation: none;
+  }
+}
+
+/* ── 主页上那条记忆结构 ───────────────────────────────────────────
+   默认展开：这是产品的卖点，藏起来就白做了。但它不能抢对话的位置，
+   所以限高，可以点标题收起。 */
+
+.qq-mapstrip {
+  flex: none;
+  border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
+  background: var(--qq-color-bg-subtle);
+}
+
+.qq-mapstrip__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--qq-space-3);
+  padding: var(--qq-space-3) var(--qq-space-6);
+  font-size: var(--qq-text-sm);
+  font-weight: 600;
+  color: var(--qq-color-text);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.qq-mapstrip__head::-webkit-details-marker {
+  display: none;
+}
+
+.qq-mapstrip__head:hover {
+  background: var(--qq-color-surface-hover);
+}
+
+.qq-mapstrip__hint {
+  font-weight: 400;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+/* 紧凑模式：主页那条限高，图整体缩放，不挤掉对话 */
+.qq-map--compact {
+  padding: 0 var(--qq-space-4) var(--qq-space-4);
+  max-height: 360px;
+}
+
+.qq-map--compact svg {
+  max-height: 344px;
+  /* 别设 min-width：主页这一条要跟着中栏缩放，横向滚动条比看不清更烦 */
+  min-width: 0;
+}

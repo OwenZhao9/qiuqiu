@@ -40,6 +40,8 @@ export interface QiuqiuBridge {
 export interface QiuqiuBridgeExt extends QiuqiuBridge {
   onDone(cb: (sessionId: string) => void): void;
   onSubmitFromPet(cb: (text: string) => void): void;
+  /** 主窗口接住桌宠按的通话和弦。会话只跑在主窗口。 */
+  onCallFromPet(cb: () => void): void;
   setPetPassthrough(ignore: boolean): void;
   setPetExpanded(expanded: boolean): void;
   popupPetMenu(state: { ambientPaused: boolean }): void;

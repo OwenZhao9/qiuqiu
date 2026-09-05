@@ -49,6 +49,23 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
   const [thresholds, setThresholds] = useState<Thresholds>(DEFAULT_THRESHOLDS);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+  /** 主页那条记忆结构展开没有。存本地，纯界面偏好。 */
+  const [mapOpen, setMapOpen] = useState(() => {
+    try {
+      return localStorage.getItem('qiuqiu.mapOpen') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const onMapToggle = useCallback((e: React.SyntheticEvent<HTMLDetailsElement>) => {
+    const open = e.currentTarget.open;
+    setMapOpen(open);
+    try {
+      localStorage.setItem('qiuqiu.mapOpen', open ? '1' : '0');
+    } catch {
+      /* 存不下就只在本次生效 */
+    }
+  }, []);
   const [recallTexts, setRecallTexts] = useState<ReadonlyMap<string, string>>(new Map());
 
   const events = useMemo(
@@ -206,6 +223,16 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
 
         {page === 'chat' ? (
           <>
+            {/* 记忆结构就在主页上方。折叠状态记在本地，不占后端的 settings */}
+            <details className="qq-mapstrip" open={mapOpen} onToggle={onMapToggle}>
+              <summary className="qq-mapstrip__head">
+                记忆结构
+                <span className="qq-mapstrip__hint">
+                  {mapOpen ? '点这里收起' : '点这里看这句话在系统里怎么走'}
+                </span>
+              </summary>
+              <MemoryMap events={eventsState.events} compact />
+            </details>
             <ChatPanel messages={chatState.messages} recallTexts={recallTexts} />
             <Composer
               variant="main"

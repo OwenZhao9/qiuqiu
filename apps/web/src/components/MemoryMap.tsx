@@ -78,21 +78,29 @@ function Arrow({
   lit: boolean;
   dashed?: boolean;
 }): React.JSX.Element {
+  const d = `M ${x1} ${y1} L ${x2} ${y2}`;
   return (
-    <path
-      className={'qq-map__arrow' + (lit ? ' qq-map__arrow--on' : '')}
-      strokeDasharray={dashed ? '5 4' : undefined}
-      d={`M ${x1} ${y1} L ${x2} ${y2}`}
-      markerEnd={lit ? 'url(#qq-map-tip-on)' : 'url(#qq-map-tip)'}
-    />
+    <g>
+      <path
+        className={'qq-map__arrow' + (lit ? ' qq-map__arrow--on' : '')}
+        strokeDasharray={dashed ? '5 4' : undefined}
+        d={d}
+        markerEnd={lit ? 'url(#qq-map-tip-on)' : 'url(#qq-map-tip)'}
+      />
+      {/* 亮起时在同一条线上叠一段跑动的虚线：**看得出往哪个方向流**。
+          静态箭头只说明连通，动起来才说明「此刻数据正在这里过」。 */}
+      {lit ? <path className="qq-map__flow" d={d} /> : null}
+    </g>
   );
 }
 
 export interface MemoryMapProps {
   events: readonly MemoryEventEnvelope[];
+  /** 主页那一条：矮一些，不抢对话的地方。 */
+  compact?: boolean;
 }
 
-export function MemoryMap({ events }: MemoryMapProps): React.JSX.Element {
+export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JSX.Element {
   const p = useMemo(() => derivePipeline(events), [events]);
   const ingest = p.lane === 'ingest';
   const recall = p.lane === 'recall';
@@ -104,7 +112,7 @@ export function MemoryMap({ events }: MemoryMapProps): React.JSX.Element {
   const skipped = p.stages.filter.status === 'skip';
 
   return (
-    <div className="qq-map">
+    <div className={'qq-map' + (compact ? ' qq-map--compact' : '')}>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="记忆系统框图">
         <defs>
           <marker
@@ -335,10 +343,12 @@ export function MemoryMap({ events }: MemoryMapProps): React.JSX.Element {
         />
       </svg>
 
-      <p className="qq-map__note">
-        照论文 <span className="qq-mono">arXiv 2604.01007</span> 的三段骨架画。
-        亮起来的是这一轮真的走过的路，数据全部来自记忆事件。
-      </p>
+      {compact ? null : (
+        <p className="qq-map__note">
+          照论文 <span className="qq-mono">arXiv 2604.01007</span> 的三段骨架画。
+          亮起来的是这一轮真的走过的路，数据全部来自记忆事件。
+        </p>
+      )}
     </div>
   );
 }
