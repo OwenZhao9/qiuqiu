@@ -62,6 +62,9 @@ let petExpanded = false;
 /** 气泡当前占多高，px。0 = 没有气泡。渲染进程量好报上来。 */
 let petBubble = 0;
 
+/** 最后一次镜像给桌宠的状态与表情。桌宠窗口起来时补发，见 `setPetState`。 */
+let lastPetState: [string, string | undefined] | null = null;
+
 /** 换一套布局：改窗口尺寸并保住球心，然后把新布局记下来。 */
 function relayout(to: { expanded: boolean; bubble: number }): void {
   const from = { expanded: petExpanded, bubble: petBubble };
@@ -247,6 +250,10 @@ function createPetWindow(): BrowserWindow {
   // 默认穿透，渲染进程判断指针落在实心轮廓上时再关掉（design/interaction.md § 1）
   win.setIgnoreMouseEvents(true, { forward: true });
   loadPage(win, 'pet');
+  // 桌宠中途才起来时，把主窗口最后一次的状态与表情补给它
+  win.webContents.on('did-finish-load', () => {
+    if (lastPetState) win.webContents.send(TO_RENDERER.petState, ...lastPetState);
+  });
   // 眼神跟随靠主进程轮询系统光标，桌宠自己拿不到窗口外的指针
   win.on('show', startGaze);
   win.on('hide', stopGaze);
@@ -416,6 +423,9 @@ function wireIpc(): void {
     petWindow?.webContents.send(TO_RENDERER.done, sessionId);
   });
   ipcMain.on(TO_MAIN.setPetState, (_e, state: string, emotionId?: string) => {
+    // 记下最后一次，桌宠窗口新建或重载时补发一遍。镜像只发「变化」，
+    // 桌宠中途才起来的话就永远停在初始表情上，跟主窗口对不上
+    lastPetState = [state, emotionId];
     petWindow?.webContents.send(TO_RENDERER.petState, state, emotionId);
   });
 
@@ -427,6 +437,12 @@ function wireIpc(): void {
   });
 
   // 主窗口报到：把攒着的话补送过去
+  // 用户动了桌宠。闲置计时开在主窗口，它看不见这些动作，得转告一声
+  ipcMain.on(TO_MAIN.pokePet, () => {
+    ensureMain();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(TO_RENDERER.poke);
+  });
+
   ipcMain.on(TO_MAIN.mainReady, () => {
     const queued = petInbox.ready();
     if (!mainWindow || mainWindow.isDestroyed()) return;

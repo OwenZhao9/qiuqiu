@@ -92,6 +92,7 @@ export function PetApp(): React.JSX.Element {
   /* ---- 展开 / 收起要改窗口尺寸，且球心不动 ---- */
   useEffect(() => {
     bridge.setPetExpanded(expanded);
+    if (expanded) bridge.pokePet();
   }, [bridge, expanded]);
 
   /* ---- 气泡有多高要报给主进程 ----
@@ -155,10 +156,15 @@ export function PetApp(): React.JSX.Element {
   /* ---- 指针手势：单击切输入条、超过 4 px 进拖动 ---- */
   const gesture = useRef<{ t: number; x: number; y: number; dragging: boolean } | null>(null);
 
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    gesture.current = { t: Date.now(), x: e.screenX, y: e.screenY, dragging: false };
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, []);
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      gesture.current = { t: Date.now(), x: e.screenX, y: e.screenY, dragging: false };
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      // 闲置计时开在主窗口，它看不见这一下（AD-5b）
+      bridge.pokePet();
+    },
+    [bridge]
+  );
 
   /**
    * 拖动的增量攒在这里，一帧只发一次 IPC。

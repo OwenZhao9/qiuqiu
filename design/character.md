@@ -227,7 +227,9 @@ const ball = EmotionBall.create(el, {
 
 传给引擎就是 `idle: { standbyAfter: 90000, sleepAfter: 300000, standbyId: '04', sleepId: '00' }`。
 
-**只有桌宠窗口与网页端实例开 `idle`。** 主窗口的 120 px 实例传 `idle: false`——用户正开着主窗口时丘丘不该睡着。
+**桌面端只有主窗口开 `idle`，桌宠传 `idle: false`。** 表情只能有一个来源（AD-5b）：桌宠自己推进闲置的话，它会照自己的计时器睡过去，而主窗口那只还醒着，两个窗口两张脸。闲置由主窗口驱动，经 `setPetState(state, emotionId)` 镜像给桌宠。
+
+网页端没有桌宠，`web` 实例自己开 `idle`。
 
 ### 唤醒
 

@@ -25,7 +25,8 @@ export const TO_MAIN = {
   popupPetMenu: 'qq:popup-pet-menu',
   setSkin: 'qq:set-skin',
   setPetBubble: 'qq:set-pet-bubble',
-  mainReady: 'qq:main-ready'
+  mainReady: 'qq:main-ready',
+  pokePet: 'qq:poke-pet'
 } as const;
 
 /** 主进程推给渲染进程的。 */
@@ -38,7 +39,8 @@ export const TO_RENDERER = {
   petFocus: 'qq:on-pet-focus',
   ambientToggle: 'qq:on-ambient-toggle',
   skin: 'qq:on-skin',
-  petGaze: 'qq:on-pet-gaze'
+  petGaze: 'qq:on-pet-gaze',
+  poke: 'qq:on-poke'
 } as const;
 
 export type ToMainChannel = (typeof TO_MAIN)[keyof typeof TO_MAIN];

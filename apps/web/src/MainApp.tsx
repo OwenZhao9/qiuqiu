@@ -121,9 +121,15 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
   // 桌宠的输入交主窗口发出（AD-5）。**挂完监听立刻报到**：桌宠先说话时主窗口
   // 可能刚被建出来、渲染进程还没跑到这儿，主进程会把那句话攒着等这一声
   useEffect(() => {
-    const off = bridge.onSubmitFromPet((text: string) => chat.send(text));
+    const off = [
+      bridge.onSubmitFromPet((text: string) => chat.send(text)),
+      // 用户在动桌宠。闲置计时在这只丘丘身上，不复位的话人玩着桌宠它却睡过去
+      bridge.onPoke(() => qiuqiuRef.current?.resetIdle())
+    ];
     bridge.mainReady();
-    return off;
+    return () => {
+      for (const f of off) f();
+    };
   }, [bridge, chat]);
 
   // T10：断连超过 8 s 还没连上，回 idle

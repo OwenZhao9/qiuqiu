@@ -68,8 +68,10 @@ describe('createQiuqiu', () => {
   });
 
   it('三处预设的尺寸 / eyeScale / lite / idle 与 design/character.md § 3 一致', () => {
-    expect(PRESETS.pet).toEqual({ size: 200, eyeScale: 1, lite: false, idle: IDLE_DEFAULT });
-    expect(PRESETS.main).toEqual({ size: 120, eyeScale: 1.5, lite: true, idle: false });
+    // 闲置推进开在主窗口、关在桌宠：表情只有一个来源，桌宠跟着镜像走（AD-5b）。
+    // 反过来的话桌宠会照自己的计时器睡过去，而主窗口那只还醒着
+    expect(PRESETS.pet).toEqual({ size: 200, eyeScale: 1, lite: false, idle: false });
+    expect(PRESETS.main).toEqual({ size: 120, eyeScale: 1.5, lite: true, idle: IDLE_DEFAULT });
     expect(PRESETS.web).toEqual({ size: 160, eyeScale: 1.2, lite: false, idle: IDLE_DEFAULT });
     expect(IDLE_DEFAULT).toEqual({
       standbyAfter: 90000,
@@ -79,15 +81,17 @@ describe('createQiuqiu', () => {
     });
   });
 
-  it('preset=pet 开闲置，preset=main 关闲置', () => {
+  it('preset=main 开闲置，preset=pet 关闲置', () => {
+    // 桌宠不自己推进闲置：开着的话它会照自己的计时器睡过去，
+    // 而主窗口那只还醒着，两个窗口两张脸
     const pet = make({ preset: 'pet' });
-    expect(eb.lastCreateOptions!.idle).toEqual(IDLE_DEFAULT);
+    expect(eb.lastCreateOptions!.idle).toBe(false);
     expect(eb.lastCreateOptions!.eyeScale).toBe(1);
     expect(eb.lastCreateOptions!.lite).toBe(false);
     pet.destroy();
 
     const main = make({ preset: 'main' });
-    expect(eb.lastCreateOptions!.idle).toBe(false);
+    expect(eb.lastCreateOptions!.idle).toEqual(IDLE_DEFAULT);
     expect(eb.lastCreateOptions!.eyeScale).toBe(1.5);
     expect(eb.lastCreateOptions!.lite).toBe(true);
     main.destroy();

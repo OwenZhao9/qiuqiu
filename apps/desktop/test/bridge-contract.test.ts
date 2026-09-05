@@ -194,7 +194,8 @@ describe('订阅要能退订', () => {
     'onCallFromPet',
     'onPetFocus',
     'onAmbientToggle',
-    'onSkin'
+    'onSkin',
+    'onPoke'
   ] as const;
 
   it('每个 onX 都返回退订函数，调了就真的不再收', () => {

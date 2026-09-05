@@ -245,6 +245,7 @@ interface QiuqiuBridge {
   setSkin(skin: string): void;                // 换皮肤，主进程转给另一个窗口
   setPetBubble(height: number): void;         // 气泡量出来多高。透明窗口画在窗口外的会被裁掉，窗口要先长出这块
   mainReady(): void;                          // 主窗口挂好监听了。在这之前桌宠发的话主进程攒着，不然会丢
+  pokePet(): void;                            // 用户动了桌宠（点 / 拖 / 展开）。闲置计时在主窗口，它看不见这些动作
   // 订阅。**每个都返回退订函数**，组件必须在 effect 的清理里调它：
   // React 的 effect 开发模式下跑两遍、组件重挂还会再订，只订不退会越攒越多，
   // 一条 delta 被拼进气泡好几遍，回复变成每个字重复
@@ -258,6 +259,7 @@ interface QiuqiuBridge {
   onAmbientToggle(cb: (paused: boolean) => void): Unsubscribe; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
   onSkin(cb: (skin: string) => void): Unsubscribe;            // 另一个窗口换了皮肤。收到只应用不再广播，否则来回弹
   onPetGaze(cb: (dx: number, dy: number) => void): Unsubscribe; // 光标相对球心的偏移，屏幕像素。桌宠窗口穿透且只有 200 px，自己拿不到窗口外的指针
+  onPoke(cb: () => void): Unsubscribe;                 // 用户动了桌宠，主窗口据此复位闲置计时
 }
 window.__QIUQIU_API__ = "http://127.0.0.1:8000";
 ```
@@ -575,7 +577,11 @@ prompt_persona = identity_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.14**（桌宠只显示，不自己拼字）
+当前：**v0.1.15**（表情只有一个来源）
+
+v0.1.15 一条：**§ 2 增 `pokePet` 与 `onPoke`**。闲置推进从桌宠挪到主窗口（桌宠传 `idle: false`）——表情只能有一个来源，桌宠自己推进闲置的话它会照自己的计时器睡过去而主窗口那只还醒着。挪过去之后主窗口看不见「用户在动桌宠」，所以点 / 拖 / 展开都报一声，主窗口据此复位闲置计时。
+
+v0.1.14（桌宠只显示，不自己拼字）
 
 v0.1.14 三条：
 

@@ -83,12 +83,19 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   /** 主窗口的渲染进程已经挂好监听。桌宠先发的话主进程攒着，等这一声再送。 */
   mainReady(): void;
   /**
+   * 用户动了桌宠（点、拖、展开输入条）。闲置计时开在主窗口（AD-5b），
+   * 它看不见这些动作——不报的话，人正玩着桌宠，丘丘却按主窗口的计时器睡过去。
+   */
+  pokePet(): void;
+  /**
    * 光标相对球心的偏移，屏幕像素，由主进程轮询系统光标推下来。
    *
    * 桌宠窗口鼠标穿透且只有 200 px，渲染进程只在光标压在丘丘身上时才收得到
    * `pointermove`——所以桌面上的「眼神跟随」桌宠自己做不到，只能这样喂。
    */
   onPetGaze(cb: (dx: number, dy: number) => void): Unsubscribe;
+  /** `pokePet` 的订阅端。主窗口收到就复位自己那只丘丘的闲置计时。 */
+  onPoke(cb: () => void): Unsubscribe;
   /** `'desktop'` 或 `'web'`。**只给适配层与 CSS 用，组件不读**。 */
   platform(): 'desktop' | 'web';
 }
@@ -162,6 +169,9 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     mainReady() {
       // 网页端只有一个页面，不存在「另一个窗口还没起来」
     },
+    pokePet() {
+      bus.emit('poke');
+    },
     onReply(cb) {
       return bus.on('reply', cb as Listener);
     },
@@ -189,6 +199,9 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     onPetGaze(cb) {
       // 网页端丘丘嵌在页面里，document 上的 pointermove 就够，不需要这条
       return bus.on('pet-gaze', cb as Listener);
+    },
+    onPoke(cb) {
+      return bus.on('poke', cb as Listener);
     },
     platform: () => 'web'
   };

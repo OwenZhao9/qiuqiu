@@ -61,6 +61,13 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
    * 这时候 `webContents.send` 是丢的。主进程攒着，等这一声再发。
    */
   mainReady(): void;
+  /**
+   * 用户动了桌宠（点、拖、展开输入条）。
+   *
+   * 闲置计时开在主窗口（AD-5b），主窗口看不见这些动作——不报的话，人正玩着
+   * 桌宠，丘丘却按主窗口的计时器睡过去了。
+   */
+  pokePet(): void;
   /** `setSkin` 的订阅端。**收到之后只应用不再广播**，否则两个窗口会来回弹。 */
   onSkin(cb: (skin: string) => void): Unsubscribe;
   /**
@@ -70,6 +77,8 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
    * `pointermove`，所以「眼神跟随」这件事桌宠自己做不到。
    */
   onPetGaze(cb: (dx: number, dy: number) => void): Unsubscribe;
+  /** `pokePet` 的订阅端。主窗口收到就复位自己那只丘丘的闲置计时。 */
+  onPoke(cb: () => void): Unsubscribe;
   setPetPassthrough(ignore: boolean): void;
   setPetExpanded(expanded: boolean): void;
   popupPetMenu(state: { ambientPaused: boolean }): void;
@@ -144,6 +153,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     mainReady() {
       ipc.send(TO_MAIN.mainReady);
     },
+    pokePet() {
+      ipc.send(TO_MAIN.pokePet);
+    },
 
     onReply(cb) {
       return sub(TO_RENDERER.reply)((sessionId, text) => cb(String(sessionId), String(text)));
@@ -173,6 +185,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     },
     onPetGaze(cb) {
       return sub(TO_RENDERER.petGaze)((dx, dy) => cb(Number(dx), Number(dy)));
+    },
+    onPoke(cb) {
+      return sub(TO_RENDERER.poke)(() => cb());
     },
 
     platform: () => 'desktop'

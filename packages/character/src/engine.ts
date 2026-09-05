@@ -53,11 +53,18 @@ export const PRESETS: Readonly<
     { size: number; eyeScale: number; lite: boolean; idle: QiuqiuIdleOptions | false }
   >
 > = {
-  /** 桌宠窗口 200 × 200。 */
-  pet: { size: 200, eyeScale: 1, lite: false, idle: IDLE_DEFAULT },
-  /** 主窗口左栏顶部 120 × 120，`lite` 关掉彩带与撒花，不开闲置。 */
-  main: { size: 120, eyeScale: 1.5, lite: true, idle: false },
-  /** 网页端内嵌 160 × 160。 */
+  /**
+   * 桌宠窗口 200 × 200。**不开闲置推进**：桌宠不自己决定表情（AD-5b），
+   * 包括「发呆」「睡着」。开着的话它会照自己的计时器睡过去，而主窗口那只
+   * 还醒着——两个窗口两张脸。闲置由主窗口驱动，经 `setPetState` 镜像过来。
+   */
+  pet: { size: 200, eyeScale: 1, lite: false, idle: false },
+  /**
+   * 主窗口左栏顶部 120 × 120，`lite` 关掉彩带与撒花。
+   * **闲置推进开在这里**：主窗口是表情的唯一来源，桌宠跟着它走。
+   */
+  main: { size: 120, eyeScale: 1.5, lite: true, idle: IDLE_DEFAULT },
+  /** 网页端内嵌 160 × 160。网页端没有桌宠，自己推进闲置。 */
   web: { size: 160, eyeScale: 1.2, lite: false, idle: IDLE_DEFAULT }
 };
 
