@@ -87,6 +87,49 @@ def test_session_archive_and_listing(store: SqliteStore) -> None:
     assert len(store.list_sessions(archived=None)) == 2
 
 
+def test_recent_messages_span_sessions_newest_first(store: SqliteStore) -> None:
+    store.upsert_session("s1")
+    store.upsert_session("s2")
+    # 两个会话交叉着写，时间戳整体是 m1 < m2 < m3 < m4 < m5
+    store.add_message("m1", "s1", "user", "一", created_at=dt.datetime(2026, 9, 1, 10, 0))
+    store.add_message("m2", "s2", "user", "二", created_at=dt.datetime(2026, 9, 1, 10, 1))
+    store.add_message("m3", "s1", "user", "三", created_at=dt.datetime(2026, 9, 1, 10, 2))
+    store.add_message("m4", "s2", "user", "四", created_at=dt.datetime(2026, 9, 1, 10, 3))
+    store.add_message("m5", "s1", "user", "五", created_at=dt.datetime(2026, 9, 1, 10, 4))
+
+    recent = store.list_recent_messages(limit=3)
+
+    assert [m["id"] for m in recent] == ["m5", "m4", "m3"]
+    assert {m["session_id"] for m in recent} == {"s1", "s2"}
+    # 和单会话升序的 list_messages 正好相反，不要混用
+    assert [m["id"] for m in store.list_messages("s1")] == ["m1", "m3", "m5"]
+
+
+def test_recent_messages_default_limit_and_oversized_limit(store: SqliteStore) -> None:
+    store.upsert_session("s1")
+    for i in range(4):
+        store.add_message(f"m{i}", "s1", "user", str(i), created_at=dt.datetime(2026, 9, 1, 10, i))
+
+    assert [m["id"] for m in store.list_recent_messages()] == ["m3", "m2", "m1", "m0"]
+    assert len(store.list_recent_messages(limit=1000)) == 4
+
+
+def test_recent_messages_on_empty_table(store: SqliteStore) -> None:
+    assert store.list_recent_messages() == []
+    assert store.list_recent_messages(limit=10) == []
+
+
+def test_recent_messages_break_timestamp_ties_by_id(store: SqliteStore) -> None:
+    store.upsert_session("s1")
+    store.upsert_session("s2")
+    same = dt.datetime(2026, 9, 1, 10, 0)
+    store.add_message("a", "s1", "user", "a", created_at=same)
+    store.add_message("b", "s2", "user", "b", created_at=same)
+    store.add_message("c", "s1", "user", "c", created_at=same)
+
+    assert [m["id"] for m in store.list_recent_messages(limit=2)] == ["c", "b"]
+
+
 def test_favorite_messages(store: SqliteStore) -> None:
     store.upsert_session("s1")
     store.add_message("m1", "s1", "user", "记住这句")

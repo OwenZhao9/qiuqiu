@@ -263,6 +263,17 @@ class SqliteStore:
             (session_id, limit, offset),
         )
 
+    def list_recent_messages(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        """跨全部会话取最近 `limit` 条消息，性格沉淀用。
+
+        返回顺序**是降序**——最近的一条在 `[0]`，越往后越旧。要按时间正序读，
+        调用方自己 `reversed()`。排序键是 `created_at DESC, id DESC`，同一毫秒
+        写入的多条也有稳定次序。
+        """
+        return self._query(
+            "SELECT * FROM messages ORDER BY created_at DESC, id DESC LIMIT ?", (limit,)
+        )
+
     def list_favorite_messages(self, *, limit: int = 200) -> list[dict[str, Any]]:
         return self._query(
             "SELECT * FROM messages WHERE favorite = 1 ORDER BY created_at DESC LIMIT ?", (limit,)
