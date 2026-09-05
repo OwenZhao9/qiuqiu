@@ -8,6 +8,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { ApiError, postBlob, type Attachment } from '../api.js';
+import { VoiceButton } from './VoiceButton.js';
 
 export const MAX_IMAGES = 4;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -29,6 +30,12 @@ export interface ComposerProps {
   /** 受控文本。桌宠收起输入条时文本要保留，所以由 `PetApp` 托管。 */
   text?: string;
   onTextChange?(next: string): void;
+  /** 实时语音定稿的一句，交给上层塞进对话记录。 */
+  onVoiceFinal?(role: 'user' | 'assistant', text: string): void;
+  /** 实时语音的播放音量，驱动丘丘的发声脉动。 */
+  onVoiceLevel?(rms: number): void;
+  /** 语音会话连上 / 断开。 */
+  onVoiceActive?(active: boolean): void;
 }
 
 interface Pending {
@@ -40,8 +47,6 @@ interface Pending {
 }
 
 /** 语音输入推迟到 M5：按钮画出来，点了提示。 */
-const VOICE_HINT = '按住说话 M5 接入，先用文字';
-
 export function Composer({
   variant,
   onSubmit,
@@ -52,7 +57,10 @@ export function Composer({
   autoFocus,
   placeholder,
   text: controlled,
-  onTextChange
+  onTextChange,
+  onVoiceFinal,
+  onVoiceLevel,
+  onVoiceActive
 }: ComposerProps): React.JSX.Element {
   const [own, setOwn] = useState('');
   const text = controlled ?? own;
@@ -239,14 +247,7 @@ export function Composer({
 
       <div className="qq-composer__row">
         <textarea aria-label="说点什么" rows={2} {...inputProps} />
-        <button
-          type="button"
-          className="qq-btn qq-focusable"
-          title={VOICE_HINT}
-          onClick={() => note(VOICE_HINT)}
-        >
-          按住说话
-        </button>
+        <VoiceButton onFinal={onVoiceFinal} onLevel={onVoiceLevel} onActiveChange={onVoiceActive} />
         {streaming ? (
           <button type="button" className="qq-btn qq-focusable" onClick={() => onStop?.()}>
             停止

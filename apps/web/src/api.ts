@@ -34,7 +34,8 @@ export function getFetchImpl(): FetchLike {
   return currentFetch ?? ((globalThis as { fetch?: FetchLike }).fetch as FetchLike);
 }
 
-function doFetch(path: string, init?: RequestInit): Promise<Response> {
+/** 带上 base 与注入的 fetch。`voice.ts` 也用它，所以导出。 */
+export function doFetch(path: string, init?: RequestInit): Promise<Response> {
   const f = currentFetch ?? ((globalThis as { fetch?: FetchLike }).fetch as FetchLike);
   if (!f) throw new ApiError('no_fetch', '当前环境没有 fetch', '在 Node 18+ 或浏览器里运行前端');
   return f(apiBase() + path, init);

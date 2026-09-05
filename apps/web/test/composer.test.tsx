@@ -134,9 +134,27 @@ describe('Composer · 桌宠变体', () => {
     expect((screen.getByLabelText('跟丘丘说话') as HTMLInputElement).value).toBe('打了一半');
   });
 
-  it('语音按钮本轮只提示，不建连接（M5 接入）', () => {
+  it('语音按钮是「说话」，按一下开会话再按一下挂断', () => {
+    // 端到端链路是全双工的，不做「按住不放」——那样人不敢插话，
+    // 把这条链路最值钱的「能打断」浪费掉了
     render(<Composer variant="main" history={[]} onSubmit={vi.fn()} />);
-    fireEvent.click(screen.getByText('按住说话'));
-    expect(screen.getByText(/M5 接入/)).toBeTruthy();
+    const btn = screen.getByRole('button', { name: '说话' });
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('拿不到麦克风时给能看懂的话，不是静默失败', async () => {
+    const original = navigator.mediaDevices;
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: () => Promise.reject(new Error('NotAllowedError')) }
+    });
+    try {
+      render(<Composer variant="main" history={[]} onSubmit={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: '说话' }));
+      expect(await screen.findByText(/拿不到麦克风/)).toBeTruthy();
+      expect(screen.getByText(/允许麦克风/)).toBeTruthy();
+    } finally {
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: original });
+    }
   });
 });

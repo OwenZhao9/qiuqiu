@@ -133,6 +133,40 @@ class TestEventTranslation:
             ("user", "我住在深圳", True),
         ]
 
+    def test_assistant_reply_finalises_on_chat_ended_not_per_segment(self) -> None:
+        """模型回复是逐段来的，**必须在 ChatEnded 时拼成整句发 final=True**。
+
+        后端只在 `final` 时写记忆。少了这一步，AI 说过的话一条都进不了记忆库，
+        AD-6（AI 的回复也进记忆）就白做了——实测就是这么漏的。
+        """
+        buf: list[str] = []
+        for seg in ("你好呀！", "我叫丘丘，", "很高兴认识你。"):
+            evs = dr._translate(
+                proto.Frame(
+                    msg_type=proto.MsgType.FULL_SERVER,
+                    event=proto.Event.CHAT_RESPONSE,
+                    json_payload={"content": seg},
+                ),
+                buf,
+            )
+            assert evs[0].final is False, "分段不是定稿"
+
+        (final,) = dr._translate(
+            proto.Frame(msg_type=proto.MsgType.FULL_SERVER, event=proto.Event.CHAT_ENDED), buf
+        )
+        assert final.final is True
+        assert final.role == "assistant"
+        assert final.text == "你好呀！我叫丘丘，很高兴认识你。"
+        assert buf == [], "定稿后要清空，别串到下一轮"
+
+    def test_chat_ended_without_any_segment_emits_nothing(self) -> None:
+        assert (
+            dr._translate(
+                proto.Frame(msg_type=proto.MsgType.FULL_SERVER, event=proto.Event.CHAT_ENDED), []
+            )
+            == []
+        )
+
     def test_chat_response_becomes_an_assistant_transcript(self) -> None:
         frame = proto.Frame(
             msg_type=proto.MsgType.FULL_SERVER,

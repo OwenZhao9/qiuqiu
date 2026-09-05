@@ -1274,3 +1274,41 @@ select {
   font-size: var(--qq-text-xs);
   color: var(--qq-color-reject);
 }
+
+/* ── 实时语音 ─────────────────────────────────────────────────────
+   连着的时候按钮高亮，下面一行显示对方正在说什么。 */
+
+.qq-btn--voice-on {
+  background: var(--qq-color-recall-bg);
+  border-color: var(--qq-color-recall);
+  color: var(--qq-color-recall);
+}
+
+.qq-voice-status {
+  flex-basis: 100%;
+  margin-top: var(--qq-space-2);
+  font-size: var(--qq-text-sm);
+  line-height: 1.4;
+}
+
+.qq-voice-status__on {
+  color: var(--qq-color-recall);
+}
+
+.qq-voice-status__partial {
+  color: var(--qq-color-text-muted);
+  font-style: italic;
+}
+
+.qq-voice-status__error {
+  color: var(--qq-color-danger);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qq-voice-status__hint {
+  color: var(--qq-color-text-muted);
+  font-size: var(--qq-text-xs);
+  font-style: normal;
+}

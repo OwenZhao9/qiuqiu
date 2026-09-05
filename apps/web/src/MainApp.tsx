@@ -211,6 +211,10 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
               streaming={chatState.busy}
               onStop={chat.stop}
               onSubmit={(text, attachments) => chat.send(text, attachments)}
+              // 端到端语音的对话在后端进行，前端只把定稿的话记进来（不能走 send）
+              onVoiceFinal={(role, text) => chat.addTranscript(role, text)}
+              onVoiceLevel={(rms) => qiuqiuRef.current?.feedEnvelope(rms)}
+              onVoiceActive={(active) => chat.setCharacterState(active ? 'listening' : 'idle')}
             />
           </>
         ) : null}

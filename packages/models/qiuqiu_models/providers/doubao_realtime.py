@@ -175,11 +175,12 @@ class DoubaoRealtime:
         """把服务端事件翻成契约 § 4 的三类：`audio` / `transcript` / `turn_end`。"""
         if self._ws is None:
             raise RuntimeError("还没 open()")
+        reply: list[str] = []  # 本轮 ChatResponse 的分段
         async for raw in self._ws:
             if not isinstance(raw, bytes | bytearray):
                 continue
             frame = proto.decode(bytes(raw))
-            for event in _translate(frame):
+            for event in _translate(frame, reply):
                 yield event
             if frame.event in (proto.Event.SESSION_FINISHED, proto.Event.CONNECTION_FINISHED):
                 return
@@ -236,8 +237,13 @@ class DoubaoRealtime:
         return frame
 
 
-def _translate(frame: proto.Frame) -> list[RealtimeEvent]:
-    """一个服务端帧 → 零到多个契约事件。"""
+def _translate(frame: proto.Frame, buffer: list[str] | None = None) -> list[RealtimeEvent]:
+    """一个服务端帧 → 零到多个契约事件。
+
+    `buffer` 攒本轮 `ChatResponse` 的分段，`ChatEnded` 时拼成整句发 `final=True`。
+    不传就每次现开一个，等于不攒——只有测单帧时才这么用。
+    """
+    buffer = [] if buffer is None else buffer
     event = frame.event
     payload = frame.json_payload
 
@@ -269,10 +275,21 @@ def _translate(frame: proto.Frame) -> list[RealtimeEvent]:
         return out
 
     if event == proto.Event.CHAT_RESPONSE:
+        # 模型的回复是**逐段**来的，攒进本轮缓冲；定稿在 CHAT_ENDED
         text = payload.get("content") or ""
+        if not text:
+            return []
+        buffer.append(text)
+        return [RealtimeEvent(type="transcript", role="assistant", text=text, final=False)]
+
+    if event == proto.Event.CHAT_ENDED:
+        # **这一句必须发 final=True**：后端只在 final 时写记忆，
+        # 不发的话 AI 说过的话一条都进不了记忆库，AD-6 就白做了
+        full = "".join(buffer)
+        buffer.clear()
         return (
-            [RealtimeEvent(type="transcript", role="assistant", text=text, final=False)]
-            if text
+            [RealtimeEvent(type="transcript", role="assistant", text=full, final=True)]
+            if full
             else []
         )
 

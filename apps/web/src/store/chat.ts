@@ -73,8 +73,15 @@ export interface ChatStore extends Store<ChatState> {
   send(text: string, attachments?: Attachment[]): void;
   /** 用户点「停止」：中止本轮，T6 / T7 回 `idle`。 */
   stop(): void;
-  /** 只切状态（语音链路的 T2 / T4 用，M5 接入）。 */
+  /** 只切状态（语音链路的 T2 / T4 用）。 */
   setCharacterState(next: CharacterState): void;
+  /**
+   * 把一句已经定稿的话记进对话记录，**不发请求**。
+   *
+   * 端到端语音的对话在后端与模型之间进行，前端只负责显示——不能走 `send()`，
+   * 那会再往 `/chat` 发一遍，等于同一句话说两次。
+   */
+  addTranscript(role: 'user' | 'assistant', text: string): void;
   destroy(): void;
 }
 
@@ -248,6 +255,30 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
       endTurn();
     },
     setCharacterState: toState,
+    addTranscript(role, text) {
+      const content = text.trim();
+      if (content === '') return;
+      store.set((st) => ({
+        ...st,
+        messages: [
+          ...st.messages,
+          {
+            id: newId(),
+            role,
+            content,
+            streaming: false,
+            recallIds: [],
+            memoryUsed: false,
+            model: null,
+            attachments: [],
+            error: null,
+            at: now()
+          }
+        ],
+        // 用户说的话进历史，上下键能翻到
+        outbox: role === 'user' ? [...st.outbox, content] : st.outbox
+      }));
+    },
     destroy() {
       stream?.abort();
       stream = null;
