@@ -1012,6 +1012,10 @@ select {
   user-select: none;
 }
 
+/* 四周的 padding 是留给丘丘落地投影的透明余量（geometry.ts 的 PET_BLEED）。
+   窗口跟丘丘一样大的话，投影会被窗口四条边裁成直线，丘丘外面就套了个方框；
+   而把投影删掉，丘丘又变成贴在屏幕上的一张贴纸。所以是留地方，不是删投影。
+   这块余量全透明、鼠标穿透，不影响丘丘看着有多大。 */
 .qq-pet {
   height: 100%;
   display: flex;
@@ -1019,7 +1023,7 @@ select {
   align-items: center;
   justify-content: flex-start;
   gap: var(--qq-pet-gap);
-  padding-bottom: var(--qq-pet-gap);
+  padding: var(--qq-pet-bleed);
 }
 
 .qq-pet__ball {
@@ -1029,13 +1033,27 @@ select {
   cursor: grab;
 }
 
-/* 桌宠不要落地投影。
-   投影画在丘丘轮廓外面，模糊半径 14 要占四周 20 多像素；而这个窗口跟丘丘一样
-   大、又是 overflow: hidden 的透明窗口，投影会被四条边齐刷刷切平，剩下四条直边
-   ——那个「方形小阴影」就是这么来的。桌面上丘丘本来就该干净地贴着，不要它。
-   网页端与主窗口不受影响，那里四周有地方，投影是完整的圆。 */
-.qq-pet .qq-stage {
-  filter: none;
+/* 悬浮微动：4.5 s 一个来回，上下 4 px。
+   这是「不像贴纸」最管用的一招，比投影还管用——贴纸的定义就是不动。
+   幅度刻意做小：看得出在飘，又不至于晃得人分心。 */
+@keyframes qq-pet-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.qq-pet__ball {
+  animation: qq-pet-float 4.5s var(--qq-ease-standard) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-pet__ball {
+    animation: none;
+  }
 }
 
 /* 桌宠说的话直接落在桌面上，**不套卡片**。

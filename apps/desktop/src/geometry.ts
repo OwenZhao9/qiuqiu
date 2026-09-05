@@ -7,14 +7,43 @@
  * 球心跳一下是桌宠最招人烦的毛病，这条不能商量。
  */
 
-/** 收起态 200 × 200，丘丘铺满。 */
-export const PET_COLLAPSED = { width: 200, height: 200 } as const;
+/** 丘丘本体的边长。与 `--qq-ball-size-pet` 同值。 */
+export const PET_BALL = 200;
 
-/** 展开态 336 × 256：丘丘 200 居中在上，下方 8 px 间隙，再下是 320 × 40 的输入条，底部 8 px。 */
-export const PET_EXPANDED = { width: 336, height: 256 } as const;
+/**
+ * 丘丘四周留给落地投影的透明余量。
+ *
+ * **窗口不能跟丘丘一样大。** 桌宠窗口是透明无边框的，`overflow: hidden` 把画到
+ * 窗口外的东西全裁掉；而落地投影
+ * （`--qq-ball-drop: drop-shadow(0 6px 14px …)`）画在丘丘轮廓**外面**，
+ * 窗口正好卡在丘丘边上，投影就被四条边齐刷刷切平——看着是丘丘外面套了个
+ * 方形浅阴影框。
+ *
+ * 但投影不能不要：没有它丘丘就像一张贴在屏幕上的贴纸，浮不起来。
+ * 所以留地方，不是删投影。
+ *
+ * 20 px 是按投影本身算出来的：模糊半径 14 → σ = 7，可见范围约 3σ = 21 px，
+ * 加 6 px 下偏移，底下最远要 27 px。丘丘的 SVG 自带约 11.6 px 的内边距
+ * （viewBox `-15 -15 259 259` 里球体只占 0–228.5），两者相加 31.6 px 有富余。
+ *
+ * 这块余量全透明、鼠标穿透，只影响窗口多大，不影响丘丘看着多大。
+ */
+export const PET_BLEED = 20;
 
-/** 输入条那一块（间隙 + 输入条 + 底部间隙）在窗口高度里占多少。 */
-export const PET_INPUT_BLOCK = PET_EXPANDED.height - PET_COLLAPSED.height;
+/** 收起态：丘丘 200，四周各留 20 的投影余量。 */
+export const PET_COLLAPSED = {
+  width: PET_BALL + PET_BLEED * 2,
+  height: PET_BALL + PET_BLEED * 2
+} as const;
+
+/** 输入条那一块（间隙 8 + 输入条 40）在窗口高度里占多少。 */
+export const PET_INPUT_BLOCK = 48;
+
+/** 展开态：宽度按 320 的输入条给到 336，高度多出输入条那一块。 */
+export const PET_EXPANDED = {
+  width: 336,
+  height: PET_COLLAPSED.height + PET_INPUT_BLOCK
+} as const;
 
 /** 气泡与丘丘之间的间隙。 */
 export const PET_BUBBLE_GAP = 8;
@@ -95,13 +124,17 @@ export function petBounds(current: Rect, from: PetLayout, to: PetLayout): Rect {
   const next = petSize(to);
   return {
     x: Math.round(center.x - next.width / 2),
-    y: Math.round(center.y - next.above - PET_COLLAPSED.height / 2),
+    y: Math.round(center.y - PET_BLEED - next.above - PET_BALL / 2),
     width: next.width,
     height: next.height
   };
 }
 
-/** 球心的屏幕坐标。丘丘水平居中，纵向在气泡那一块的下面。 */
+/**
+ * 球心的屏幕坐标。丘丘水平居中，纵向依次让过投影余量与气泡那一块。
+ *
+ * **不是窗口中心**：窗口上边有 `PET_BLEED` 的透明投影余量，气泡还会再往上撑一块。
+ */
 export function ballCenter(
   rect: Rect,
   layout: PetLayout = { expanded: false, bubble: 0 }
@@ -111,7 +144,7 @@ export function ballCenter(
 } {
   return {
     x: rect.x + rect.width / 2,
-    y: rect.y + bubbleBlock(layout.bubble) + PET_COLLAPSED.height / 2
+    y: rect.y + PET_BLEED + bubbleBlock(layout.bubble) + PET_BALL / 2
   };
 }
 

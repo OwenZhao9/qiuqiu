@@ -11,6 +11,8 @@ import {
   gazeDelta,
   petBounds,
   petSize,
+  PET_BALL,
+  PET_BLEED,
   PET_COLLAPSED,
   PET_EXPANDED,
   restorePetBounds,
@@ -24,9 +26,17 @@ import {
 const WORK: Area = { x: 0, y: 25, width: 1440, height: 875 };
 
 describe('尺寸', () => {
-  it('收起 200 × 200，展开 336 × 256', () => {
-    expect(PET_COLLAPSED).toEqual({ width: 200, height: 200 });
-    expect(PET_EXPANDED).toEqual({ width: 336, height: 256 });
+  it('收起 240 × 240：丘丘 200 加四周各 20 的投影余量', () => {
+    // 窗口不能跟丘丘一样大——透明窗口 overflow: hidden，落地投影会被四条边
+    // 裁成直线；而把投影删掉丘丘又变成一张贴纸。所以留地方，不删投影
+    expect(PET_BALL).toBe(200);
+    expect(PET_BLEED).toBe(20);
+    expect(PET_COLLAPSED).toEqual({ width: 240, height: 240 });
+  });
+
+  it('展开 336 × 288：高度多出间隙 8 加输入条 40', () => {
+    expect(PET_EXPANDED).toEqual({ width: 336, height: 288 });
+    expect(PET_EXPANDED.height - PET_COLLAPSED.height).toBe(48);
   });
 });
 
@@ -35,12 +45,12 @@ describe('petBounds · 球心不动', () => {
   const shut = { expanded: false, bubble: 0 };
   const open = { expanded: true, bubble: 0 };
 
-  it('收起 → 展开：宽 +136、高 +56，x -= 68，y 不变', () => {
+  it('收起 → 展开：宽 240 → 336、高 +48（间隙 + 输入条），球心不动', () => {
     const out = petBounds(collapsed, shut, open);
-    expect(out.width - collapsed.width).toBe(136);
-    expect(out.height - collapsed.height).toBe(56);
-    expect(out.x).toBe(collapsed.x - 68);
-    expect(out.y).toBe(collapsed.y);
+    expect(out.width).toBe(336);
+    expect(out.height - collapsed.height).toBe(48);
+    expect(out.x).toBe(collapsed.x - (336 - 240) / 2);
+    expect(out.y, '往下长，y 不动').toBe(collapsed.y);
   });
 
   it('展开 → 收起是反向的，回到原来的位置', () => {
@@ -69,7 +79,7 @@ describe('petBounds · 球心不动', () => {
     // 气泡钉在丘丘上方就整块在窗口外，只在顶边露出一条
     const withBubble = { expanded: false, bubble: 44 };
     const out = petBounds(collapsed, shut, withBubble);
-    expect(out.height, '高度要长出气泡加 8 px 间隙').toBe(200 + 44 + 8);
+    expect(out.height, '高度要长出气泡加 8 px 间隙').toBe(240 + 44 + 8);
     expect(out.y, '往上长，所以 y 要减掉同样多').toBe(collapsed.y - 52);
     expect(ballCenter(out, withBubble)).toEqual(ballCenter(collapsed, shut));
   });
@@ -92,7 +102,7 @@ describe('petBounds · 球心不动', () => {
   it('气泡与输入条同时在，两块都算上', () => {
     const both = { expanded: true, bubble: 44 };
     const out = petBounds(collapsed, shut, both);
-    expect(out.height).toBe(256 + 44 + 8);
+    expect(out.height).toBe(288 + 44 + 8);
     expect(ballCenter(out, both)).toEqual(ballCenter(collapsed, shut));
   });
 });
@@ -100,16 +110,16 @@ describe('petBounds · 球心不动', () => {
 describe('petSize', () => {
   it('没气泡就不留那 8 px 间隙', () => {
     expect(petSize({ expanded: false, bubble: 0 })).toEqual({
-      width: 200,
-      height: 200,
+      width: 240,
+      height: 240,
       above: 0
     });
   });
 
   it('有气泡才加间隙，高度向上取整', () => {
     expect(petSize({ expanded: false, bubble: 43.2 })).toEqual({
-      width: 200,
-      height: 252,
+      width: 240,
+      height: 292,
       above: 52
     });
   });
@@ -176,10 +186,10 @@ describe('clampToWorkArea', () => {
 });
 
 describe('settle', () => {
-  it('拖出屏幕外松手：先钳回来留 48 px，钳回后离边还有 152 px，不再吸附', () => {
+  it('拖出屏幕外松手：先钳回来留 48 px，再不吸附', () => {
     const out = settle({ x: -3000, y: 400, ...PET_COLLAPSED }, WORK);
     expect(out.x + PET_COLLAPSED.width).toBe(WORK.x + MIN_VISIBLE_PX);
-    expect(out.x).toBe(-152);
+    expect(out.x).toBe(MIN_VISIBLE_PX - PET_COLLAPSED.width);
   });
 
   it('拖到差一点点贴边时吸附生效', () => {
@@ -223,17 +233,20 @@ describe('restorePetBounds', () => {
 describe('gazeDelta · 眼神跟随', () => {
   const rect = { x: 400, y: 300, ...PET_COLLAPSED };
   const shut = { expanded: false, bubble: 0 };
+  // 球心 **不是窗口中心**：窗口上边有 PET_BLEED 的投影余量
+  const cx = 400 + PET_COLLAPSED.width / 2;
+  const cy = 300 + PET_BLEED + PET_BALL / 2;
 
   it('光标正压在球心时偏移是 0', () => {
-    expect(gazeDelta(rect, shut, { x: 500, y: 400 })).toEqual({ dx: 0, dy: 0 });
+    expect(gazeDelta(rect, shut, { x: cx, y: cy })).toEqual({ dx: 0, dy: 0 });
   });
 
   it('右下方的光标给出正的 dx / dy', () => {
-    expect(gazeDelta(rect, shut, { x: 900, y: 700 })).toEqual({ dx: 400, dy: 300 });
+    expect(gazeDelta(rect, shut, { x: cx + 400, y: cy + 300 })).toEqual({ dx: 400, dy: 300 });
   });
 
   it('左上方的光标给出负的', () => {
-    expect(gazeDelta(rect, shut, { x: 100, y: 100 })).toEqual({ dx: -400, dy: -300 });
+    expect(gazeDelta(rect, shut, { x: cx - 400, y: cy - 300 })).toEqual({ dx: -400, dy: -300 });
   });
 
   it('气泡把窗口撑高之后，球心跟着走，偏移仍然对着球', () => {
@@ -241,12 +254,12 @@ describe('gazeDelta · 眼神跟随', () => {
     // 用窗口中心算注视就会越偏越多
     const withBubble = { expanded: false, bubble: 44 };
     const grown = petBounds(rect, shut, withBubble);
-    expect(gazeDelta(grown, withBubble, { x: 500, y: 400 })).toEqual({ dx: 0, dy: 0 });
+    expect(gazeDelta(grown, withBubble, { x: cx, y: cy })).toEqual({ dx: 0, dy: 0 });
   });
 
   it('展开输入条不影响球心，注视也不受影响', () => {
     const open = { expanded: true, bubble: 0 };
     const wide = petBounds(rect, shut, open);
-    expect(gazeDelta(wide, open, { x: 500, y: 400 })).toEqual({ dx: 0, dy: 0 });
+    expect(gazeDelta(wide, open, { x: cx, y: cy })).toEqual({ dx: 0, dy: 0 });
   });
 });
