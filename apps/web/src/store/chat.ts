@@ -63,6 +63,13 @@ export interface ChatStoreDeps {
   onCharacterState?(state: CharacterState): void;
   /** 一轮回复结束后跑拒绝式与情绪推断（`packages/character` 的 `applyReply`）。 */
   onReplyComplete?(fullText: string, userText: string): void;
+  /**
+   * 回复还在流的过程中，隔一段给一次到此为止的全文。
+   *
+   * 情绪推断原来只在 `done` 之后跑一次：整段回复期间丘丘都是「说话中」那一个
+   * 表情，末尾才闪 1.6 秒真正的情绪。问它「你喜欢我吗」，害羞那个表情基本看不到。
+   */
+  onReplyPartial?(textSoFar: string): void;
   /** SSE / WS 出错 → 表情 `34`。 */
   onStreamError?(err: ErrorPayload): void;
   /** 注入 `postChat`，测试与 mock 用。 */
@@ -119,6 +126,10 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
      合并到一帧一条之后，字数再多也只是同一条消息变长。 */
   let replyRaf = 0;
   let replySent = '';
+
+  /** 上次跑情绪推断的时刻。推断本身很便宜，但表情切太勤会闪。 */
+  let inferredAt = 0;
+  const INFER_EVERY_MS = 600;
 
   function sendReply(): void {
     replyRaf = 0;
@@ -205,6 +216,7 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
     replyId = assistantMsg.id;
     sawDelta = false;
     replySent = '';
+    inferredAt = 0;
     userText = content;
 
     store.set((s) => ({
@@ -237,6 +249,15 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
           }
           patchReply((m) => ({ ...m, content: m.content + delta.text }));
           pushReply();
+
+          // 边说边推断情绪，别等说完。节流到 600 ms 一次：推断很便宜，
+          // 但表情一句一换会闪
+          const now = Date.now();
+          if (now - inferredAt >= INFER_EVERY_MS) {
+            inferredAt = now;
+            const soFar = store.get().messages.find((m) => m.id === replyId)?.content ?? '';
+            if (soFar) deps.onReplyPartial?.(soFar);
+          }
         },
         onDone(_done: ChatDone) {
           const full = store.get().messages.find((m) => m.id === replyId)?.content ?? '';

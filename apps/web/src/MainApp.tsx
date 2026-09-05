@@ -95,6 +95,10 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
         onReplyComplete(full, userText) {
           qiuqiuRef.current?.applyReply(full, userText);
         },
+        // 边说边换表情。只跑推断那一半，拒绝式要等全文才判得准
+        onReplyPartial(textSoFar) {
+          qiuqiuRef.current?.applyReply(textSoFar);
+        },
         onStreamError() {
           qiuqiuRef.current?.applyError();
         }

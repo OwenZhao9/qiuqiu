@@ -1093,26 +1093,25 @@ select {
   align-self: center;
   max-width: 100%;
   padding: var(--qq-space-4) var(--qq-space-5);
-  border: 2px solid var(--qq-pet-bubble-line);
-  border-radius: var(--qq-radius-xl);
-  background: var(--qq-pet-bubble-fill);
-  box-shadow: 0 2px 0 var(--qq-pet-bubble-line);
+  border: var(--qq-border-thin) solid var(--qq-color-border-strong);
+  border-radius: var(--qq-radius-2xl);
+  background: var(--qq-color-surface);
+  box-shadow: var(--qq-shadow-3);
   transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
 }
 
 .qq-pet__bubble {
   max-height: calc(7 * var(--qq-text-md) * var(--qq-leading-normal));
   overflow-y: auto;
-  color: var(--qq-pet-ink);
+  color: var(--qq-color-text);
   font-size: var(--qq-text-md);
-  font-weight: var(--qq-weight-medium);
-  line-height: var(--qq-leading-normal);
+  line-height: var(--qq-leading-relaxed);
   text-align: left;
   white-space: pre-wrap;
 }
 
-/* 尖角：两个三角叠在一起，下面那个是描边、上面那个是填充，
-   错开正好露出跟对话框一样粗的边。它落在对话框与丘丘之间的间隙里。 */
+/* 尖角：两个三角叠在一起，下面那个是描边、上面那个是底色，
+   错开正好露出跟对话框一样细的边。它落在对话框与丘丘之间的间隙里。 */
 .qq-pet__balloon::before,
 .qq-pet__balloon::after {
   content: '';
@@ -1125,15 +1124,15 @@ select {
 }
 
 .qq-pet__balloon::before {
-  margin-left: -12px;
-  border-width: 14px 12px 0;
-  border-color: var(--qq-pet-bubble-line) transparent transparent;
+  margin-left: -11px;
+  border-width: 13px 11px 0;
+  border-color: var(--qq-color-border-strong) transparent transparent;
 }
 
 .qq-pet__balloon::after {
-  margin-left: -8px;
-  border-width: 9px 8px 0;
-  border-color: var(--qq-pet-bubble-fill) transparent transparent;
+  margin-left: -10px;
+  border-width: 11px 10px 0;
+  border-color: var(--qq-color-surface) transparent transparent;
 }
 
 .qq-pet__balloon--fading {
@@ -1844,11 +1843,13 @@ select {
    放到窗口高的 46%（上限 460）：既读得出块名，收起来也只要点一下标题。 */
 .qq-map--compact {
   padding: 0 var(--qq-space-4) var(--qq-space-4);
-  max-height: min(460px, 46vh);
+  max-height: min(580px, 58vh);
 }
 
 .qq-map--compact svg {
-  max-height: min(444px, 44vh);
-  /* 别设 min-width：主页这一条要跟着中栏缩放，横向滚动条比看不清更烦 */
-  min-width: 0;
+  max-height: min(560px, 56vh);
+  /* 必须有下限。这张图 1240 宽，中栏在 1200 的窗口里只有 600 出头——
+     不设下限就整体缩到 48%，10 px 的注变成 5 px，全糊。
+     宁可横向滚动也不能看不清。 */
+  min-width: 1060px;
 }

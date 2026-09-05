@@ -27,14 +27,15 @@ function fakeChat() {
   return { impl: impl as unknown as typeof import('../src/api.js').postChat, seen };
 }
 
-function setup() {
+function setup(extra: Partial<Parameters<typeof createChatStore>[1]> = {}) {
   const bridge = recordingBridge();
   const chat = fakeChat();
   const states: string[] = [];
   const store = createChatStore('s1', {
     bridge,
     chat: chat.impl,
-    onCharacterState: (s) => states.push(s)
+    onCharacterState: (s) => states.push(s),
+    ...extra
   });
   return { bridge, chat, store, states };
 }
@@ -212,5 +213,38 @@ describe('createChatStore · meta 与回复完成', () => {
     store.send('第一句');
     store.send('第二句');
     expect(store.get().outbox).toEqual(['第一句', '第二句']);
+  });
+});
+
+describe('createChatStore · 边说边换表情', () => {
+  /**
+   * 情绪推断原来只在 done 之后跑一次：整段回复期间丘丘都是「说话中」那一个表情，
+   * 末尾才闪 1.6 秒真正的情绪——问它「你喜欢我吗」，害羞那个表情基本看不到。
+   */
+  it('流的过程中就把到此为止的全文交出去，不用等 done', () => {
+    const seen: string[] = [];
+    const { store, chat } = setup({ onReplyPartial: (t: string) => void seen.push(t) });
+    store.send('你喜欢我吗');
+    chat.seen[0].handlers.onDelta?.({ text: '这个嘛' });
+    expect(seen.at(-1), '第一段就该给一次').toBe('这个嘛');
+  });
+
+  it('节流：同一帧连着来好几段，只推断一次', () => {
+    const seen: string[] = [];
+    const { store, chat } = setup({ onReplyPartial: (t: string) => void seen.push(t) });
+    store.send('在吗');
+    for (const t of ['一', '二', '三', '四']) chat.seen[0].handlers.onDelta?.({ text: t });
+    expect(seen.length, '600 ms 内只该跑一次').toBe(1);
+  });
+
+  it('每一轮重新计时，下一轮第一段照样立刻推断', () => {
+    const seen: string[] = [];
+    const { store, chat } = setup({ onReplyPartial: (t: string) => void seen.push(t) });
+    store.send('第一句');
+    chat.seen[0].handlers.onDelta?.({ text: 'A' });
+    chat.seen[0].handlers.onDone?.({ message_id: 'm', tokens_in: 0, tokens_out: 0, latency_ms: 0 });
+    store.send('第二句');
+    chat.seen[1].handlers.onDelta?.({ text: 'B' });
+    expect(seen).toEqual(['A', 'B']);
   });
 });
