@@ -46,7 +46,10 @@ describe('trayMenu', () => {
 });
 
 describe('全局快捷键', () => {
-  it('是 Cmd/Ctrl + Shift + Q，两个平台一套写法', () => {
-    expect(FOCUS_PET_ACCELERATOR).toBe('CommandOrControl+Shift+Q');
+  it('是 Cmd/Ctrl + Shift + K，两个平台一套写法', () => {
+    // 不能是 Shift+Q：macOS 上那是系统的「退出登录」，抢不到时静默失效，
+    // 而用户按下去是真的退出登录
+    expect(FOCUS_PET_ACCELERATOR).not.toContain('+Q');
+    expect(FOCUS_PET_ACCELERATOR).toBe('CommandOrControl+Shift+K');
   });
 });

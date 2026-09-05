@@ -46,9 +46,11 @@ describe('mock 后端 · /chat', () => {
     expect(store.get().character).toBe('idle');
     expect(store.get().messages.at(-1)?.recallIds.length).toBeGreaterThan(0);
 
-    // AD-5：每个字都转发给了桌宠
-    const forwarded = bridge.calls.filter((c) => c[0] === 'forwardDelta').map((c) => c[2]);
-    expect(forwarded.join('')).toBe('记住了');
+    // AD-5：桌宠拿到的是全文，最后一次必须是完整的
+    const forwarded = bridge.calls
+      .filter((c) => c[0] === 'forwardReply')
+      .map((c) => c[2] as string);
+    expect(forwarded.at(-1)).toBe('记住了');
   });
 
   it('中止一轮之后 finished 不抛，状态回 idle', async () => {

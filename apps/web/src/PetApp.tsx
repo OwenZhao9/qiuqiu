@@ -48,10 +48,12 @@ export function PetApp(): React.JSX.Element {
      一条 delta 被拼进气泡两次，回复会变成每个字都重复。 */
   useEffect(() => {
     const off = [
-      bridge.onDelta((_sessionId: string, text: string) => {
+      // 主窗口推的是**这一轮到此为止的全文**，直接显示，不自己拼字。
+      // 拼字就等于第二套消息处理：漏一条、顺序错一次，两个窗口显示的就不一样了
+      bridge.onReply((_sessionId: string, text: string) => {
         if (linger.current) clearTimeout(linger.current);
         setFading(false);
-        setBubble((b) => b + text);
+        setBubble(text);
       }),
       bridge.onDone(() => {
         if (linger.current) clearTimeout(linger.current);
@@ -99,19 +101,36 @@ export function PetApp(): React.JSX.Element {
      窗口得先在丘丘上方长出这块地方来，所以量一下报上去。
      换行数（流式回复一个字一个字长）也要跟着报，用 ResizeObserver 盯着。 */
   const bubbleRef = useRef<HTMLDivElement>(null);
+  const hasBubble = bubble.length > 0;
   useEffect(() => {
     const el = bubbleRef.current;
-    if (!bubble || !el) {
+    if (!hasBubble || !el) {
       bridge.setPetBubble(0);
       return;
     }
-    const report = (): void => bridge.setPetBubble(el.getBoundingClientRect().height);
+    // 只在气泡出现 / 消失时重装监听。挂在文字上的话，流式回复每来一段就要
+    // 拆一次装一次，还顺带量一次布局——回复会一段一段地爬
+    let last = -1;
+    let raf = 0;
+    const report = (): void => {
+      raf = 0;
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      if (h === last) return; // 行数没变就别惊动主进程去 resize 窗口
+      last = h;
+      bridge.setPetBubble(h);
+    };
+    const schedule = (): void => {
+      if (!raf) raf = requestAnimationFrame(report);
+    };
     report();
     if (typeof ResizeObserver !== 'function') return;
-    const ro = new ResizeObserver(report);
+    const ro = new ResizeObserver(schedule);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [bridge, bubble]);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [bridge, hasBubble]);
 
   /* ---- 鼠标穿透：指针落在实心轮廓或输入条上才收事件，rAF 节流 ---- */
   useEffect(() => {

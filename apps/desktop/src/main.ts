@@ -409,8 +409,8 @@ function wireIpc(): void {
   });
 
   // AD-5：主窗口 → 桌宠
-  ipcMain.on(TO_MAIN.forwardDelta, (_e, sessionId: string, text: string) => {
-    petWindow?.webContents.send(TO_RENDERER.delta, sessionId, text);
+  ipcMain.on(TO_MAIN.forwardReply, (_e, sessionId: string, text: string) => {
+    petWindow?.webContents.send(TO_RENDERER.reply, sessionId, text);
   });
   ipcMain.on(TO_MAIN.forwardDone, (_e, sessionId: string) => {
     petWindow?.webContents.send(TO_RENDERER.done, sessionId);

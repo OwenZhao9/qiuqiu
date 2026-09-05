@@ -28,15 +28,21 @@ export interface QiuqiuBridge {
   focusPet(): void;
   quit(): void;
   dragPet(dx: number, dy: number): void;
-  /** 主窗口 → 桌宠：回复流转发（AD-5，主窗口是唯一 SSE 持有者）。 */
-  forwardDelta(sessionId: string, text: string): void;
+  /**
+   * 主窗口 → 桌宠：**这一轮回复到此为止的全文**（AD-5，主窗口是唯一 SSE 持有者）。
+   *
+   * 推全文不推增量。推增量的话桌宠得自己把字拼起来，那就成了「第二套消息处理」
+   * ——漏一条、顺序错一次，两个窗口显示的话就不一样了。推全文的话桌宠只是显示，
+   * 拼不出岔子；顺带还能按帧合并，不用一个字一条 IPC。
+   */
+  forwardReply(sessionId: string, text: string): void;
   forwardDone(sessionId: string): void;
   setPetState(state: CharacterState, emotionId?: string): void;
   /** 桌宠 → 主窗口：内联输入条提交。 */
   submitFromPet(text: string): void;
   /** 桌宠请求开 / 挂通话。桌宠不自己跑语音会话，交主窗口（AD-5）。 */
   callFromPet(): void;
-  onDelta(cb: (sessionId: string, text: string) => void): Unsubscribe;
+  onReply(cb: (sessionId: string, text: string) => void): Unsubscribe;
   onPetState(cb: (state: string, emotionId?: string) => void): Unsubscribe;
 }
 
@@ -130,8 +136,8 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     setPetPassthrough: noop,
     setPetExpanded: noop,
     popupPetMenu: noop,
-    forwardDelta(sessionId, text) {
-      bus.emit('delta', sessionId, text);
+    forwardReply(sessionId, text) {
+      bus.emit('reply', sessionId, text);
     },
     forwardDone(sessionId) {
       bus.emit('done', sessionId);
@@ -156,8 +162,8 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     mainReady() {
       // 网页端只有一个页面，不存在「另一个窗口还没起来」
     },
-    onDelta(cb) {
-      return bus.on('delta', cb as Listener);
+    onReply(cb) {
+      return bus.on('reply', cb as Listener);
     },
     onDone(cb) {
       return bus.on('done', cb as Listener);

@@ -47,7 +47,7 @@ from .types import (
 
 __version__ = "0.1.0"
 
-CONTRACT_VERSION = "v0.1.11"
+CONTRACT_VERSION = "v0.1.14"
 """本包实现的契约版本。改契约先改 `docs/CONTRACTS.md`，再改这里。"""
 
 __all__ = [

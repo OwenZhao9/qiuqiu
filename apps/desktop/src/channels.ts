@@ -14,7 +14,7 @@ export const TO_MAIN = {
   focusPet: 'qq:focus-pet',
   quit: 'qq:quit',
   dragPet: 'qq:drag-pet',
-  forwardDelta: 'qq:forward-delta',
+  forwardReply: 'qq:forward-reply',
   forwardDone: 'qq:forward-done',
   setPetState: 'qq:set-pet-state',
   submitFromPet: 'qq:submit-from-pet',
@@ -30,7 +30,7 @@ export const TO_MAIN = {
 
 /** 主进程推给渲染进程的。 */
 export const TO_RENDERER = {
-  delta: 'qq:on-delta',
+  reply: 'qq:on-reply',
   done: 'qq:on-done',
   petState: 'qq:on-pet-state',
   submitFromPet: 'qq:on-submit-from-pet',

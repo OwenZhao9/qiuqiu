@@ -41,12 +41,12 @@ const CONTRACT_MEMBERS = [
   'focusPet',
   'quit',
   'dragPet',
-  'forwardDelta',
+  'forwardReply',
   'forwardDone',
   'setPetState',
   'submitFromPet',
   'callFromPet',
-  'onDelta',
+  'onReply',
   'onPetState'
 ] as const;
 
@@ -83,15 +83,15 @@ describe('createQiuqiuBridge · 契约 § 2', () => {
     expect(f.sent).toEqual([[TO_MAIN.dragPet, -4, 12]]);
   });
 
-  it('AD-5：forwardDelta / forwardDone / setPetState 是主窗口往桌宠的单向通道', () => {
+  it('AD-5：forwardReply / forwardDone / setPetState 是主窗口往桌宠的单向通道', () => {
     const f = fakeIpc();
     const b = createQiuqiuBridge(f.ipc);
-    b.forwardDelta('s1', '你好');
+    b.forwardReply('s1', '你好');
     b.forwardDone('s1');
     b.setPetState('speaking', '39');
     b.setPetState('idle');
     expect(f.sent).toEqual([
-      [TO_MAIN.forwardDelta, 's1', '你好'],
+      [TO_MAIN.forwardReply, 's1', '你好'],
       [TO_MAIN.forwardDone, 's1'],
       [TO_MAIN.setPetState, 'speaking', '39'],
       [TO_MAIN.setPetState, 'idle', undefined]
@@ -119,11 +119,11 @@ describe('createQiuqiuBridge · 契约 § 2', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it('onDelta 收主进程转发来的 (sessionId, text)', () => {
+  it('onReply 收主进程转发来的 (sessionId, 这一轮的全文)', () => {
     const f = fakeIpc();
     const cb = vi.fn();
-    createQiuqiuBridge(f.ipc).onDelta(cb);
-    f.emit(TO_RENDERER.delta, 's1', '一');
+    createQiuqiuBridge(f.ipc).onReply(cb);
+    f.emit(TO_RENDERER.reply, 's1', '一');
     expect(cb).toHaveBeenCalledWith('s1', '一');
   });
 
@@ -187,7 +187,7 @@ describe('订阅要能退订', () => {
    * 回复就成了「好好问题问题」那样每个字重复。
    */
   const SUBSCRIBERS = [
-    'onDelta',
+    'onReply',
     'onDone',
     'onPetState',
     'onSubmitFromPet',
@@ -222,13 +222,13 @@ describe('订阅要能退订', () => {
     const { ipc, emit } = fakeIpc();
     const bridge = createQiuqiuBridge(ipc);
     let n = 0;
-    const a = bridge.onDelta(() => void n++);
-    const b = bridge.onDelta(() => void n++);
-    emit(TO_RENDERER.delta, 's', '你');
+    const a = bridge.onReply(() => void n++);
+    const b = bridge.onReply(() => void n++);
+    emit(TO_RENDERER.reply, 's', '你');
     expect(n).toBe(2);
     a();
     b();
-    emit(TO_RENDERER.delta, 's', '好');
+    emit(TO_RENDERER.reply, 's', '好');
     expect(n).toBe(2);
   });
 });

@@ -11,7 +11,9 @@
  *   T8  speaking  → thinking  回复途中再次提交，先中止当前流
  *
  * **AD-5：主窗口是唯一 SSE 持有者。** 每个 `delta` 与 `done` 立刻经
- * `forwardDelta` / `forwardDone` 转发给桌宠窗口；桌宠自己不连任何流。
+ * `forwardReply` / `forwardDone` 转发给桌宠窗口；桌宠自己不连任何流。
+ * 转发的是**这一轮到此为止的全文**，不是增量：桌宠只负责显示，不自己拼字，
+ * 拼字就等于第二套消息处理，漏一条两个窗口就不一样了。
  *
  * T2 / T3 / T4 / T9 属于语音链路，M5 接入；T10 断连由 `useEventStream` 那边触发。
  */
@@ -111,6 +113,35 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
   let sawDelta = false;
   let userText = '';
 
+  /* ---- 转发给桌宠：按帧合并，推全文 ----
+     一个字一条 IPC 的话，桌宠那边每个字都要量一次气泡高度、主进程每个字都可能
+     resize 一次窗口——透明置顶窗口 resize 很贵，回复就会一个字一个字地爬。
+     合并到一帧一条之后，字数再多也只是同一条消息变长。 */
+  let replyRaf = 0;
+  let replySent = '';
+
+  function sendReply(): void {
+    replyRaf = 0;
+    const text = store.get().messages.find((m) => m.id === replyId)?.content ?? '';
+    if (text === replySent) return;
+    replySent = text;
+    deps.bridge.forwardReply(store.get().sessionId, text);
+  }
+
+  /** @param now 立刻发，不等下一帧。收尾时用，否则桌宠停在倒数第二帧。 */
+  function pushReply(now = false): void {
+    if (now) {
+      if (replyRaf) {
+        cancelAnimationFrame(replyRaf);
+        replyRaf = 0;
+      }
+      sendReply();
+      return;
+    }
+    if (replyRaf) return;
+    replyRaf = requestAnimationFrame(sendReply);
+  }
+
   function toState(next: CharacterState): void {
     if (store.get().character === next) return;
     store.set((s) => ({ ...s, character: next }));
@@ -173,6 +204,7 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
     };
     replyId = assistantMsg.id;
     sawDelta = false;
+    replySent = '';
     userText = content;
 
     store.set((s) => ({
@@ -204,11 +236,12 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
             toState('speaking'); // T5
           }
           patchReply((m) => ({ ...m, content: m.content + delta.text }));
-          deps.bridge.forwardDelta(store.get().sessionId, delta.text);
+          pushReply();
         },
         onDone(_done: ChatDone) {
           const full = store.get().messages.find((m) => m.id === replyId)?.content ?? '';
           patchReply((m) => ({ ...m, streaming: false }));
+          pushReply(true); // 收尾这一帧一定要发出去，不然桌宠停在倒数第二帧
           deps.bridge.forwardDone(store.get().sessionId);
           if (full.length > 0) deps.onReplyComplete?.(full, userText);
           endTurn(); // T6（done 先于 delta）或 T7
@@ -220,6 +253,7 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
           patchReply((m) => ({ ...m, streaming: false, error: err }));
           store.set((s) => ({ ...s, lastError: err }));
           deps.onStreamError?.(err);
+          pushReply(true);
           deps.bridge.forwardDone(store.get().sessionId);
           endTurn(); // T6 / T7
         }

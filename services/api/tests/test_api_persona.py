@@ -9,7 +9,9 @@ def test_get_shape(client: TestClient) -> None:
     body = client.get("/persona").json()
     assert set(body) == {"preset", "sliders", "learned", "current"}
     assert set(body["sliders"]) == {"initiative", "verbosity", "emotion", "humor"}
-    assert body["current"].startswith("【边界】")
+    # 【身份】排在【边界】之前：模型得先知道自己叫丘丘
+    assert body["current"].startswith("【身份】")
+    assert "【边界】" in body["current"]
 
 
 def test_preset_none_is_a_vacuum(client: TestClient) -> None:

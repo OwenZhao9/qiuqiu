@@ -17,11 +17,11 @@ const CONTRACT_MEMBERS = [
   'focusPet',
   'quit',
   'dragPet',
-  'forwardDelta',
+  'forwardReply',
   'forwardDone',
   'setPetState',
   'submitFromPet',
-  'onDelta',
+  'onReply',
   'onPetState'
 ] as const;
 
@@ -38,14 +38,14 @@ describe('createMemoryBridge', () => {
     }
   });
 
-  it('forwardDelta / forwardDone 走内存总线，同页订阅者收得到', () => {
+  it('forwardReply / forwardDone 走内存总线，同页订阅者收得到', () => {
     const b = createMemoryBridge();
     const deltas: Array<[string, string]> = [];
     const dones: string[] = [];
-    b.onDelta((s, t) => deltas.push([s, t]));
+    b.onReply((s, t) => deltas.push([s, t]));
     b.onDone((s) => dones.push(s));
-    b.forwardDelta('s1', '你');
-    b.forwardDelta('s1', '好');
+    b.forwardReply('s1', '你');
+    b.forwardReply('s1', '好');
     b.forwardDone('s1');
     expect(deltas).toEqual([
       ['s1', '你'],
@@ -95,15 +95,15 @@ describe('getBridge', () => {
 
   it('有 window.qiuqiu 时用它，缺的扩展方法补成 no-op', () => {
     const setPetState = vi.fn();
-    const forwardDelta = vi.fn();
+    const forwardReply = vi.fn();
     // 只实现契约 § 2 的一部分，扩展方法一个都不给
-    (globalThis as { qiuqiu?: unknown }).qiuqiu = { setPetState, forwardDelta };
+    (globalThis as { qiuqiu?: unknown }).qiuqiu = { setPetState, forwardReply };
     const b = getBridge();
     expect(b.platform()).toBe('desktop');
     b.setPetState('idle');
-    b.forwardDelta('s', 'x');
+    b.forwardReply('s', 'x');
     expect(setPetState).toHaveBeenCalledWith('idle');
-    expect(forwardDelta).toHaveBeenCalledWith('s', 'x');
+    expect(forwardReply).toHaveBeenCalledWith('s', 'x');
     expect(() => b.setPetPassthrough(false)).not.toThrow();
   });
 });

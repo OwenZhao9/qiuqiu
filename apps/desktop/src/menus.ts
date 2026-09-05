@@ -51,4 +51,11 @@ export function trayMenu(state: { petVisible: boolean }): MenuItemSpec[] {
 }
 
 /** 全局快捷键：唤起桌宠并展开输入条。 */
-export const FOCUS_PET_ACCELERATOR = 'CommandOrControl+Shift+Q';
+/**
+ * 唤起桌宠并展开输入条。
+ *
+ * **原来定的是 `Cmd/Ctrl+Shift+Q`，换掉了**：在 macOS 上那是系统的「退出登录」。
+ * Electron 抢得到的时候没事，抢不到就静默失效，而用户按下去是真的退出登录
+ * ——一个快捷键不该有这种后果。
+ */
+export const FOCUS_PET_ACCELERATOR = 'CommandOrControl+Shift+K';

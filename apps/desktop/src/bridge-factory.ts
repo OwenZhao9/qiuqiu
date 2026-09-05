@@ -28,12 +28,12 @@ export interface QiuqiuBridge {
   focusPet(): void;
   quit(): void;
   dragPet(dx: number, dy: number): void;
-  forwardDelta(sessionId: string, text: string): void;
+  forwardReply(sessionId: string, text: string): void;
   forwardDone(sessionId: string): void;
   setPetState(state: PetState, emotionId?: string): void;
   submitFromPet(text: string): void;
   callFromPet(): void;
-  onDelta(cb: (sessionId: string, text: string) => void): Unsubscribe;
+  onReply(cb: (sessionId: string, text: string) => void): Unsubscribe;
   onPetState(cb: (state: string, emotionId?: string) => void): Unsubscribe;
 }
 
@@ -111,8 +111,8 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     dragPet(dx, dy) {
       ipc.send(TO_MAIN.dragPet, dx, dy);
     },
-    forwardDelta(sessionId, text) {
-      ipc.send(TO_MAIN.forwardDelta, sessionId, text);
+    forwardReply(sessionId, text) {
+      ipc.send(TO_MAIN.forwardReply, sessionId, text);
     },
     forwardDone(sessionId) {
       ipc.send(TO_MAIN.forwardDone, sessionId);
@@ -145,8 +145,8 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
       ipc.send(TO_MAIN.mainReady);
     },
 
-    onDelta(cb) {
-      return sub(TO_RENDERER.delta)((sessionId, text) => cb(String(sessionId), String(text)));
+    onReply(cb) {
+      return sub(TO_RENDERER.reply)((sessionId, text) => cb(String(sessionId), String(text)));
     },
     onDone(cb) {
       return sub(TO_RENDERER.done)((sessionId) => cb(String(sessionId)));

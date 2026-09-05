@@ -137,19 +137,29 @@ describe('createChatStore · 本地状态机', () => {
 });
 
 describe('createChatStore · AD-5 转发', () => {
-  it('每个 delta 都经 forwardDelta 转发给桌宠，done 转 forwardDone', () => {
+  it('转给桌宠的是这一轮的全文，不是增量', () => {
     const { store, chat, bridge } = setup();
     store.send('在吗');
     chat.seen[0].handlers.onDelta?.({ text: '在' });
     chat.seen[0].handlers.onDelta?.({ text: '的' });
     chat.seen[0].handlers.onDone?.({ message_id: 'm', tokens_in: 0, tokens_out: 0, latency_ms: 0 });
 
-    const deltas = bridge.calls.filter((c) => c[0] === 'forwardDelta');
-    expect(deltas).toEqual([
-      ['forwardDelta', 's1', '在'],
-      ['forwardDelta', 's1', '的']
-    ]);
+    const sent = bridge.calls.filter((c) => c[0] === 'forwardReply').map((c) => c[2] as string);
+    // 中间几帧发几次不定（按帧合并），但每一次都必须是「到此为止的全文」，
+    // 而且最后一次是完整的。桌宠只负责显示，不自己拼字
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.at(-1)).toBe('在的');
+    for (const t of sent) expect('在的'.startsWith(t), `「${t}」不是全文的前缀`).toBe(true);
     expect(bridge.calls.filter((c) => c[0] === 'forwardDone')).toHaveLength(1);
+  });
+
+  it('同一段文字不会重复发——桌宠那边每收一次都要量一次布局', () => {
+    const { store, chat, bridge } = setup();
+    store.send('在吗');
+    chat.seen[0].handlers.onDelta?.({ text: '在' });
+    chat.seen[0].handlers.onDone?.({ message_id: 'm', tokens_in: 0, tokens_out: 0, latency_ms: 0 });
+    const sent = bridge.calls.filter((c) => c[0] === 'forwardReply').map((c) => c[2]);
+    expect(new Set(sent).size).toBe(sent.length);
   });
 
   it('每次状态切换都 setPetState 一次，桌宠不自己推断', () => {

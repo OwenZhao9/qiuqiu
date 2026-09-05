@@ -226,8 +226,10 @@ interface QiuqiuBridge {
   // 窗口
   openMain(): void; hideMain(): void; hidePet(): void; resetPet(): void; focusPet(): void; quit(): void;
   dragPet(dx: number, dy: number): void;
-  // 主窗口 → 桌宠：回复流转发（主窗口是唯一 SSE 持有者）
-  forwardDelta(sessionId: string, text: string): void;
+  // 主窗口 → 桌宠：回复转发（主窗口是唯一 SSE 持有者）。
+  // 推的是**这一轮到此为止的全文**，不是增量——桌宠只负责显示，不自己拼字。
+  // 拼字等于第二套消息处理，漏一条两个窗口显示的就不一样；推全文还能按帧合并
+  forwardReply(sessionId: string, text: string): void;
   forwardDone(sessionId: string): void;
   // 主窗口 → 桌宠：状态与表情
   // `emotionId` 不是可选装饰：桌宠不自己推断表情，主窗口每换一次表情就带上它发一次，
@@ -247,7 +249,7 @@ interface QiuqiuBridge {
   // React 的 effect 开发模式下跑两遍、组件重挂还会再订，只订不退会越攒越多，
   // 一条 delta 被拼进气泡好几遍，回复变成每个字重复
   type Unsubscribe = () => void;
-  onDelta(cb: (sessionId: string, text: string) => void): Unsubscribe;
+  onReply(cb: (sessionId: string, text: string) => void): Unsubscribe;
   onDone(cb: (sessionId: string) => void): Unsubscribe;
   onPetState(cb: (state: string, emotionId?: string) => void): Unsubscribe;
   onSubmitFromPet(cb: (text: string) => void): Unsubscribe;   // 主窗口收桌宠发的话，AD-5 链路靠它闭合
@@ -556,21 +558,32 @@ init()   一次建齐目录、表与索引，可重复调用
 ## 7 · 人格合成规则
 
 ```
-prompt_persona = boundary_block
+prompt_persona = identity_block
+               + boundary_block
                + (preset_block(sliders) if preset is not None else "")
                + learned_block(learned)
 ```
 
-- `boundary_block` 是常量，永远在最前，内容见 `packages/memory/persona.py::BOUNDARY`
+- `identity_block` 是常量，**永远在最前**，内容见 `packages/memory/persona.py::IDENTITY`。它写明「你叫丘丘」。没有它，模型被问「你叫什么」只能现编——实测会把记忆里的用户名（「用户名叫赵宁」）改一改说成自己叫「阿宁」
+- `boundary_block` 是常量，紧跟其后，内容见 `packages/memory/persona.py::BOUNDARY`
 - `preset is None` 时不生成 `preset_block`，**不是**生成一个「中等」块
 - `learned_block` 覆盖 `preset_block` 里的同名维度（例如 learned 里有 `reply_length`，就覆盖 sliders.verbosity 的描述）
 - 合成结果写热存储 `persona_snapshot`，`PersonaService.current()` 只读快照
+- 快照连同 `persona.snapshot_version` 一起存。它是**合成逻辑与固定文案的版本**（`persona.py::SNAPSHOT_VERSION`）：快照是「代码 + 设置」的物化结果，设置改了会重算，代码改了不会——改完 `IDENTITY` 的文案，老库里的快照还是旧的。版本对不上就重算。任何影响合成结果的代码改动都要把它 +1
 
 ## 8 · 版本与兼容
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.13**（桌宠气泡与首句不丢）
+当前：**v0.1.14**（桌宠只显示，不自己拼字）
+
+v0.1.14 三条：
+
+- **§ 2 `forwardDelta` / `onDelta` 改为 `forwardReply` / `onReply`**，推**这一轮到此为止的全文**而不是增量。桌宠自己拼字等于第二套消息处理：漏一条、顺序错一次，两个窗口显示的话就不一样了。推全文还能按帧合并——原来一个字一条 IPC，桌宠每个字量一次气泡高度、主进程每个字 resize 一次窗口，回复一个字一个字地爬
+- **§ 7 增 `identity_block`**，排在 `boundary_block` 之前，写明「你叫丘丘」
+- **§ 2 增 `onPetGaze`**（见 v0.1.13 条目，补记）
+
+v0.1.13（桌宠气泡与首句不丢）
 
 v0.1.13 四条：
 

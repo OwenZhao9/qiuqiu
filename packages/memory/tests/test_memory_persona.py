@@ -8,6 +8,8 @@ import pytest
 from qiuqiu_memory.errors import ContractError
 from qiuqiu_memory.persona import (
     BOUNDARY,
+    IDENTITY,
+    IDENTITY_MARKER,
     BOUNDARY_MARKER,
     LEARNED_MARKER,
     PRESET_IDS,
@@ -35,9 +37,10 @@ class TestBoundary:
         assert "医疗" in BOUNDARY and "法律" in BOUNDARY
 
     def test_always_first_and_unconditional(self, persona: PersonaService) -> None:
+        # 身份在最前，边界紧跟其后；两段都不受预设影响
         for preset in (None, *PRESET_IDS):
             persona.set_preset(preset)
-            assert persona.current().startswith(BOUNDARY)
+            assert persona.current().startswith(IDENTITY + BOUNDARY)
 
 
 class TestPresets:
@@ -83,8 +86,8 @@ class TestVacuum:
         assert PRESET_MARKER in current
         assert "主动性高" in current
 
-    def test_compose_with_none_is_boundary_only(self) -> None:
-        assert compose(None, Sliders(), Learned()) == BOUNDARY
+    def test_compose_with_none_is_identity_and_boundary_only(self) -> None:
+        assert compose(None, Sliders(), Learned()) == IDENTITY + BOUNDARY
 
 
 class TestLearnedOverride:
@@ -187,3 +190,35 @@ class TestSlidersAndLearnedTypes:
     def test_learned_round_trips_through_json(self, runtime: MemoryRuntime) -> None:
         body = Learned(nickname="小赵", topics=["咖啡"], humor_tolerance=80).to_dict()
         assert Learned.from_dict(json.loads(json.dumps(body))).to_dict() == body
+
+
+class TestIdentity:
+    """丘丘得知道自己叫什么。
+
+    没有这一段时实测：问「你叫什么」，模型会把记忆里的用户名（「用户名叫赵宁」）
+    改一改，答「我叫阿宁」。人格里从来没写过它的名字，它只能编。
+    """
+
+    def test_identity_states_the_name(self) -> None:
+        assert "丘丘" in IDENTITY
+        assert IDENTITY_MARKER in IDENTITY
+
+    def test_identity_is_first_even_with_everything_set(self) -> None:
+        out = compose("cute", Sliders(humor=90), Learned(reply_length="short"))
+        assert out.startswith(IDENTITY)
+        assert out.index(IDENTITY) < out.index(BOUNDARY)
+
+    def test_snapshot_recomputed_when_compose_version_changes(
+        self, persona: PersonaService
+    ) -> None:
+        """快照是「代码 + 设置」的物化结果。设置改了会重算，代码改了不会——
+        所以要有个版本号，对不上就重算。没有它，改了 IDENTITY 的文案，
+        老库里存的还是旧 prompt，改了等于没改。"""
+        persona.current()  # 先落一份快照
+        sqlite = persona.runtime.sqlite
+        sqlite.set_setting("persona.snapshot", "这是上一版合成出来的老 prompt")
+        # 版本还对得上：照旧读缓存，不重算
+        assert persona.current() == "这是上一版合成出来的老 prompt"
+        # 版本对不上：重算，老的被顶掉
+        sqlite.set_setting("persona.snapshot_version", "0")
+        assert persona.current().startswith(IDENTITY)

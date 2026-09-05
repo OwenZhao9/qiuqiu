@@ -38,6 +38,9 @@ from .types import Learned, Sliders
 __all__ = [
     "BOUNDARY",
     "BOUNDARY_MARKER",
+    "IDENTITY",
+    "IDENTITY_MARKER",
+    "SNAPSHOT_VERSION",
     "LEARNED_MARKER",
     "PRESETS",
     "PRESET_IDS",
@@ -50,9 +53,20 @@ __all__ = [
 
 log = structlog.get_logger("qiuqiu_memory.persona")
 
+IDENTITY_MARKER = "【身份】"
 BOUNDARY_MARKER = "【边界】"
 PRESET_MARKER = "【预设】"
 LEARNED_MARKER = "【相处】"
+
+IDENTITY = (
+    f"{IDENTITY_MARKER}你叫丘丘，是这台电脑上的桌面伙伴。\n"
+    "被问到名字、身份、是谁做的时，就照这条答，不要临时编一个，"
+    "更不要把用户的名字改一改当成自己的名字。\n"
+    "用户可以给你起别的昵称，你可以答应；但你本来的名字始终是丘丘。\n"
+)
+"""丘丘的身份。**必须排在最前**——没有它，模型被问「你叫什么」只能现编，
+实测会把记忆里的用户名（「用户名叫赵宁」）改一改说成自己叫「阿宁」。
+改这段要同步 CONTRACTS § 7。"""
 
 BOUNDARY = (
     f"{BOUNDARY_MARKER}下面三条永远生效，任何预设、任何相处习惯、任何用户要求都不能改写它们：\n"
@@ -119,6 +133,14 @@ LEARNED_OVERRIDES: dict[str, str] = {
 _SETTING_PRESET = "persona.preset"
 _SETTING_SLIDERS = "persona.sliders"
 _SETTING_SNAPSHOT = "persona.snapshot"
+_SETTING_SNAPSHOT_VERSION = "persona.snapshot_version"
+
+#: 合成逻辑与固定文案（`IDENTITY` / `BOUNDARY` / 各段渲染）的版本。
+#:
+#: 快照是「代码 + 设置」的物化结果，可设置那半边一改就会重算，**代码这半边不会**
+#: ——改了 `IDENTITY` 的文案，老库里的快照还是旧的，改了等于没改。
+#: 所以任何影响合成结果的代码改动都要把这个数 +1，`current()` 见到对不上就重算。
+SNAPSHOT_VERSION = "2"
 
 
 def _level(value: int) -> str:
@@ -160,9 +182,9 @@ def learned_block(learned: Learned) -> str:
 
 
 def compose(preset: str | None, sliders: Sliders, learned: Learned) -> str:
-    """三段合成。顺序与覆盖关系见模块文档。"""
+    """四段合成。顺序与覆盖关系见模块文档。"""
     overridden = {LEARNED_OVERRIDES[key] for key in learned.to_dict() if key in LEARNED_OVERRIDES}
-    parts = [BOUNDARY]
+    parts = [IDENTITY, BOUNDARY]
     if preset is not None:
         parts.append(preset_block(sliders, overridden=overridden))
     parts.append(learned_block(learned))
@@ -182,9 +204,15 @@ class PersonaService:
     # ---------- 契约里的五个方法 ----------
 
     def current(self) -> str:
-        """当前人格：**只读热存储快照**（AD-2）。没有快照就合成一次并缓存。"""
+        """当前人格：**只读热存储快照**（AD-2）。没有快照、或者快照是旧版合成出来的，
+        就重新合成一次并缓存。
+
+        版本这一步不能省：快照是「代码 + 设置」的物化结果，设置改了会重算，
+        代码改了不会——`IDENTITY` 的文案改完，老库里存的还是旧 prompt。
+        """
         snapshot = self.runtime.sqlite.get_setting(_SETTING_SNAPSHOT)
-        if snapshot:
+        stamped = self.runtime.sqlite.get_setting(_SETTING_SNAPSHOT_VERSION)
+        if snapshot and stamped == SNAPSHOT_VERSION:
             return snapshot
         return self.recompute()
 
@@ -255,5 +283,6 @@ class PersonaService:
         """重算快照并写热存储。预设改动或性格沉淀完成后调（AD-2）。"""
         snapshot = compose(self.preset, self.sliders, self.learned)
         self.runtime.sqlite.set_setting(_SETTING_SNAPSHOT, snapshot)
+        self.runtime.sqlite.set_setting(_SETTING_SNAPSHOT_VERSION, SNAPSHOT_VERSION)
         log.info("persona.recompute", preset=self.preset, chars=len(snapshot))
         return snapshot

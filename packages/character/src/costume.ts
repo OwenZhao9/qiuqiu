@@ -189,13 +189,21 @@ export function mountCostume(
   // 露出来的只有头顶那一撮。所以形状可以放心往下延伸，不用对齐轮廓。
 
   const back = el('g', { class: 'qq-costume qq-costume--back', 'pointer-events': 'none' });
+  // 呆毛：头顶翘起来的那一撮。二次元角色的标准零件，作用只有一个——
+  // 让静止的脑袋上有一处「不服帖」的地方，看着就活。
+  //
+  // 形状要点：**细、弯、尖端带钩**。粗而直会读成角或者三角旗，
+  // 就成了「头上插了个东西」而不是「一撮翘起来的头发」。
+  // 根埋在身体里（身体在它之后绘制，会盖住），露出来的只有头顶那一截。
   const ahoge = el('path', {
     class: 'qq-costume__ahoge',
-    // 根埋在身体里（身体在它之后画，会盖住），露出来的只有头顶这一撮
-    d: 'M 112 34 C 108 8 122 -12 148 -14 C 132 -4 128 8 132 34 Z',
+    d:
+      'M 108 36 C 104 13 111 -6 132 -12 ' + // 外缘：从头顶起，往右上甩
+      'C 140 -14 141 -8 135 -5 ' + // 尖端往回一钩
+      'C 123 1 120 15 122 36 Z', // 内缘：收回头顶
     fill: '#F7C9DC',
     stroke: '#E7A6C2',
-    'stroke-width': 1.8,
+    'stroke-width': 1.4,
     'stroke-linejoin': 'round'
   });
   back.appendChild(ahoge);

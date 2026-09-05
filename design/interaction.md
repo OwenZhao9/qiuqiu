@@ -87,7 +87,7 @@ Electron `BrowserWindow`：`transparent: true, frame: false, alwaysOnTop: true, 
 | `Esc` | 输入条展开 | 收起输入条；已输入的文本**保留**，下次展开还在 |
 | `Esc` | 输入条已收起 | 不做任何事。刻意的：不让 `Esc` 隐藏桌宠，否则误触之后用户找不回来 |
 
-全局快捷键（主进程注册，两个平台各一套）：`Cmd/Ctrl + Shift + Q` 唤起桌宠并展开输入条，等价于 `focusPet()` + 展开。
+全局快捷键（主进程注册，两个平台各一套）：`Cmd/Ctrl + Shift + K` 唤起桌宠并展开输入条，等价于 `focusPet()` + 展开。**不能用 `Cmd/Ctrl+Shift+Q`**：macOS 上那是系统的「退出登录」，Electron 抢不到时会静默失效，而用户按下去是真的退出登录。
 
 ### 回复的呈现
 
@@ -197,7 +197,7 @@ Electron 主窗口最小尺寸 640 × 480，默认 1200 × 800。
 | 桌宠窗口 | 有，透明置顶常驻 | **无** | 丘丘 `--qq-ball-size-web`（160 px）内嵌在页面左栏顶部，随页面滚动 |
 | IPC 桥 `window.qiuqiu` | 有，见 `docs/CONTRACTS.md` § 2 | **无** | 适配层提供同签名的实现：`setPetState` / `forwardDelta` / `forwardDone` 走前端内存事件总线；`openMain` / `hideMain` / `hidePet` / `dragPet` / `resetPet` / `focusPet` / `quit` 全部 no-op |
 | SSE 持有者 | 只有主窗口（AD-5） | 页面本身 | 同一份状态机代码，事件源从 IPC 换成内存总线 |
-| 全局快捷键 | `Cmd/Ctrl + Shift + Q` | **无** | 浏览器拿不到全局热键，不提供替代 |
+| 全局快捷键 | `Cmd/Ctrl + Shift + K` | **无** | 浏览器拿不到全局热键，不提供替代 |
 | 托盘图标 | 有 | **无** | — |
 | 窗口拖动与吸附 | 有 | **无** | 丘丘在页面里不可拖动 |
 | 鼠标注视 `setGaze` | 全屏范围 | 页面视口范围 | 归一化基准从屏幕对角线换成视口对角线 |

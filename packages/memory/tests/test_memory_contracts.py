@@ -157,16 +157,32 @@ class TestPersonaSignatures:
         assert isinstance(persona.run_consolidation(), Learned)
 
     def test_composition_order_follows_section_seven(self, persona: PersonaService) -> None:
-        """§ 7 的公式：boundary → preset → learned，顺序不能变（AD-12）。"""
-        order = spec.persona_composition_order()
-        assert order[:3] == ["boundary_block", "preset_block", "learned_block"]
+        """§ 7 的公式：identity → boundary → preset → learned，顺序不能变（AD-12）。
 
-        from qiuqiu_memory.persona import BOUNDARY_MARKER, LEARNED_MARKER, PRESET_MARKER
+        `identity_block` 排在最前，写明「你叫丘丘」——没有它，模型被问名字只能现编。
+        """
+        order = spec.persona_composition_order()
+        assert order[:4] == [
+            "identity_block",
+            "boundary_block",
+            "preset_block",
+            "learned_block",
+        ]
+
+        from qiuqiu_memory.persona import (
+            BOUNDARY_MARKER,
+            IDENTITY_MARKER,
+            LEARNED_MARKER,
+            PRESET_MARKER,
+        )
 
         persona.set_preset("warm")
         persona.runtime.sqlite.append_persona_learned({"nickname": "小赵"})
         text = persona.recompute()
-        positions = [text.index(m) for m in (BOUNDARY_MARKER, PRESET_MARKER, LEARNED_MARKER)]
+        positions = [
+            text.index(m)
+            for m in (IDENTITY_MARKER, BOUNDARY_MARKER, PRESET_MARKER, LEARNED_MARKER)
+        ]
         assert positions == sorted(positions)
 
 
