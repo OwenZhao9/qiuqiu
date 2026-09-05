@@ -384,6 +384,18 @@ requires-dist = [
 name = "qiuqiu-memory"
 version = "0.1.0"
 source = { editable = "packages/memory" }
+dependencies = [
+    { name = "qiuqiu-data" },
+    { name = "qiuqiu-models" },
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "qiuqiu-data", editable = "packages/data" },
+    { name = "qiuqiu-models", editable = "packages/models" },
+    { name = "structlog", specifier = ">=25.0.0,<27.0.0" },
+]
 
 [[package]]
 name = "qiuqiu-models"

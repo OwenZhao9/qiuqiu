@@ -3,7 +3,17 @@ name = "qiuqiu-memory"
 version = "0.1.0"
 description = "记忆中间件与人格层"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "qiuqiu-data",
+    "qiuqiu-models",
+    "structlog>=25.0.0,<27.0.0",
+]
+
+# 嵌入的 qwen3 provider（sentence-transformers）**不写进这里**，连 optional extra
+# 都不写：声明了 uv.lock 就会把 torch 那一整棵树（2 GB 级）解析进来，冒烟环境扛不住。
+# 缺省走 embed.py 的离线哈希嵌入；真要用 Qwen3 时手动装：
+#     uv pip install "sentence-transformers>=3.0"
+#     EMBEDDING_PROVIDER=qwen3
 
 [build-system]
 requires = ["hatchling"]

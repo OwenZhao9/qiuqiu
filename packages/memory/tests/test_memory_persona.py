@@ -1,0 +1,189 @@
+"""人格合成。规则逐字按 CONTRACTS § 7 / AD-11 / AD-12。"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+from qiuqiu_memory.errors import ContractError
+from qiuqiu_memory.persona import (
+    BOUNDARY,
+    BOUNDARY_MARKER,
+    LEARNED_MARKER,
+    PRESET_IDS,
+    PRESET_MARKER,
+    PRESETS,
+    SLIDER_DIMENSIONS,
+    PersonaService,
+    compose,
+    learned_block,
+    preset_block,
+)
+from qiuqiu_memory.runtime import MemoryRuntime
+from qiuqiu_memory.types import Learned, Sliders
+
+
+class TestBoundary:
+    def test_three_rules_present(self) -> None:
+        assert BOUNDARY.startswith(BOUNDARY_MARKER)
+        for marker in ("1.", "2.", "3."):
+            assert marker in BOUNDARY
+
+    def test_covers_the_three_required_topics(self) -> None:
+        assert "恋爱" in BOUNDARY
+        assert "依赖" in BOUNDARY
+        assert "医疗" in BOUNDARY and "法律" in BOUNDARY
+
+    def test_always_first_and_unconditional(self, persona: PersonaService) -> None:
+        for preset in (None, *PRESET_IDS):
+            persona.set_preset(preset)
+            assert persona.current().startswith(BOUNDARY)
+
+
+class TestPresets:
+    def test_four_presets_match_contract(self) -> None:
+        assert set(PRESETS) == {"warm", "quiet", "cute", "sassy"}
+
+    def test_every_preset_sets_all_four_sliders(self) -> None:
+        for sliders in PRESETS.values():
+            body = sliders.to_dict()
+            assert set(body) == set(SLIDER_DIMENSIONS)
+            assert all(0 <= v <= 100 for v in body.values())
+
+    def test_preset_block_renders_one_line_per_dimension(self) -> None:
+        block = preset_block(PRESETS["warm"])
+        assert block.count(PRESET_MARKER) == 4
+
+    def test_selecting_preset_writes_its_sliders(self, persona: PersonaService) -> None:
+        persona.set_preset("sassy")
+        assert persona.sliders.to_dict() == PRESETS["sassy"].to_dict()
+
+    def test_unknown_preset_rejected_with_hint(self, persona: PersonaService) -> None:
+        with pytest.raises(ContractError) as caught:
+            persona.set_preset("grumpy")
+        assert "warm" in caught.value.to_dict()["hint"]
+
+
+class TestVacuum:
+    """`preset: None` 是真空，**不是**中等值（AD-11）。"""
+
+    def test_none_produces_no_preset_block(self, persona: PersonaService) -> None:
+        persona.set_preset(None)
+        assert PRESET_MARKER not in persona.current()
+
+    def test_none_ignores_manually_set_sliders(self, persona: PersonaService) -> None:
+        persona.set_preset(None)
+        persona.set_sliders(Sliders(initiative=100, verbosity=100, emotion=100, humor=100))
+        assert PRESET_MARKER not in persona.current()
+
+    def test_sliders_apply_once_a_preset_is_chosen(self, persona: PersonaService) -> None:
+        persona.set_preset("quiet")
+        persona.set_sliders(Sliders(initiative=95, verbosity=95, emotion=95, humor=95))
+        current = persona.current()
+        assert PRESET_MARKER in current
+        assert "主动性高" in current
+
+    def test_compose_with_none_is_boundary_only(self) -> None:
+        assert compose(None, Sliders(), Learned()) == BOUNDARY
+
+
+class TestLearnedOverride:
+    """`learned_block` 覆盖 `preset_block` 里的同名维度（AD-12）。"""
+
+    def test_reply_length_replaces_verbosity_line(self) -> None:
+        sliders = Sliders(verbosity=95)
+        learned = Learned(reply_length="short")
+        out = compose("warm", sliders, learned)
+        assert "话量多" not in out
+        assert "喜欢短回复" in out
+
+    def test_humor_tolerance_replaces_humor_line(self) -> None:
+        out = compose("sassy", Sliders(humor=95), Learned(humor_tolerance=5))
+        assert "玩笑尺度大：" not in out
+        assert "不太吃梗" in out
+
+    def test_untouched_dimensions_survive(self) -> None:
+        out = compose("warm", PRESETS["warm"], Learned(reply_length="short"))
+        assert "主动性高" in out
+        assert "情绪浓度高" in out
+
+    def test_section_order_is_boundary_preset_learned(self) -> None:
+        out = compose("warm", PRESETS["warm"], Learned(nickname="小赵"))
+        assert out.index(BOUNDARY_MARKER) < out.index(PRESET_MARKER) < out.index(LEARNED_MARKER)
+
+    def test_empty_learned_renders_nothing(self) -> None:
+        assert learned_block(Learned()) == ""
+
+    def test_topics_capped_at_six(self) -> None:
+        block = learned_block(Learned(topics=[f"话题{i}" for i in range(20)]))
+        assert block.count("、") == 5
+
+
+class TestSnapshot:
+    def test_current_reads_the_cached_snapshot(self, persona: PersonaService) -> None:
+        """`current()` 只读热存储快照（AD-2），不在请求路径上现拼。"""
+        persona.set_preset("warm")
+        persona.runtime.sqlite.set_setting("persona.snapshot", "手写的快照")
+        assert persona.current() == "手写的快照"
+
+    def test_missing_snapshot_is_computed_once(self, persona: PersonaService) -> None:
+        assert persona.runtime.sqlite.get_setting("persona.snapshot") is None
+        computed = persona.current()
+        assert persona.runtime.sqlite.get_setting("persona.snapshot") == computed
+
+    def test_set_preset_recomputes(self, persona: PersonaService) -> None:
+        persona.set_preset("quiet")
+        quiet = persona.current()
+        persona.set_preset("sassy")
+        assert persona.current() != quiet
+
+    def test_set_sliders_recomputes(self, persona: PersonaService) -> None:
+        persona.set_preset("warm")
+        before = persona.current()
+        persona.set_sliders(Sliders(initiative=0, verbosity=0, emotion=0, humor=0))
+        assert persona.current() != before
+
+
+class TestLearnedStorage:
+    def test_reads_latest_persona_learned_version(self, persona: PersonaService) -> None:
+        persona.runtime.sqlite.append_persona_learned({"nickname": "老赵"})
+        persona.runtime.sqlite.append_persona_learned({"nickname": "小赵"})
+        assert persona.learned.nickname == "小赵"
+
+    def test_reset_learned_appends_empty_version(self, persona: PersonaService) -> None:
+        """重置是往前写一版空的，不是删历史——跟事实不物理删除同一个态度（AD-9）。"""
+        persona.runtime.sqlite.append_persona_learned({"nickname": "小赵"})
+        assert persona.reset_learned().to_dict() == {}
+        assert len(persona.runtime.sqlite.list_persona_learned()) == 2
+        assert LEARNED_MARKER not in persona.current()
+
+    def test_broken_sliders_json_falls_back_to_defaults(self, persona: PersonaService) -> None:
+        persona.runtime.sqlite.set_setting("persona.sliders", "{ 不是 JSON")
+        assert persona.sliders.to_dict() == Sliders().to_dict()
+
+    def test_preset_setting_with_junk_reads_as_none(self, persona: PersonaService) -> None:
+        persona.runtime.sqlite.set_setting("persona.preset", "grumpy")
+        assert persona.preset is None
+
+
+class TestSlidersAndLearnedTypes:
+    def test_sliders_clamped(self) -> None:
+        body = Sliders.from_dict({"initiative": 999, "verbosity": -5, "humor": "很高"}).to_dict()
+        assert body == {"initiative": 100, "verbosity": 0, "emotion": 50, "humor": 50}
+
+    def test_learned_to_dict_drops_none_keys(self) -> None:
+        assert Learned(nickname="小赵").to_dict() == {"nickname": "小赵"}
+
+    def test_learned_merge_keeps_missing_values(self) -> None:
+        """新值覆盖、缺失沿用——一次没归纳出称呼不该把上次学到的抹掉。"""
+        old = Learned(nickname="小赵", reply_length="long")
+        merged = old.merge(Learned(reply_length="short"))
+        assert merged.nickname == "小赵"
+        assert merged.reply_length == "short"
+
+    def test_learned_rejects_bad_reply_length(self) -> None:
+        assert Learned.from_dict({"reply_length": "巨长"}).reply_length is None
+
+    def test_learned_round_trips_through_json(self, runtime: MemoryRuntime) -> None:
+        body = Learned(nickname="小赵", topics=["咖啡"], humor_tolerance=80).to_dict()
+        assert Learned.from_dict(json.loads(json.dumps(body))).to_dict() == body
