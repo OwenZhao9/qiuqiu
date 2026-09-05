@@ -79,7 +79,8 @@ class Config:
     #: 生成温度
     temperature: float = 0.7
     #: TTS 音色。registry 拿不到 TTS 时这一项没用武之地
-    tts_voice: str = "zh-CN-XiaoxiaoNeural"
+    #: 后门：设了就绕过界面上的音色选择。留空走 `GET /config/voice`。
+    tts_voice: str = ""
     #: `/events` 多久发一次心跳注释，防中间件掐空闲连接
     events_heartbeat_s: float = 15.0
     #: 每页补发多少条历史事件
@@ -105,7 +106,7 @@ class Config:
             recall_max_items=_int("RECALL_MAX_ITEMS", 12),
             recall_max_tokens=_int("RECALL_MAX_TOKENS", 2048),
             temperature=_float("CHAT_TEMPERATURE", 0.7),
-            tts_voice=os.environ.get("TTS_VOICE") or "zh-CN-XiaoxiaoNeural",
+            tts_voice=os.environ.get("TTS_VOICE") or "",
             events_heartbeat_s=_float("EVENTS_HEARTBEAT_SECONDS", 15.0),
             scheduler_enabled=_flag("SCHEDULER_ENABLED", True),
             nightly_hour_utc=_int("TIERING_NIGHTLY_HOUR_UTC", 19),

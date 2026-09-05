@@ -10,7 +10,8 @@ seed-tts-2.0`；1.0 那套 `/api/v1/tts` 加 `cluster` 参数在这里一律 403
 
 - `VOLC_SPEECH_APPID` —— 豆包语音控制台的 APP ID
 - `VOLC_SPEECH_TOKEN` —— 同一页的 Access Token
-- `VOLC_TTS_SPEAKER` —— 音色 ID，缺省见 `DEFAULT_SPEAKER`
+- `VOLC_TTS_SPEAKER` —— 供应商音色 ID，缺省取自音色目录。界面上选音色走
+  `qiuqiu_models.voices`，这个变量只是覆盖用的后门
 
 鉴权用旧版控制台那套（`X-Api-App-Key` + `X-Api-Access-Key`）。方舟的 ark key 在这个
 接口上不认，两套凭证各管各的。
@@ -28,13 +29,15 @@ from collections.abc import AsyncIterator
 
 import httpx
 
+from .. import voices
 from ..base import AudioChunk, ProviderNotConfiguredError, UpstreamError
 from ..metrics import measure
 from . import _audio
 
 ENDPOINT = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
 RESOURCE_ID = "seed-tts-2.0"
-DEFAULT_SPEAKER = "zh_female_gaolengyujie_uranus_bigtts"
+#: 缺省音色从音色目录取，两条链路共用同一份表（`qiuqiu_models.voices`）。
+DEFAULT_SPEAKER = voices.tts_id(voices.DEFAULT_VOICE)
 SAMPLE_RATE = 16000
 TIMEOUT_S = 60.0
 
@@ -98,7 +101,9 @@ def _decode_line(line: str) -> bytes | None:
     if not isinstance(payload, dict):
         return None
     code = payload.get("code")
-    if code not in (None, 0):
+    # `20000000` 也是成功码（message 就是 "OK"），只认 0 会把正常响应全判成错误。
+    # 之前就是这么挂的：十个音色全报「错误码 20000000：OK」。
+    if code not in (None, 0, 20000000):
         raise UpstreamError(
             f"豆包语音合成返回错误码 {code}：{payload.get('message', '')}",
             hint="音色 ID 不存在，或试用额度已用完（控制台 > 豆包语音合成模型2.0 看余量）。",

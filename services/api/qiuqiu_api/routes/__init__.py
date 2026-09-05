@@ -18,6 +18,7 @@ from . import (
     sessions,
     thresholds,
     voice,
+    voices,
 )
 
 __all__ = ["API_PATHS", "MODULES", "api_router"]
@@ -36,6 +37,7 @@ MODULES = (
     scenario,
     compare,
     voice,
+    voices,
 )
 
 api_router = APIRouter()

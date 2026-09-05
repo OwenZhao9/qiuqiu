@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-from . import base, metrics, registry
+from . import base, metrics, registry, voices
 from .base import (
     ASR,
     CAPABILITIES,
@@ -42,6 +42,7 @@ from .registry import get, list_providers
 __version__ = "0.1.0"
 
 __all__ = [
+    "voices",
     "ASR",
     "CAPABILITIES",
     "TTS",

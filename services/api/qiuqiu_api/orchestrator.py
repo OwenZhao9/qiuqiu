@@ -362,8 +362,15 @@ async def _stream_audio(state: AppState, reply: str) -> AsyncIterator[dict[str, 
     tts = state.optional_capability("tts")
     if tts is None:
         return
+    from qiuqiu_models import voices as voice_catalogue
+
+    from .routes.voices import current_voice
+
+    # 界面上选的短名 → 级联链路认的供应商音色 ID。两条链路共用一份选择，
+    # 用户切了音色，文字对话和语音对话的声音才是同一个人。
+    speaker = voice_catalogue.tts_id(await current_voice(state))
     try:
-        chunks = await tts.synthesize(reply, voice=state.config.tts_voice)
+        chunks = await tts.synthesize(reply, voice=speaker)
         async for chunk in chunks:
             yield {
                 "pcm_b64": base64.b64encode(chunk.pcm).decode("ascii"),

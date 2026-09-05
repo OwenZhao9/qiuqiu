@@ -180,6 +180,11 @@ POST /compare              Body: { "query": string, "session_id"?: string,
 GET  /scenarios            → [{ "name": string, "title": string }]
 POST /scenario/{name}/play Body: { "speed"?: number }   speed=1.0 原速，0 不等待
 
+GET  /voices               → [{ "id": string, "label": string, "blurb": string,
+                                  "realtime_supported": boolean }]
+GET  /config/voice         → { "voice": string }
+PUT  /config/voice         Body: { "voice": string }   → { "voice": string }
+
 GET  /config/thresholds   PUT /config/thresholds
 GET  /providers            → ProviderInfo[]（透传 registry.list_providers()）
 POST /current-model        Body: { "capability": "chat"|"vision", "model": string }
@@ -537,7 +542,19 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.9**（`RealtimeEvent` 增 `interrupt` 类型与 `sample_rate` 字段）
+当前：**v0.1.10**（音色选择）
+
+v0.1.10 一条：**增 `GET /voices` 与 `GET/PUT /config/voice`**，让用户在界面上选音色。
+
+- 只列女声，丘丘的设定如此
+- `id` 是**稳定短名**（`vivi`、`xiaohe`），不是供应商音色 ID。同一个音色在两条链路上
+  ID 不一样（级联是 `*_uranus_bigtts`，端到端是 `*_jupiter_bigtts`），映射关系收在
+  `qiuqiu_models.voices` 里，前端与契约都不碰供应商 ID
+- `realtime_supported` 为假的音色，在端到端链路上回退默认音色——实时语音的精品音色
+  只有四个，多数音色没有对应项
+- 选中值存 SQLite `settings` 的 `voice` 键，归后端写（§ 7 数据归属表）
+
+v0.1.9（`RealtimeEvent` 增 `interrupt` 类型与 `sample_rate` 字段）
 
 v0.1.9 两条，都来自接豆包端到端实时语音时发现的缺口：
 

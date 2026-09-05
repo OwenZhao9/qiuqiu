@@ -201,6 +201,49 @@ function ambientEvent(score: number, nextEventId: NextId): MemoryEventEnvelope {
  * mock server
  * ------------------------------------------------------------------ */
 
+/** 只有女声，与后端 `qiuqiu_models.voices` 同一份表（契约 v0.1.10 § 1）。 */
+const VOICES = [
+  { id: 'vivi', label: 'Vivi', blurb: '活泼灵动，分享欲强', realtime_supported: true },
+  { id: 'xiaohe', label: '小何', blurb: '甜美活泼，带台湾口音', realtime_supported: true },
+  {
+    id: 'linjianvhai',
+    label: '邻家女孩',
+    blurb: '自然亲切，像住隔壁的朋友',
+    realtime_supported: false
+  },
+  { id: 'qingxin', label: '清新女声', blurb: '干净清爽，不腻', realtime_supported: false },
+  {
+    id: 'tianmeixiaoyuan',
+    label: '甜美小源',
+    blurb: '甜而不腻，语速偏慢',
+    realtime_supported: false
+  },
+  { id: 'tianmeitaozi', label: '甜美桃子', blurb: '偏少女，尾音上扬', realtime_supported: false },
+  {
+    id: 'shuangkuaisisi',
+    label: '爽快思思',
+    blurb: '干脆利落，不拖泥带水',
+    realtime_supported: false
+  },
+  { id: 'cancan', label: '知性灿灿', blurb: '沉稳知性，适合长句', realtime_supported: false },
+  {
+    id: 'gaolengyujie',
+    label: '高冷御姐',
+    blurb: '冷淡疏离，配「毒舌」预设',
+    realtime_supported: false
+  },
+  {
+    id: 'sajiaoxuemei',
+    label: '撒娇学妹',
+    blurb: '黏人，配「可爱」预设',
+    realtime_supported: false
+  }
+] as const;
+
+/** 当前音色。**每次 `installMockServer()` 都重置**——模块级可变状态不重置的话，
+ *  上一条用例改过的值会漏进下一条，表现是「点了没反应」，很难查。 */
+let voice = 'vivi';
+
 export interface MockServer {
   /** 手动推一条事件进 `/events`。 */
   push(ev: MemoryEventEnvelope): void;
@@ -224,6 +267,7 @@ export interface MockOptions {
 }
 
 export function installMockServer(opts: MockOptions = {}): MockServer {
+  voice = 'vivi';
   const deltaMs = opts.deltaMs ?? 60;
   const nextEventId = createIdGen();
   const eventLog: MemoryEventEnvelope[] = [];
@@ -417,6 +461,24 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
         }
       }
       return response;
+    }
+
+    if (path === '/voices' && method === 'GET') return jsonResponse(VOICES);
+
+    if (path === '/config/voice') {
+      if (method === 'PUT') {
+        const body = JSON.parse(String(init?.body ?? '{}')) as { voice?: string };
+        if (!VOICES.some((v) => v.id === body.voice)) {
+          return errorResponse(
+            400,
+            'voice.unknown',
+            `没有这个音色：${String(body.voice)}。`,
+            '先 GET /voices 看可选项，用返回的 id。'
+          );
+        }
+        voice = String(body.voice);
+      }
+      return jsonResponse({ voice });
     }
 
     if (path === '/config/thresholds') {

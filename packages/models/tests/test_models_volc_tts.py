@@ -172,6 +172,28 @@ class TestStreamDecoding:
         assert sum(len(c.pcm) for c in chunks) == 320 * 2
 
     @pytest.mark.anyio
+    @pytest.mark.parametrize("code", [0, 20000000])
+    async def test_both_success_codes_are_accepted(self, code: int) -> None:
+        """`20000000`（message 是 "OK"）也是成功码。
+
+        只认 0 的话正常响应会被当成错误——实测十个音色全报「错误码 20000000：OK」。
+        """
+        import base64 as _b64
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.dumps(
+                {"code": code, "message": "OK", "data": _b64.b64encode(tone(320)).decode()}
+            ).encode()
+            return httpx.Response(200, content=body)
+
+        tts = client_with(handler)
+        try:
+            chunks = [c async for c in await tts.synthesize("你好")]
+        finally:
+            tts._restore()  # type: ignore[attr-defined]
+        assert sum(len(c.pcm) for c in chunks) == 320 * 2
+
+    @pytest.mark.anyio
     async def test_a_nonzero_code_mid_stream_raises_with_a_hint(self) -> None:
         """额度用完是在流中间报的，不是 HTTP 错误码。"""
 

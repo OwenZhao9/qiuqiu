@@ -1,7 +1,7 @@
 /**
  * 后端契约的唯一出入口。
  *
- * `docs/CONTRACTS.md` § 1（HTTP 与 SSE），契约版本 **v0.1.9**。
+ * `docs/CONTRACTS.md` § 1（HTTP 与 SSE），契约版本 **v0.1.10**。
  *
  * 组件只调本文件导出的函数与类型，**组件里不许出现 `fetch`、`EventSource`、路径字符串**。
  * 契约升版本时改动只落在这一个文件里。
@@ -27,6 +27,11 @@ let currentFetch: FetchLike | null = null;
 /** 注入 fetch 实现。`src/mock-server.ts` 与单测用；生产路径不调。 */
 export function setFetchImpl(impl: FetchLike | null): void {
   currentFetch = impl;
+}
+
+/** 当前生效的 fetch。测试里要在已有实现之上再包一层时用得着。 */
+export function getFetchImpl(): FetchLike {
+  return currentFetch ?? ((globalThis as { fetch?: FetchLike }).fetch as FetchLike);
 }
 
 function doFetch(path: string, init?: RequestInit): Promise<Response> {
@@ -624,6 +629,32 @@ export function resetLearned(): Promise<Learned> {
 }
 
 /** 筛选阈值。 */
+export interface VoiceOption {
+  /** 稳定短名，如 `vivi`。不是供应商音色 ID——同一个音色在级联与端到端两条链路上
+   *  ID 不一样，映射收在后端，前端不碰。 */
+  id: string;
+  label: string;
+  blurb: string;
+  /** 为假时端到端链路会回退到默认音色。实时语音的精品音色只有四个。 */
+  realtime_supported: boolean;
+}
+
+/** 可选音色。只有女声（契约 v0.1.10 § 1）。 */
+export function getVoices(): Promise<VoiceOption[]> {
+  return json<VoiceOption[]>('/voices');
+}
+
+export function getVoice(): Promise<{ voice: string }> {
+  return json<{ voice: string }>('/config/voice');
+}
+
+export function putVoice(voice: string): Promise<{ voice: string }> {
+  return json<{ voice: string }>('/config/voice', {
+    method: 'PUT',
+    body: JSON.stringify({ voice })
+  });
+}
+
 export function getThresholds(): Promise<Thresholds> {
   return json<Thresholds>('/config/thresholds');
 }

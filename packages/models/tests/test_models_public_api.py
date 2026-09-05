@@ -36,6 +36,7 @@ def test_public_exports_only_come_from_base_and_registry() -> None:
             "base",
             "metrics",
             "registry",
+            "voices",  # 音色目录，纯数据，两条语音链路与前端共用
         }
     )
     assert set(qiuqiu_models.__all__) <= allowed

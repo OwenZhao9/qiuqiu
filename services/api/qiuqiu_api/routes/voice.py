@@ -110,12 +110,17 @@ async def _realtime(websocket: WebSocket, state: AppState, realtime: Any, sessio
 
     from qiuqiu_memory import Source
     from qiuqiu_memory.types import utcnow
+    from qiuqiu_models import voices as voice_catalogue
+
+    from .voices import current_voice
 
     trace_id = new_trace_id()
     prompt = await state.off_loop(state.persona.current)
+    # 界面上选的是短名，这里换成端到端链路认的供应商 ID（没有对应项时回退默认）
+    speaker = voice_catalogue.realtime_id(await current_voice(state))
 
     try:
-        await realtime.open(system_prompt=prompt, voice=None)
+        await realtime.open(system_prompt=prompt, voice=speaker)
     except Exception as exc:  # noqa: BLE001 - 统一成带 hint 的 error 帧
         await _send_error(
             websocket,

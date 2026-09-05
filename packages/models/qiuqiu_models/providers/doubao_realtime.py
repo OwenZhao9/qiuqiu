@@ -31,6 +31,7 @@ from typing import Any
 
 import websockets
 
+from .. import voices
 from ..base import ProviderNotConfiguredError, RealtimeEvent, UpstreamError
 from ..metrics import measure
 from . import _volc_protocol as proto
@@ -41,7 +42,8 @@ RESOURCE_ID = "volc.speech.dialog"
 APP_KEY = "PlgvMymc7f3tQnJ6"
 
 DEFAULT_MODEL = "1.2.1.1"  # O2.0
-DEFAULT_SPEAKER = "zh_female_vv_jupiter_bigtts"
+#: 缺省音色从音色目录取，与级联链路共用同一份表。
+DEFAULT_SPEAKER = voices.realtime_id(voices.DEFAULT_VOICE)
 INPUT_SAMPLE_RATE = 16000
 OUTPUT_SAMPLE_RATE = 24000
 MAX_FRAME_BYTES = 10 * 1024 * 1024

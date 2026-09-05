@@ -1,5 +1,5 @@
 /**
- * 设置页：场景控制台 + 供应商清单。
+ * 设置页：场景控制台 + 音色 + 供应商清单。
  *
  * 供应商只看 `has_key` 的真假，**密钥永远不落前端**（`docs/CONVENTIONS.md`）。
  * 场景列表走 `GET /scenarios`（契约 v0.1.8 § 1 收编）；请求不通时退回写死的四个，
@@ -16,6 +16,7 @@ import {
   type ProviderInfo,
   type ScenarioInfo
 } from '../api.js';
+import { VoicePicker } from './VoicePicker.js';
 
 const CAPABILITY_CN: Record<string, string> = {
   chat: '对话',
@@ -101,6 +102,12 @@ export function SettingsPage(): React.JSX.Element {
             </div>
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="qq-section__title">音色</h2>
+        <p className="qq-note">丘丘的声音。选中即生效，文字对话与语音对话共用同一个。</p>
+        <VoicePicker />
       </section>
 
       <section>
