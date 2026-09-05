@@ -58,4 +58,4 @@ export function trayMenu(state: { petVisible: boolean }): MenuItemSpec[] {
  * Electron 抢得到的时候没事，抢不到就静默失效，而用户按下去是真的退出登录
  * ——一个快捷键不该有这种后果。
  */
-export const FOCUS_PET_ACCELERATOR = 'CommandOrControl+Shift+K';
+export const FOCUS_PET_ACCELERATOR = 'CommandOrControl+Shift+E';
