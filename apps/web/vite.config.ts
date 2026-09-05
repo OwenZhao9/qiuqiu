@@ -48,7 +48,20 @@ export default defineConfig({
   plugins: [react(), emotionBallVendor()],
   server: {
     port: 5173,
-    fs: { allow: [repoRoot] }
+    fs: { allow: [repoRoot] },
+    /**
+     * 网页端走同源 `/api` 反代（`api.ts` 的 `apiBase()`），开发时由 vite 转给后端。
+     * 没有这段，真实模式下每个请求都是 404——只有 `?mock=1` 能用，很容易误判成
+     * 「后端没起来」。端口用 `QIUQIU_API_PORT` 覆盖，默认 8000。
+     */
+    proxy: {
+      '/api': {
+        target: `http://127.0.0.1:${process.env.QIUQIU_API_PORT ?? '8000'}`,
+        changeOrigin: true,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   },
   build: {
     outDir: 'dist',

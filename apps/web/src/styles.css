@@ -1085,3 +1085,192 @@ select {
   width: var(--qq-ball-size-main);
   height: var(--qq-ball-size-main);
 }
+
+/* ── 记忆管线流程图 ────────────────────────────────────────────────
+   「记忆过程看得见」这条第一质量属性，看的就是这张图。走到的段亮起，
+   跳过的段打灰，被丢掉的片段掉在管线外面。 */
+
+.qq-flow {
+  padding: var(--qq-space-4) var(--qq-space-3) var(--qq-space-5);
+  border-bottom: 1px solid var(--qq-color-border);
+}
+
+.qq-flow__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--qq-space-3);
+  margin-bottom: var(--qq-space-2);
+}
+
+.qq-flow__lane {
+  font-size: var(--qq-text-sm);
+  font-weight: 600;
+  color: var(--qq-color-text);
+}
+
+.qq-flow__trace {
+  font-family: var(--qq-font-mono);
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-flow__input,
+.qq-flow__empty {
+  margin: 0 0 var(--qq-space-3);
+  font-size: var(--qq-text-sm);
+  line-height: 1.5;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.qq-flow__input {
+  color: var(--qq-color-text);
+}
+
+.qq-flow__empty {
+  color: var(--qq-color-text-muted);
+}
+
+.qq-flow__svg {
+  display: block;
+}
+
+/* 段：三种状态三种画法，看一眼就知道走没走到 */
+.qq-flow__box rect {
+  fill: var(--qq-color-surface);
+  stroke: var(--qq-color-border);
+  stroke-width: 1;
+  transition:
+    fill var(--qq-duration-base) var(--qq-ease-standard),
+    stroke var(--qq-duration-base) var(--qq-ease-standard);
+}
+
+.qq-flow__box--done rect {
+  fill: var(--qq-color-write-bg);
+  stroke: var(--qq-color-write);
+}
+
+.qq-flow__box--active rect {
+  fill: var(--qq-color-write-bg);
+  stroke: var(--qq-color-write);
+  stroke-width: 2;
+}
+
+.qq-flow__box--skip rect {
+  fill: transparent;
+  stroke: var(--qq-color-border);
+  stroke-dasharray: 4 4;
+}
+
+.qq-flow__label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--qq-color-text);
+}
+
+.qq-flow__detail {
+  font-size: 11px;
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-flow__box--skip .qq-flow__label,
+.qq-flow__box--skip .qq-flow__detail,
+.qq-flow__box--idle .qq-flow__label,
+.qq-flow__box--idle .qq-flow__detail {
+  fill: var(--qq-color-text-muted);
+}
+
+.qq-flow__arrow {
+  stroke: var(--qq-color-border);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.qq-flow__tip {
+  fill: var(--qq-color-border);
+}
+
+/* 检索三路：走了的实心，跳过的划掉 */
+.qq-flow__paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--qq-space-2);
+  margin-top: var(--qq-space-3);
+}
+
+.qq-flow__path {
+  font-size: var(--qq-text-xs);
+  padding: 2px 8px;
+  border-radius: var(--qq-radius-pill);
+  border: 1px solid var(--qq-color-border);
+}
+
+.qq-flow__path--on {
+  background: var(--qq-color-recall-bg);
+  border-color: var(--qq-color-recall);
+  color: var(--qq-color-recall);
+}
+
+.qq-flow__path--off {
+  color: var(--qq-color-text-muted);
+  text-decoration: line-through;
+}
+
+/* 拆出来的事实、召回命中的事实 */
+.qq-flow__facts {
+  list-style: none;
+  margin: var(--qq-space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-2);
+}
+
+.qq-flow__fact {
+  font-size: var(--qq-text-sm);
+  line-height: 1.45;
+  padding: var(--qq-space-2) var(--qq-space-3);
+  border-radius: var(--qq-radius-sm);
+  background: var(--qq-color-write-bg);
+  border-left: 3px solid var(--qq-color-write);
+}
+
+.qq-flow__fact--hit {
+  background: var(--qq-color-recall-bg);
+  border-left-color: var(--qq-color-recall);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--qq-space-2);
+}
+
+.qq-flow__path-tag {
+  flex: none;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-recall);
+}
+
+/* 掉出管线的：被压缩丢掉的片段、被合成取代的旧事实 */
+.qq-flow__dropped {
+  list-style: none;
+  margin: var(--qq-space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--qq-space-1);
+}
+
+.qq-flow__dropped li {
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-reject);
+  opacity: 0.72;
+  text-decoration: line-through;
+  padding-left: var(--qq-space-3);
+}
+
+.qq-flow__reason {
+  margin: var(--qq-space-3) 0 0;
+  font-size: var(--qq-text-xs);
+  color: var(--qq-color-reject);
+}

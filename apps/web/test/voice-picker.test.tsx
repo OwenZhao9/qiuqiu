@@ -72,7 +72,7 @@ describe('VoicePicker', () => {
           { status: 500, headers: { 'content-type': 'application/json' } }
         );
       }
-      return passthrough(input, init);
+      return passthrough(String(input), init);
     }) as typeof fetch);
 
     try {

@@ -1,6 +1,6 @@
 /** 侧栏骨架、连接状态、筛选、空态、阈值区。 */
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MemorySidebar,
@@ -77,11 +77,13 @@ describe('MemorySidebar', () => {
       );
       store.push(makeEvent('recall', { query: '召回一条', hits: [], cold_promoted: [] }));
     });
-    expect(screen.getByText('写了一条')).toBeTruthy();
+    // 流程图会把同一条事实也显示一遍，所以要限定在事件流里找
+    const stream = () => screen.getByTestId('event-stream');
+    expect(within(stream()).getByText('写了一条')).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('事件筛选'), { target: { value: 'recall' } });
-    expect(screen.queryByText('写了一条')).toBeNull();
-    expect(screen.getByText('召回一条')).toBeTruthy();
+    expect(within(stream()).queryByText('写了一条')).toBeNull();
+    expect(within(stream()).getByText('召回一条')).toBeTruthy();
     expect(store.get().events).toHaveLength(2);
   });
 
@@ -99,7 +101,9 @@ describe('MemorySidebar', () => {
         })
       );
     });
-    const head = screen.getByText('明天下午').closest('button') as HTMLButtonElement;
+    const head = within(screen.getByTestId('event-stream'))
+      .getByText('明天下午')
+      .closest('button') as HTMLButtonElement;
     fireEvent.click(head);
     expect(screen.getByText('时间缺')).toBeTruthy();
     fireEvent.click(head);

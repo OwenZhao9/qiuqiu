@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { MemoryEventEnvelope, StreamStatus, Thresholds } from '../api.js';
 import { visibleEvents, type EventFilter, type EventsStore } from '../store/events.js';
 import { EventCard } from './EventCard.js';
+import { MemoryFlow } from './MemoryFlow.js';
 import { ThresholdBadge, ThresholdPanel } from './ThresholdPanel.js';
 
 /** 贴底判定阈值：24 px，够容忍触控板惯性又不会把「刻意往上翻一点」误判成贴底。 */
@@ -202,6 +203,8 @@ export function MemorySidebar({
           {uncertainNote}
         </div>
       ) : null}
+
+      <MemoryFlow events={state.events} />
 
       <div className="qq-events" ref={listRef} data-testid="event-stream">
         {state.truncated ? <div className="qq-events__folded">更早的事件已折叠</div> : null}
