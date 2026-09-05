@@ -233,6 +233,7 @@ interface QiuqiuBridge {
   setPetState(state: "idle"|"listening"|"thinking"|"speaking", emotionId?: string): void;
   // 桌宠 → 主窗口：内联输入条提交
   submitFromPet(text: string): void;
+  callFromPet(): void;                          // 桌宠请求开 / 挂通话，会话跑在主窗口
   // 桌宠 → 主进程：窗口行为。透明窗口里这三件事渲染进程自己做不了
   setPetPassthrough(ignore: boolean): void;   // 鼠标穿透开关
   setPetExpanded(expanded: boolean): void;    // 展开输入条时改窗口尺寸，主进程保住球心
@@ -242,6 +243,7 @@ interface QiuqiuBridge {
   onDone(cb: (sessionId: string) => void): void;
   onPetState(cb: (state: string, emotionId?: string) => void): void;
   onSubmitFromPet(cb: (text: string) => void): void;   // 主窗口收桌宠发的话，AD-5 链路靠它闭合
+  onCallFromPet(cb: () => void): void;                 // 主窗口收桌宠按的通话和弦
   onPetFocus(cb: () => void): void;                    // 全局快捷键唤起后展开输入条
   onAmbientToggle(cb: (paused: boolean) => void): void; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
 }
@@ -542,7 +544,18 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.10**（音色选择）
+当前：**v0.1.11**（IPC 增通话转发）
+
+v0.1.11 一条：**§ 2 增 `callFromPet` 与 `onCallFromPet`**。
+
+界面上「同时按住 C 和 A」拨通话。桌宠窗口按了这个和弦，不自己跑语音会话——
+麦克风与音频播放只该有一份，两个窗口各开一个会互相抢。所以桌宠只发请求，
+主窗口接住并真正开会话（与 `submitFromPet` 同一个道理，AD-5）。
+
+和弦用 `KeyboardEvent.code` 判定，切输入法与大写锁定都不影响；焦点在输入框里
+时不触发——拼音打「擦」「猜」都会让这两个键短暂同时按下。
+
+v0.1.10（音色选择）
 
 v0.1.10 一条：**增 `GET /voices` 与 `GET/PUT /config/voice`**，让用户在界面上选音色。
 

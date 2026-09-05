@@ -27,6 +27,7 @@ export interface QiuqiuBridge {
   forwardDone(sessionId: string): void;
   setPetState(state: PetState, emotionId?: string): void;
   submitFromPet(text: string): void;
+  callFromPet(): void;
   onDelta(cb: (sessionId: string, text: string) => void): void;
   onPetState(cb: (state: string, emotionId?: string) => void): void;
 }
@@ -77,6 +78,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     submitFromPet(text) {
       ipc.send(TO_MAIN.submitFromPet, text);
     },
+    callFromPet() {
+      ipc.send(TO_MAIN.callFromPet);
+    },
     setPetPassthrough(ignore) {
       ipc.send(TO_MAIN.setPetPassthrough, ignore);
     },
@@ -100,6 +104,9 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     },
     onSubmitFromPet(cb) {
       ipc.on(TO_RENDERER.submitFromPet, (_e, text) => cb(String(text)));
+    },
+    onCallFromPet(cb) {
+      ipc.on(TO_RENDERER.callFromPet, () => cb());
     },
     onPetFocus(cb) {
       ipc.on(TO_RENDERER.petFocus, () => cb());

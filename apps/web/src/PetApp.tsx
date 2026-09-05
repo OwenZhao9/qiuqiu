@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getBridge } from './bridge.js';
 import { Composer } from './components/Composer.js';
+import { useChord } from './useChord.js';
 import { QiuqiuBall } from './components/QiuqiuBall.js';
 import type { CharacterState, QiuqiuInstance } from '@qiuqiu/character';
 
@@ -19,6 +20,9 @@ export const DRAG_SLOP_PX = 4;
 export const BUBBLE_LINGER_MS = 6000;
 
 export function PetApp(): React.JSX.Element {
+  // 桌宠上也能按 C+A 拨通话，但会话跑在主窗口（AD-5：桌宠不自己发请求）
+  useChord(['KeyC', 'KeyA'], () => bridge.callFromPet());
+
   const bridge = getBridge();
   const qiuqiuRef = useRef<QiuqiuInstance | null>(null);
   const [expanded, setExpanded] = useState(false);

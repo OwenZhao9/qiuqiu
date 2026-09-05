@@ -18,6 +18,7 @@ export const TO_MAIN = {
   forwardDone: 'qq:forward-done',
   setPetState: 'qq:set-pet-state',
   submitFromPet: 'qq:submit-from-pet',
+  callFromPet: 'qq:call-from-pet',
   // 契约 § 2 之外、界面必须有的四件事，见 apps/web/src/bridge.ts 的注释
   setPetPassthrough: 'qq:set-pet-passthrough',
   setPetExpanded: 'qq:set-pet-expanded',
@@ -30,6 +31,7 @@ export const TO_RENDERER = {
   done: 'qq:on-done',
   petState: 'qq:on-pet-state',
   submitFromPet: 'qq:on-submit-from-pet',
+  callFromPet: 'qq:on-call-from-pet',
   petFocus: 'qq:on-pet-focus',
   ambientToggle: 'qq:on-ambient-toggle'
 } as const;

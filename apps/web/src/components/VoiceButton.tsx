@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { startVoice, type VoiceSession } from '../voice.js';
+import { useChord } from '../useChord.js';
+import { getBridge } from '../bridge.js';
 
 export interface VoiceButtonProps {
   /** 定稿的一句话，交给上层塞进对话记录。 */
@@ -38,6 +40,9 @@ function PhoneIcon({ hangUp }: { hangUp: boolean }): React.JSX.Element {
     </svg>
   );
 }
+
+/** 拨号和弦：同时按住 C 与 A。 */
+const CALL_CHORD = ['KeyC', 'KeyA'] as const;
 
 export function VoiceButton({
   onFinal,
@@ -94,6 +99,20 @@ export function VoiceButton({
     }
   }, [onFinal, onLevel, onActiveChange]);
 
+  const toggle = useCallback(() => {
+    if (active) stop();
+    else void start();
+  }, [active, start, stop]);
+
+  // 同时按住 C 和 A 拨出 / 挂断。用 code 不用 key，切输入法与大写锁定都不影响；
+  // 焦点在输入框里时不触发——拼音打「擦」「猜」都会让这两个键短暂同按
+  useChord(CALL_CHORD, toggle, { disabled: startingRef.current });
+
+  // 桌宠上按的和弦经主进程转到这里。会话只跑在主窗口，两个窗口各开一个会抢麦克风
+  useEffect(() => {
+    getBridge().onCallFromPet(toggle);
+  }, [toggle]);
+
   return (
     <>
       <button
@@ -101,7 +120,7 @@ export function VoiceButton({
         className={'qq-call qq-focusable' + (active ? ' qq-call--on' : '')}
         aria-pressed={active}
         aria-label={active ? '挂断' : '打给丘丘'}
-        title={active ? '挂断' : '打给丘丘，说话就行，随时可以打断'}
+        title={active ? '挂断（C+A）' : '打给丘丘，同时按住 C 和 A 也行。说话就行，随时可以打断'}
         onClick={() => (active ? stop() : void start())}
       >
         <PhoneIcon hangUp={active} />

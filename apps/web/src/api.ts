@@ -1,7 +1,7 @@
 /**
  * 后端契约的唯一出入口。
  *
- * `docs/CONTRACTS.md` § 1（HTTP 与 SSE），契约版本 **v0.1.10**。
+ * `docs/CONTRACTS.md` § 1（HTTP 与 SSE），契约版本 **v0.1.11**。
  *
  * 组件只调本文件导出的函数与类型，**组件里不许出现 `fetch`、`EventSource`、路径字符串**。
  * 契约升版本时改动只落在这一个文件里。

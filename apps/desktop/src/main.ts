@@ -289,6 +289,13 @@ function wireIpc(): void {
     showMain();
     mainWindow?.webContents.send(TO_RENDERER.submitFromPet, text);
   });
+
+  // 桌宠按了通话和弦。语音会话跑在主窗口——麦克风与音频播放只该有一份，
+  // 两个窗口各开一个会互相抢
+  ipcMain.on(TO_MAIN.callFromPet, () => {
+    showMain();
+    mainWindow?.webContents.send(TO_RENDERER.callFromPet);
+  });
 }
 
 /* ------------------------------------------------------------------ *

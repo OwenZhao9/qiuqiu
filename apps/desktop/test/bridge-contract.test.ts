@@ -37,12 +37,13 @@ const CONTRACT_MEMBERS = [
   'forwardDone',
   'setPetState',
   'submitFromPet',
+  'callFromPet',
   'onDelta',
   'onPetState'
 ] as const;
 
 describe('createQiuqiuBridge · 契约 § 2', () => {
-  it('十三个成员一个不少，全是函数', () => {
+  it('契约 § 2 列的成员一个不少，全是函数', () => {
     const b = createQiuqiuBridge(fakeIpc().ipc) as unknown as Record<string, unknown>;
     for (const key of CONTRACT_MEMBERS) {
       expect(typeof b[key], key).toBe('function');
@@ -93,6 +94,21 @@ describe('createQiuqiuBridge · 契约 § 2', () => {
     const f = fakeIpc();
     createQiuqiuBridge(f.ipc).submitFromPet('从桌宠发的');
     expect(f.sent).toEqual([[TO_MAIN.submitFromPet, '从桌宠发的']]);
+  });
+
+  it('callFromPet 只发信号，会话跑在主窗口', () => {
+    // 麦克风与音频播放只该有一份，两个窗口各开一个会互相抢（AD-5 同理）
+    const f = fakeIpc();
+    createQiuqiuBridge(f.ipc).callFromPet();
+    expect(f.sent).toEqual([[TO_MAIN.callFromPet]]);
+  });
+
+  it('onCallFromPet 收主进程转来的通话请求', () => {
+    const f = fakeIpc();
+    const cb = vi.fn();
+    createQiuqiuBridge(f.ipc).onCallFromPet(cb);
+    f.emit(TO_RENDERER.callFromPet);
+    expect(cb).toHaveBeenCalledTimes(1);
   });
 
   it('onDelta 收主进程转发来的 (sessionId, text)', () => {

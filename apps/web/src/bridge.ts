@@ -25,6 +25,8 @@ export interface QiuqiuBridge {
   setPetState(state: CharacterState, emotionId?: string): void;
   /** 桌宠 → 主窗口：内联输入条提交。 */
   submitFromPet(text: string): void;
+  /** 桌宠请求开 / 挂通话。桌宠不自己跑语音会话，交主窗口（AD-5）。 */
+  callFromPet(): void;
   onDelta(cb: (sessionId: string, text: string) => void): void;
   onPetState(cb: (state: string, emotionId?: string) => void): void;
 }
@@ -39,6 +41,8 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   onDone(cb: (sessionId: string) => void): void;
   /** `submitFromPet` 的订阅端。主窗口靠它接住桌宠发出的那句话。 */
   onSubmitFromPet(cb: (text: string) => void): void;
+  /** `callFromPet` 的订阅端。主窗口靠它接住桌宠按的通话和弦。 */
+  onCallFromPet(cb: () => void): void;
   /** 指针落在丘丘实心轮廓或输入条上时关掉穿透（`design/interaction.md` § 1）。 */
   setPetPassthrough(ignore: boolean): void;
   /** 输入条展开 / 收起，主进程改窗口 bounds 且保持球心不动。 */
@@ -107,6 +111,9 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     submitFromPet(text) {
       bus.emit('submit-from-pet', text);
     },
+    callFromPet() {
+      bus.emit('call-from-pet');
+    },
     onDelta(cb) {
       bus.on('delta', cb as Listener);
     },
@@ -118,6 +125,9 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     },
     onSubmitFromPet(cb) {
       bus.on('submit-from-pet', cb as Listener);
+    },
+    onCallFromPet(cb) {
+      bus.on('call-from-pet', cb as Listener);
     },
     onPetFocus(cb) {
       bus.on('pet-focus', cb as Listener);
