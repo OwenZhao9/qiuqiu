@@ -10,6 +10,8 @@
 
 Electron `BrowserWindow`：`transparent: true, frame: false, alwaysOnTop: true, skipTaskbar: true, resizable: false, hasShadow: false`。页面背景全透明，只有丘丘的舞台容器与（展开后的）输入条两个可见元素。
 
+**桌宠里丘丘不带落地投影**（`.qq-pet .qq-stage { filter: none }`）。投影画在丘丘轮廓外面，模糊半径 14 要占四周 20 多像素；而这个窗口跟丘丘一样大、又是 `overflow: hidden` 的透明窗口，投影会被四条边齐刷刷切平，剩下四条直边——看着就是丘丘外面套了个方形浅阴影框。网页端与主窗口里丘丘四周有地方，投影完整，照常带。
+
 ### 窗口几何
 
 | 状态 | 窗口尺寸 | 内容布局 |
