@@ -128,7 +128,7 @@ class TestLlmPath:
             },
             ensure_ascii=False,
         )
-        rt = make_runtime(clock, FakeChat([("记忆压缩器", reply)]))
+        rt = make_runtime(clock, FakeChat([("记忆压缩", reply)]))
         try:
             result = run_compress(rt, SENTENCE)
             assert result.used_llm is True
@@ -139,7 +139,7 @@ class TestLlmPath:
 
     def test_fenced_json_parsed(self, clock: dict[str, dt.datetime]) -> None:
         reply = '好的：\n```json\n{"facts": [{"text": "用户叫赵宁"}]}\n```\n'
-        rt = make_runtime(clock, FakeChat([("记忆压缩器", reply)]))
+        rt = make_runtime(clock, FakeChat([("记忆压缩", reply)]))
         try:
             assert run_compress(rt, SENTENCE).used_llm is True
         finally:
@@ -147,7 +147,7 @@ class TestLlmPath:
 
     def test_malformed_items_skipped_not_fatal(self, clock: dict[str, dt.datetime]) -> None:
         reply = json.dumps({"facts": [{"text": ""}, "字符串", {"text": "用户叫赵宁"}]})
-        rt = make_runtime(clock, FakeChat([("记忆压缩器", reply)]))
+        rt = make_runtime(clock, FakeChat([("记忆压缩", reply)]))
         try:
             result = run_compress(rt, SENTENCE)
             assert [f.text for f in result.facts] == ["用户叫赵宁"]
@@ -155,7 +155,7 @@ class TestLlmPath:
             rt.close()
 
     def test_wrong_shape_falls_back(self, clock: dict[str, dt.datetime]) -> None:
-        rt = make_runtime(clock, FakeChat([("记忆压缩器", '{"nothing": 1}')]))
+        rt = make_runtime(clock, FakeChat([("记忆压缩", '{"nothing": 1}')]))
         try:
             assert run_compress(rt, SENTENCE).used_llm is False
         finally:
@@ -230,7 +230,7 @@ class TestBlobPointer:
             {"facts": [{"text": "用户叫赵宁", "entities": ["赵宁"]}], "dropped_spans": []},
             ensure_ascii=False,
         )
-        runtime = make_runtime(clock, FakeChat([("记忆压缩器", reply)]))
+        runtime = make_runtime(clock, FakeChat([("记忆压缩", reply)]))
         try:
             result = run_compress(runtime, "我叫赵宁", blob_id="image/deadbeef")
             assert result.used_llm is True
@@ -241,3 +241,47 @@ class TestBlobPointer:
     def test_no_blob_id_stays_none(self, runtime: MemoryRuntime) -> None:
         result = run_compress(runtime, "我叫赵宁")
         assert all(f.blob_id is None for f in result.facts)
+
+
+class TestWorthRemembering:
+    """压缩的判据是「以后再见到用户时还用得上吗」，不是「这句话里有几个陈述」。
+
+    改坏过一次：提示词只说「一句话里有几件事就拆几条」，模型就把丘丘自己讲的
+    一段心理学科普拆成七条存进去，其中三条是通识、两条是它自己问的问句。
+    """
+
+    def test_prompt_forbids_timestamps_in_fact_text(self) -> None:
+        """事实正文里出现 `2026-09-05T09:27:22.192Z` 这种，是给机器看不是给人看。"""
+        from qiuqiu_memory.pipeline import compress as c
+
+        assert "不要在正文里写时间戳" in c._USER_TEMPLATE
+
+    def test_prompt_names_the_single_criterion(self) -> None:
+        from qiuqiu_memory.pipeline import compress as c
+
+        assert "以后再见到用户时还用得上" in c._SYSTEM
+
+    def test_prompt_lists_what_not_to_remember(self) -> None:
+        """常识、问句、寒暄、复述当下这轮——四类最容易被误记的都要点名。"""
+        from qiuqiu_memory.pipeline import compress as c
+
+        for kind in ("世界常识", "问句", "寒暄", "复述"):
+            assert kind in c._USER_TEMPLATE, kind
+
+    def test_prompt_says_empty_is_normal(self) -> None:
+        """不说这句，模型会为了「有输出」硬凑事实。"""
+        from qiuqiu_memory.pipeline import compress as c
+
+        assert "这是常态，不是失败" in c._USER_TEMPLATE
+
+    def test_prompt_forbids_calling_the_user_a_listener(self) -> None:
+        """「听话人」「对话对象」是模型自己发明的称呼，用户读到会觉得很怪。"""
+        from qiuqiu_memory.pipeline import compress as c
+
+        assert "听话人" in c._USER_TEMPLATE and "对话对象" in c._USER_TEMPLATE
+
+    def test_marker_is_stable_so_tests_do_not_pin_wording(self) -> None:
+        """测试认这个标记，不认措辞——提示词该能随便改。"""
+        from qiuqiu_memory.pipeline import compress as c
+
+        assert c.COMPRESS_MARKER in c._USER_TEMPLATE

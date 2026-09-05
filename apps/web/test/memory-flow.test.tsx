@@ -89,6 +89,33 @@ describe('derivePipeline', () => {
     expect(p.invalidated[0].text).toBe('赵宁住在北京');
   });
 
+  it('一轮里两次写入不互相覆盖', () => {
+    // AD-6：用户那句和 AI 那句都进记忆，同一条 trace 下会有两条 write。
+    // 后一条覆盖前一条的话，图上显示「拆出 0 条」而卡片里明明有事实——踩过。
+    const p = derivePipeline([
+      ev('write', WRITE),
+      ev('write', {
+        raw: '你好呀',
+        speaker: 'assistant',
+        facts: [{ id: 'r1', text: '丘丘向赵宁做了自我介绍', entities: [], valid_from: '' }],
+        dropped_spans: []
+      })
+    ]);
+    expect(p.facts).toHaveLength(2);
+    expect(p.replyFacts).toHaveLength(1);
+    expect(p.stages.compress.detail).toBe('拆出 3 条');
+    // 用户那句的原话不能被 AI 那句顶掉
+    expect(p.input).toBe(WRITE.raw);
+  });
+
+  it('AI 那句拆出零条时，用户那句的计数还在', () => {
+    const p = derivePipeline([
+      ev('write', WRITE),
+      ev('write', { raw: '好的', speaker: 'assistant', facts: [], dropped_spans: ['好的'] })
+    ]);
+    expect(p.stages.store.detail).toBe('写入 2 条');
+  });
+
   it('召回走另一条线，记下走了哪几路、跳过哪几路', () => {
     const p = derivePipeline([
       ev('recall', {

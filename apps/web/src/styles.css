@@ -1312,3 +1312,31 @@ select {
   font-size: var(--qq-text-xs);
   font-style: normal;
 }
+
+/* 卡片流的开关。流程图讲的是「这一轮」，卡片流是查历史用的，默认收起。 */
+.qq-events-toggle {
+  flex: none;
+  width: 100%;
+  padding: var(--qq-space-2) var(--qq-space-3);
+  border: none;
+  border-bottom: 1px solid var(--qq-color-border);
+  background: transparent;
+  color: var(--qq-color-text-muted);
+  font-size: var(--qq-text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.qq-events-toggle:hover {
+  color: var(--qq-color-text);
+  background: var(--qq-color-surface);
+}
+
+/* AI 自己说的话也进记忆（AD-6），但视觉上要和用户说的分开 */
+.qq-flow__fact--reply {
+  background: var(--qq-color-surface);
+  border-left-color: var(--qq-color-text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--qq-space-2);
+}

@@ -44,8 +44,10 @@ export interface PipelineState {
   stages: Record<StageId, Stage>;
   /** 进管线的原话，来自 `write.raw` 或 `filter.input_preview`。 */
   input: string;
-  /** 压缩拆出来的事实。 */
+  /** 压缩拆出来的事实。**用户说的那句**。 */
   facts: { id: string; text: string }[];
+  /** AI 说的那句拆出来的事实。AD-6 要求它也进记忆，所以一轮里有两次写入。 */
+  replyFacts: { id: string; text: string }[];
   /** 被压缩丢掉的片段，图上从管线掉出去。 */
   dropped: string[];
   /** 合成吸收掉的旧事实。 */
@@ -80,6 +82,7 @@ function blank(): PipelineState {
     },
     input: '',
     facts: [],
+    replyFacts: [],
     dropped: [],
     absorbed: [],
     invalidated: [],
@@ -136,15 +139,23 @@ export function derivePipeline(events: readonly MemoryEventEnvelope[]): Pipeline
     if (ev.type === 'write') {
       const p = ev.payload;
       s.lane = 'ingest';
-      s.input = p.raw || s.input;
-      s.facts = (p.facts ?? []).map((f) => ({ id: f.id, text: f.text }));
-      s.dropped = (p.dropped_spans ?? []).filter(Boolean);
+      const facts = (p.facts ?? []).map((f) => ({ id: f.id, text: f.text }));
+      // **一轮里有两次写入**：用户那句和 AI 那句（AD-6）。分开存，
+      // 后一条覆盖前一条的话，图上会显示成「拆出 0 条」而卡片里明明有事实
+      if (p.speaker === 'assistant') {
+        s.replyFacts = facts;
+      } else {
+        s.facts = facts;
+        s.input = p.raw || s.input;
+      }
+      s.dropped = [...s.dropped, ...(p.dropped_spans ?? []).filter(Boolean)];
       // 主动输入跳过筛选（AD-3），图上标成跳过而不是没走到
       if (s.stages.filter.status === 'idle') {
         s.stages.filter = { id: 'filter', status: 'skip', detail: '主动输入不筛' };
       }
-      s.stages.compress = { id: 'compress', status: 'done', detail: `拆出 ${s.facts.length} 条` };
-      s.stages.store = { id: 'store', status: 'done', detail: `写入 ${s.facts.length} 条` };
+      const total = s.facts.length + s.replyFacts.length;
+      s.stages.compress = { id: 'compress', status: 'done', detail: `拆出 ${total} 条` };
+      s.stages.store = { id: 'store', status: 'done', detail: `写入 ${total} 条` };
     }
 
     if (ev.type === 'merge') {

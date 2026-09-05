@@ -59,6 +59,8 @@ export function MemorySidebar({
 }: MemorySidebarProps): React.JSX.Element {
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
   const [showThresholds, setShowThresholds] = useState(false);
+  /** 卡片流默认收起。流程图已经把这一轮讲清楚了，同一条事实显示两遍只会让人不知道看哪。 */
+  const [showLog, setShowLog] = useState(false);
   const [preview, setPreview] = useState<Thresholds | null>(null);
   const [uncertainNote, setUncertainNote] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -206,7 +208,16 @@ export function MemorySidebar({
 
       <MemoryFlow events={state.events} />
 
-      <div className="qq-events" ref={listRef} data-testid="event-stream">
+      <button
+        type="button"
+        className="qq-events-toggle qq-focusable"
+        aria-expanded={showLog}
+        onClick={() => setShowLog((v) => !v)}
+      >
+        {showLog ? '收起全部事件' : `全部事件（${state.events.length}）`}
+      </button>
+
+      <div className="qq-events" ref={listRef} data-testid="event-stream" hidden={!showLog}>
         {state.truncated ? <div className="qq-events__folded">更早的事件已折叠</div> : null}
 
         {shown.length === 0 ? (

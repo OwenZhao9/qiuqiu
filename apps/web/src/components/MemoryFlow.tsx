@@ -163,10 +163,21 @@ export function MemoryFlow({ events }: MemoryFlowProps): React.JSX.Element {
       ) : null}
 
       {p.facts.length > 0 ? (
-        <ul className="qq-flow__facts">
+        <ul className="qq-flow__facts" aria-label="从你说的话里记下的">
           {p.facts.map((f) => (
             <li key={f.id} className="qq-flow__fact">
               {f.text}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {p.replyFacts.length > 0 ? (
+        <ul className="qq-flow__facts" aria-label="从丘丘的回复里记下的">
+          {p.replyFacts.map((f) => (
+            <li key={f.id} className="qq-flow__fact qq-flow__fact--reply">
+              {f.text}
+              <span className="qq-flow__path-tag">丘丘说的</span>
             </li>
           ))}
         </ul>
