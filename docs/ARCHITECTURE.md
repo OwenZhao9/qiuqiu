@@ -275,7 +275,7 @@ graph LR
 
 - 约束范围：backend、memory
 - 防止的分歧：输入层与中间件对「什么算噪音」各自判断
-- 规则：`Source.DIALOGUE` 与 `JOURNAL` 不经筛选直接压缩；`AMBIENT_AUDIO` 与 `AMBIENT_IMAGE` 先经筛选，每次判断发 `filter` 事件。分流只发生在 `MemoryFacade.ingest()` 内部，后端不做预筛
+- 规则：`Source.DIALOGUE` 与 `JOURNAL` 不经筛选直接压缩；`AMBIENT_AUDIO` 与 `AMBIENT_IMAGE` 先经筛选，每次判断发 `filter` 事件。分流只发生在 `MemoryFacade.ingest()` 内部，后端不做预筛。筛选判定只有 `accept` 继续往下走，`uncertain` 与 `reject` 都到此为止、只发事件不落库（CONTRACTS § 3）
 - 状态：已采纳
 
 ### AD-4 — 性格沉淀读 SQLite 原始会话，不读记忆库
