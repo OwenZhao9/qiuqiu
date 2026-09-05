@@ -52,6 +52,10 @@ def test_session_errors_with_hint_when_realtime_missing(
 
     monkeypatch.setenv("VOICE_MODE", "realtime")
     monkeypatch.delenv("MODELS_MOCK", raising=False)
+    # 凭证也要清干净：开发机上 .env 里有真凭证，只关 mock 的话实时语音是能用的，
+    # 这条用例就测不到「没配」那条路了（本地过、CI 挂，或者反过来）。
+    monkeypatch.delenv("VOLC_SPEECH_APPID", raising=False)
+    monkeypatch.delenv("VOLC_SPEECH_TOKEN", raising=False)
     registry.reset()
 
     response = client.post("/voice/session", json={"session_id": "s1"})
@@ -94,20 +98,55 @@ def test_cascade_finalises_on_silence(client: TestClient) -> None:
         assert ws.receive_json()["type"] == "turn_end"
 
 
-def test_realtime_stream_says_it_is_not_implemented(
+def test_realtime_stream_carries_audio_transcripts_and_turn_end(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """端到端推迟到 M5：明说 + hint，不偷偷降级成级联。"""
+    """端到端一轮：两路转写 + 音频 + turn_end，音频帧必带 sample_rate（契约 v0.1.9）。"""
     from qiuqiu_models import registry
 
     monkeypatch.setenv("VOICE_MODE", "realtime")
     registry.reset()
     voice_session_id = open_session(client)["voice_session_id"]
 
+    frames = []
+    with client.websocket_connect(f"/voice/stream?voice_session_id={voice_session_id}") as ws:
+        ws.send_bytes(speech())
+        for _ in range(4):
+            frame = ws.receive_json()
+            frames.append(frame)
+            if frame["type"] == "turn_end":
+                break
+
+    kinds = [f["type"] for f in frames]
+    assert "turn_end" in kinds
+    assert {"final", "audio"} & set(kinds), f"至少要有转写或音频，实得 {kinds}"
+    for frame in frames:
+        if frame["type"] == "audio":
+            assert frame["sample_rate"], "音频帧必须带采样率，否则前端播不对"
+            assert frame["pcm_b64"]
+        if frame["type"] == "final":
+            assert frame["role"] in {"user", "assistant"}
+
+
+def test_realtime_stream_errors_with_hint_when_unconfigured(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AD-16：没配就报带 hint 的错，不偷偷降级成级联。"""
+    from qiuqiu_models import registry
+
+    monkeypatch.setenv("VOICE_MODE", "realtime")
+    registry.reset()
+    voice_session_id = open_session(client)["voice_session_id"]
+
+    monkeypatch.delenv("MODELS_MOCK", raising=False)
+    monkeypatch.delenv("VOLC_SPEECH_APPID", raising=False)
+    monkeypatch.delenv("VOLC_SPEECH_TOKEN", raising=False)
+    registry.reset()
+
     with client.websocket_connect(f"/voice/stream?voice_session_id={voice_session_id}") as ws:
         frame = ws.receive_json()
     assert frame["type"] == "error"
-    assert frame["code"] == "voice.realtime_not_implemented"
+    assert frame["hint"]
     assert "cascade" in frame["hint"]
 
 

@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..config import voice_mode
 from ..deps import StateDep, state_from_ws
 from ..errors import CapabilityUnavailable, error_payload
-from ..state import AppState
+from ..state import AppState, new_trace_id
 
 router = APIRouter(tags=["voice"])
 log = structlog.get_logger("qiuqiu_api.voice")
@@ -74,13 +74,13 @@ async def voice_stream(websocket: WebSocket, voice_session_id: str | None = None
         return
 
     if session.mode == "realtime":
-        await _send_error(
-            websocket,
-            "voice.realtime_not_implemented",
-            "端到端实时语音这一轮还没接（豆包计划在 M5 接入）。",
-            "把 .env 的 VOICE_MODE 改回 cascade 走级联链路，或者先用文字聊。",
-        )
-        await websocket.close()
+        try:
+            realtime = state.capability("realtime")
+        except CapabilityUnavailable as exc:
+            await _send_error(websocket, exc.code, exc.message, exc.hint)
+            await websocket.close()
+            return
+        await _realtime(websocket, state, realtime, session)
         return
 
     try:
@@ -92,6 +92,114 @@ async def voice_stream(websocket: WebSocket, voice_session_id: str | None = None
         return
 
     await _cascade(websocket, state, vad, asr)
+
+
+async def _realtime(websocket: WebSocket, state: AppState, realtime: Any, session: Any) -> None:
+    """端到端：上行 pcm16 单声道 16k 直送模型，下行照原样转成 JSON 帧给前端。
+
+    两件事跟级联不同：
+
+    * **能打断**。模型听到用户首字会发 `interrupt`，前端收到就停播已缓冲的音频。
+    * **下行 24k**，级联 TTS 是 16k，所以 `audio` 帧必带 `sample_rate`（契约 v0.1.9）。
+
+    记忆照常写：`final` 的转写按 role 各调一次 `ingest()`（AD-6），中间件不知道这一路
+    和级联有什么区别（AD-13）。
+    """
+    import asyncio
+    import base64
+
+    from qiuqiu_memory import Source
+    from qiuqiu_memory.types import utcnow
+
+    trace_id = new_trace_id()
+    prompt = await state.off_loop(state.persona.current)
+
+    try:
+        await realtime.open(system_prompt=prompt, voice=None)
+    except Exception as exc:  # noqa: BLE001 - 统一成带 hint 的 error 帧
+        await _send_error(
+            websocket,
+            getattr(exc, "code", "voice.realtime_open_failed"),
+            str(exc),
+            getattr(exc, "hint", "检查豆包语音凭证与端到端实时语音的额度。"),
+        )
+        await websocket.close()
+        return
+
+    async def uplink() -> None:
+        """前端 → 模型。"""
+        while True:
+            message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                return
+            chunk = message.get("bytes")
+            if chunk is not None:
+                await realtime.send(chunk)
+            elif message.get("text"):
+                # 文本兜底：前端没麦克风权限时也能发起一轮
+                import json as _json
+
+                try:
+                    payload = _json.loads(message["text"])
+                except _json.JSONDecodeError:
+                    continue
+                if payload.get("type") == "text" and payload.get("content"):
+                    await realtime.say(payload["content"])
+
+    async def downlink() -> None:
+        """模型 → 前端，顺带写记忆。"""
+        async for event in realtime.events():
+            if event.type == "audio":
+                await websocket.send_json(
+                    {
+                        "type": "audio",
+                        "pcm_b64": base64.b64encode(event.pcm or b"").decode(),
+                        "sample_rate": event.sample_rate,
+                        "rms": event.rms,
+                    }
+                )
+            elif event.type == "transcript":
+                await websocket.send_json(
+                    {
+                        "type": "final" if event.final else "partial",
+                        "role": event.role,
+                        "text": event.text,
+                    }
+                )
+                if event.final and event.text:
+                    # AD-6：用户那句和 AI 那句都要写进记忆
+                    await state.off_loop(
+                        state.facade.ingest,
+                        event.text,
+                        source=Source.DIALOGUE,
+                        speaker=event.role,
+                        ts=utcnow(),
+                        trace_id=trace_id,
+                    )
+            elif event.type == "interrupt":
+                await websocket.send_json({"type": "interrupt"})
+            elif event.type == "turn_end":
+                await websocket.send_json({"type": "turn_end"})
+
+    up = asyncio.create_task(uplink())
+    down = asyncio.create_task(downlink())
+    try:
+        done, pending = await asyncio.wait({up, down}, return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        for task in done:
+            if task.exception() is not None:
+                raise task.exception()  # type: ignore[misc]
+    except Exception as exc:  # noqa: BLE001
+        await _send_error(
+            websocket,
+            getattr(exc, "code", "voice.realtime_failed"),
+            str(exc),
+            getattr(exc, "hint", "重连一次；持续失败就把 VOICE_MODE 改回 cascade。"),
+        )
+    finally:
+        await realtime.close()
+        await websocket.close()
 
 
 async def _cascade(websocket: WebSocket, state: AppState, vad: Any, asr: Any) -> None:

@@ -107,8 +107,13 @@ def test_contract_signatures_match_contracts_md() -> None:
 
 
 def test_realtime_event_dict_shapes_match_contract() -> None:
-    audio = base.RealtimeEvent(type="audio", pcm=b"\x00\x01", rms=0.5)
-    assert audio.to_dict() == {"type": "audio", "pcm": b"\x00\x01", "rms": 0.5}
+    audio = base.RealtimeEvent(type="audio", pcm=b"\x00\x01", rms=0.5, sample_rate=24000)
+    assert audio.to_dict() == {
+        "type": "audio",
+        "pcm": b"\x00\x01",
+        "rms": 0.5,
+        "sample_rate": 24000,
+    }
 
     tr = base.RealtimeEvent(type="transcript", role="user", text="你好", final=True)
     assert tr.to_dict() == {
@@ -119,6 +124,20 @@ def test_realtime_event_dict_shapes_match_contract() -> None:
     }
 
     assert base.RealtimeEvent(type="turn_end").to_dict() == {"type": "turn_end"}
+    assert base.RealtimeEvent(type="interrupt").to_dict() == {"type": "interrupt"}
+
+
+def test_audio_events_must_carry_a_sample_rate() -> None:
+    """契约 v0.1.9：端到端下行 24k、级联 TTS 16k，前端拿错采样率播会又慢又闷。"""
+    assert "sample_rate" in base.RealtimeEvent(type="audio", pcm=b"", rms=0.0).to_dict()
+
+
+def test_interrupt_is_a_declared_event_type() -> None:
+    """能打断是端到端语音相对级联的主要优势，没有这个信号前端不知道何时停播。"""
+    import typing
+
+    hints = typing.get_type_hints(base.RealtimeEvent)
+    assert "interrupt" in typing.get_args(hints["type"])
 
 
 def test_model_error_envelope_matches_contract() -> None:

@@ -54,8 +54,9 @@ _DEFERRED: dict[str, tuple[str, str, str]] = {
     ),
     "realtime": (
         "doubao",
-        "端到端实时语音还没接上（豆包计划在 M5 接入）。",
-        "把 VOICE_MODE 改回 cascade 走级联链路；要离线开发就设 MODELS_MOCK=1。",
+        "端到端实时语音没配好。",
+        "与语音合成同一套凭证：填 VOLC_SPEECH_APPID 与 VOLC_SPEECH_TOKEN，"
+        "并把 VOICE_MODE 设为 realtime。不想用就把 VOICE_MODE 改回 cascade。",
     ),
 }
 
@@ -124,6 +125,12 @@ def _build(capability: str) -> Any:
 
     if capability == "tts":
         return _build_tts()
+
+    if capability == "realtime":
+        # 走到这里说明 VOICE_MODE=realtime（级联模式在 get() 里就返回 None 了）
+        from .providers import doubao_realtime
+
+        return doubao_realtime.from_env()
 
     provider, what, todo = _DEFERRED[capability]
     raise ProviderNotConfiguredError(
@@ -208,13 +215,17 @@ def list_providers() -> list[dict[str, Any]]:
     for capability in ("asr", "vad", "tts", "realtime"):
         provider, _what, todo = _DEFERRED[capability]
         if capability == "realtime":
-            available = mock and mode == "realtime"
+            # 与语音合成同一套凭证。先算 has_key，再据它判 available。
+            has_key = bool(
+                os.environ.get("VOLC_SPEECH_APPID", "").strip()
+                and os.environ.get("VOLC_SPEECH_TOKEN", "").strip()
+            )
+            available = mode == "realtime" and (mock or has_key)
             hint = (
                 None
                 if available
                 else (todo if mode == "realtime" else "级联模式下不使用端到端语音。")
             )
-            has_key = bool(os.environ.get("VOLC_ARK_API_KEY", "").strip())
         elif capability == "tts":
             # 两家都是官方接口，key 齐了就真的能用，不只是 mock 下可用。
             name = tts_provider()

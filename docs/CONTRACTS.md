@@ -358,9 +358,14 @@ class RealtimeVoice(Protocol):
     def events(self) -> AsyncIterator[RealtimeEvent]: ...
     async def close(self) -> None: ...
 
-# RealtimeEvent 三类：
-#   { "type": "audio", "pcm": bytes, "rms": float }              模型输出音频，rms 驱动口型
+# RealtimeEvent 四类：
+#   { "type": "audio", "pcm": bytes, "rms": float, "sample_rate": int }
+#        模型输出音频，rms 驱动发声脉动。**sample_rate 必带**：端到端下行 24k，
+#        级联 TTS 是 16k，前端按错的采样率播会又慢又闷
 #   { "type": "transcript", "role": "user"|"assistant", "text": str, "final": bool }
+#   { "type": "interrupt" }
+#        用户开口了，前端立刻停播已缓冲的音频。端到端语音能打断是它相对级联的主要
+#        优势，没有这个信号就用不上。级联链路不发这类事件
 #   { "type": "turn_end" }
 ```
 
@@ -532,7 +537,14 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.8**（收编 `backend` 十三条与 `frontend` 十四条，去重合并为二十条，见下）
+当前：**v0.1.9**（`RealtimeEvent` 增 `interrupt` 类型与 `sample_rate` 字段）
+
+v0.1.9 两条，都来自接豆包端到端实时语音时发现的缺口：
+
+1. **`RealtimeEvent` 增 `interrupt` 类型**。真实协议里服务端用 `ASRInfo` 通知「听到用户首字」，客户端据此停播。契约原先只有客户端 → 服务端的 `interrupt()` 方法，没有反方向的信号。而**能打断正是端到端语音相对级联链路的主要优势**，缺了它这条链路就只剩延迟低一点
+2. **`audio` 事件增 `sample_rate`**。端到端下行固定 24k，级联 TTS 是 16k。`AudioChunk` 本来就带这个字段，`RealtimeEvent` 漏了——前端拿 16k 去播 24k 的音频，声音会又慢又闷
+
+v0.1.8（收编 `backend` 十三条与 `frontend` 十四条，去重合并为二十条）
 
 v0.1.8 逐条裁决。**两条否掉了分支的权宜做法**，其余采纳：
 

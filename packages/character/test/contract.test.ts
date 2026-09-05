@@ -52,7 +52,7 @@ const CONTRACTS = readFileSync(fromRepo('docs', 'CONTRACTS.md'), 'utf8');
  * v0.1.7（收编 memory 报的十一条缺口）改的是 § 1 / § 3 / § 5，
  * § 6 六个小节与 v0.1.6 逐字一致，本文件的断言无需改动。
  */
-const CONTRACT_VERSION = 'v0.1.8';
+const CONTRACT_VERSION = 'v0.1.9';
 
 /* ------------------------------------------------------------------ *
  * 解析

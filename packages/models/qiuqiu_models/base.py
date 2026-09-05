@@ -105,21 +105,27 @@ class AudioChunk:
 
 @dataclass(slots=True)
 class RealtimeEvent:
-    """端到端语音的输出事件，三类：``audio`` / ``transcript`` / ``turn_end``。
+    """端到端语音的输出事件，四类：``audio`` / ``transcript`` / ``interrupt`` / ``turn_end``。
 
     ``to_dict()`` 产出的字典与 CONTRACTS § 4 注释里的三种形状逐字一致（``None`` 字段不出现）。
     """
 
-    type: Literal["audio", "transcript", "turn_end"]
+    type: Literal["audio", "transcript", "interrupt", "turn_end"]
     pcm: bytes | None = None
     rms: float | None = None
+    sample_rate: int | None = None
     role: Literal["user", "assistant"] | None = None
     text: str | None = None
     final: bool | None = None
 
     def to_dict(self) -> dict[str, Any]:
         if self.type == "audio":
-            return {"type": "audio", "pcm": self.pcm, "rms": self.rms}
+            return {
+                "type": "audio",
+                "pcm": self.pcm,
+                "rms": self.rms,
+                "sample_rate": self.sample_rate,
+            }
         if self.type == "transcript":
             return {
                 "type": "transcript",
@@ -127,7 +133,7 @@ class RealtimeEvent:
                 "text": self.text,
                 "final": self.final,
             }
-        return {"type": "turn_end"}
+        return {"type": self.type}  # interrupt / turn_end 都只有 type
 
 
 # --------------------------------------------------------------------------- 错误
