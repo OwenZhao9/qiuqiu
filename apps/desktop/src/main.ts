@@ -35,6 +35,7 @@ import {
   type Rect
 } from './geometry.js';
 import { FOCUS_PET_ACCELERATOR, petContextMenu, trayMenu, type MenuItemSpec } from './menus.js';
+import { createPetInbox } from './pet-inbox.js';
 import { TRAY_ICON_DATA_URL } from './tray-icon.js';
 
 /** 开发时连 vite 的开发服务器，打包后加载 `apps/web/dist` 的产物。 */
@@ -54,11 +55,36 @@ let petWindow: BrowserWindow | null = null;
  */
 let dragAt: { x: number; y: number } | null = null;
 
+/** 输入条展开了没有。 */
+let petExpanded = false;
+
+/** 气泡当前占多高，px。0 = 没有气泡。渲染进程量好报上来。 */
+let petBubble = 0;
+
+/** 换一套布局：改窗口尺寸并保住球心，然后把新布局记下来。 */
+function relayout(to: { expanded: boolean; bubble: number }): void {
+  const from = { expanded: petExpanded, bubble: petBubble };
+  petExpanded = to.expanded;
+  petBubble = to.bubble;
+  if (!petWindow || petWindow.isDestroyed()) return;
+  petWindow.setBounds(petBounds(petWindow.getBounds(), from, to));
+  dragAt = null; // 尺寸变了，拖动缓存作废
+}
+
+/** 主窗口还没挂好监听时，桌宠发的话先攒在这儿。见 `pet-inbox.ts`。 */
+const petInbox = createPetInbox();
+
+/** 送一句桌宠发的话给主窗口；主窗口还没就绪就先攒着。 */
+function deliverFromPet(text: string): void {
+  ensureMain();
+  if (!mainWindow || mainWindow.isDestroyed() || petInbox.hold(text)) return;
+  mainWindow.webContents.send(TO_RENDERER.submitFromPet, text);
+}
+
 /** `moved` 停下来多久算一次拖动结束。Electron 没有拖动结束事件，只能等它安静。 */
 const SETTLE_DEBOUNCE_MS = 120;
 let settleTimer: ReturnType<typeof setTimeout> | null = null;
 let tray: Tray | null = null;
-let petExpanded = false;
 let ambientPaused = false;
 let quitting = false;
 
@@ -124,6 +150,11 @@ function createMainWindow(): BrowserWindow {
     webPreferences: { preload: PRELOAD, contextIsolation: true, sandbox: false }
   });
   loadPage(win, 'index');
+  // 每次导航（含开发时的热重载）渲染进程都要重新挂监听，就绪标记跟着清
+  petInbox.reset();
+  win.webContents.on('did-start-navigation', (_e, _url, _isInPlace, isMainFrame) => {
+    if (isMainFrame) petInbox.reset();
+  });
   win.once('ready-to-show', () => win.show());
   // 托盘点击显隐：关窗只是藏起来，进程留着继续采集
   win.on('close', (e) => {
@@ -291,10 +322,15 @@ function wireIpc(): void {
   });
 
   ipcMain.on(TO_MAIN.setPetExpanded, (_e, expanded: boolean) => {
-    petExpanded = Boolean(expanded);
-    if (!petWindow || petWindow.isDestroyed()) return;
-    // 球心必须不动：宽度差的一半从 x 上补回来（geometry.petBounds）
-    petWindow.setBounds(petBounds(petWindow.getBounds(), petExpanded));
+    relayout({ expanded: Boolean(expanded), bubble: petBubble });
+  });
+
+  // 气泡的高度由渲染进程量出来报上来。窗口是透明无边框的，画在窗口外面的
+  // 一律被裁掉，所以有气泡时窗口得先长出丘丘上方那块地方
+  ipcMain.on(TO_MAIN.setPetBubble, (_e, height: number) => {
+    const h = Number.isFinite(height) ? Math.max(0, Math.round(height)) : 0;
+    if (h === petBubble) return;
+    relayout({ expanded: petExpanded, bubble: h });
   });
 
   ipcMain.on(TO_MAIN.setPetPassthrough, (_e, ignore: boolean) => {
@@ -322,8 +358,14 @@ function wireIpc(): void {
   ipcMain.on(TO_MAIN.submitFromPet, (_e, text: string) => {
     // 只保证主窗口在后台活着，**不弹出来**：用户看的是桌宠气泡，
     // 把整个界面推到脸上是打断
-    ensureMain();
-    mainWindow?.webContents.send(TO_RENDERER.submitFromPet, text);
+    deliverFromPet(text);
+  });
+
+  // 主窗口报到：把攒着的话补送过去
+  ipcMain.on(TO_MAIN.mainReady, () => {
+    const queued = petInbox.ready();
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    for (const text of queued) mainWindow.webContents.send(TO_RENDERER.submitFromPet, text);
   });
 
   // 桌宠按了通话和弦。语音会话跑在主窗口——麦克风与音频播放只该有一份，
@@ -378,12 +420,22 @@ if (!app.requestSingleInstanceLock()) {
       }, SETTLE_DEBOUNCE_MS);
     });
 
-    globalShortcut.register(FOCUS_PET_ACCELERATOR, () => {
+    // `register` 抢不到会返回 false，别当它成功了。macOS 上 Cmd+Shift+Q 是系统的
+    // 「退出登录」，系统优先，抢不到——而用户按下去就真的退出登录了。
+    // 换掉之前先把这件事喊出来，不要静默地当快捷键没坏。
+    const gotShortcut = globalShortcut.register(FOCUS_PET_ACCELERATOR, () => {
       if (!petWindow || petWindow.isDestroyed()) petWindow = createPetWindow();
       petWindow.show();
       petWindow.focus();
       petWindow.webContents.send(TO_RENDERER.petFocus);
     });
+    if (!gotShortcut) {
+      console.warn(
+        `[qiuqiu] 全局快捷键 ${FOCUS_PET_ACCELERATOR} 没抢到，唤起桌宠这个功能现在是坏的。` +
+          '在 macOS 上它是系统的「退出登录」，按下去会退出登录。' +
+          '换一个组合键：apps/desktop/src/menus.ts 的 FOCUS_PET_ACCELERATOR。'
+      );
+    }
 
     app.on('activate', showMain);
   });

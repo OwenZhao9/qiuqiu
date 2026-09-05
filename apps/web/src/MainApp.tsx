@@ -118,9 +118,12 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
     };
   }, [events, chat]);
 
-  // 桌宠的输入交主窗口发出（AD-5）
+  // 桌宠的输入交主窗口发出（AD-5）。**挂完监听立刻报到**：桌宠先说话时主窗口
+  // 可能刚被建出来、渲染进程还没跑到这儿，主进程会把那句话攒着等这一声
   useEffect(() => {
-    bridge.onSubmitFromPet((text: string) => chat.send(text));
+    const off = bridge.onSubmitFromPet((text: string) => chat.send(text));
+    bridge.mainReady();
+    return off;
   }, [bridge, chat]);
 
   // T10：断连超过 8 s 还没连上，回 idle

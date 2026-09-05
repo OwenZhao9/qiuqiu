@@ -9,6 +9,7 @@ import {
   MIN_VISIBLE_PX,
   moveBy,
   petBounds,
+  petSize,
   PET_COLLAPSED,
   PET_EXPANDED,
   restorePetBounds,
@@ -30,9 +31,11 @@ describe('尺寸', () => {
 
 describe('petBounds · 球心不动', () => {
   const collapsed = { x: 400, y: 300, ...PET_COLLAPSED };
+  const shut = { expanded: false, bubble: 0 };
+  const open = { expanded: true, bubble: 0 };
 
   it('收起 → 展开：宽 +136、高 +56，x -= 68，y 不变', () => {
-    const out = petBounds(collapsed, true);
+    const out = petBounds(collapsed, shut, open);
     expect(out.width - collapsed.width).toBe(136);
     expect(out.height - collapsed.height).toBe(56);
     expect(out.x).toBe(collapsed.x - 68);
@@ -40,19 +43,74 @@ describe('petBounds · 球心不动', () => {
   });
 
   it('展开 → 收起是反向的，回到原来的位置', () => {
-    const expanded = petBounds(collapsed, true);
-    expect(petBounds(expanded, false)).toEqual(collapsed);
+    const expanded = petBounds(collapsed, shut, open);
+    expect(petBounds(expanded, open, shut)).toEqual(collapsed);
   });
 
   it('球心在两个状态下是同一个点', () => {
-    const expanded = petBounds(collapsed, true);
-    expect(ballCenter(expanded)).toEqual(ballCenter(collapsed));
+    const expanded = petBounds(collapsed, shut, open);
+    expect(ballCenter(expanded, open)).toEqual(ballCenter(collapsed, shut));
   });
 
   it('反复展开收起不会漂移', () => {
     let rect: Rect = collapsed;
-    for (let i = 0; i < 20; i += 1) rect = petBounds(rect, i % 2 === 0);
-    expect(ballCenter(rect)).toEqual(ballCenter(collapsed));
+    let at = shut;
+    for (let i = 0; i < 20; i += 1) {
+      const to = i % 2 === 0 ? open : shut;
+      rect = petBounds(rect, at, to);
+      at = to;
+    }
+    expect(ballCenter(rect, at)).toEqual(ballCenter(collapsed, shut));
+  });
+
+  it('气泡出现时窗口往上长，球心还是不动', () => {
+    // 这是气泡看不见的那个 bug：窗口只有 200 高、丘丘占满，
+    // 气泡钉在丘丘上方就整块在窗口外，只在顶边露出一条
+    const withBubble = { expanded: false, bubble: 44 };
+    const out = petBounds(collapsed, shut, withBubble);
+    expect(out.height, '高度要长出气泡加 8 px 间隙').toBe(200 + 44 + 8);
+    expect(out.y, '往上长，所以 y 要减掉同样多').toBe(collapsed.y - 52);
+    expect(ballCenter(out, withBubble)).toEqual(ballCenter(collapsed, shut));
+  });
+
+  it('气泡换行数变了跟着改，球心仍然不动', () => {
+    const one = { expanded: false, bubble: 22 };
+    const three = { expanded: false, bubble: 66 };
+    const a = petBounds(collapsed, shut, one);
+    const b = petBounds(a, one, three);
+    expect(b.height - a.height).toBe(44);
+    expect(ballCenter(b, three)).toEqual(ballCenter(collapsed, shut));
+  });
+
+  it('气泡没了就把那块地方收回去', () => {
+    const withBubble = { expanded: false, bubble: 44 };
+    const grown = petBounds(collapsed, shut, withBubble);
+    expect(petBounds(grown, withBubble, shut)).toEqual(collapsed);
+  });
+
+  it('气泡与输入条同时在，两块都算上', () => {
+    const both = { expanded: true, bubble: 44 };
+    const out = petBounds(collapsed, shut, both);
+    expect(out.height).toBe(256 + 44 + 8);
+    expect(ballCenter(out, both)).toEqual(ballCenter(collapsed, shut));
+  });
+});
+
+describe('petSize', () => {
+  it('没气泡就不留那 8 px 间隙', () => {
+    expect(petSize({ expanded: false, bubble: 0 })).toEqual({
+      width: 200,
+      height: 200,
+      above: 0
+    });
+  });
+
+  it('有气泡才加间隙，高度向上取整', () => {
+    expect(petSize({ expanded: false, bubble: 43.2 })).toEqual({
+      width: 200,
+      height: 252,
+      above: 52
+    });
   });
 });
 

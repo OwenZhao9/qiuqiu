@@ -23,7 +23,9 @@ export const TO_MAIN = {
   setPetPassthrough: 'qq:set-pet-passthrough',
   setPetExpanded: 'qq:set-pet-expanded',
   popupPetMenu: 'qq:popup-pet-menu',
-  setSkin: 'qq:set-skin'
+  setSkin: 'qq:set-skin',
+  setPetBubble: 'qq:set-pet-bubble',
+  mainReady: 'qq:main-ready'
 } as const;
 
 /** 主进程推给渲染进程的。 */

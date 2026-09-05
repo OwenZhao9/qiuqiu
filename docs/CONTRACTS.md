@@ -241,15 +241,20 @@ interface QiuqiuBridge {
   setPetExpanded(expanded: boolean): void;    // 展开输入条时改窗口尺寸，主进程保住球心
   popupPetMenu(state: { ambientPaused: boolean }): void;  // 原生右键菜单，HTML 菜单会被窗口边界裁掉
   setSkin(skin: string): void;                // 换皮肤，主进程转给另一个窗口
-  // 订阅
-  onDelta(cb: (sessionId: string, text: string) => void): void;
-  onDone(cb: (sessionId: string) => void): void;
-  onPetState(cb: (state: string, emotionId?: string) => void): void;
-  onSubmitFromPet(cb: (text: string) => void): void;   // 主窗口收桌宠发的话，AD-5 链路靠它闭合
-  onCallFromPet(cb: () => void): void;                 // 主窗口收桌宠按的通话和弦
-  onPetFocus(cb: () => void): void;                    // 全局快捷键唤起后展开输入条
-  onAmbientToggle(cb: (paused: boolean) => void): void; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
-  onSkin(cb: (skin: string) => void): void;            // 另一个窗口换了皮肤。收到只应用不再广播，否则来回弹
+  setPetBubble(height: number): void;         // 气泡量出来多高。透明窗口画在窗口外的会被裁掉，窗口要先长出这块
+  mainReady(): void;                          // 主窗口挂好监听了。在这之前桌宠发的话主进程攒着，不然会丢
+  // 订阅。**每个都返回退订函数**，组件必须在 effect 的清理里调它：
+  // React 的 effect 开发模式下跑两遍、组件重挂还会再订，只订不退会越攒越多，
+  // 一条 delta 被拼进气泡好几遍，回复变成每个字重复
+  type Unsubscribe = () => void;
+  onDelta(cb: (sessionId: string, text: string) => void): Unsubscribe;
+  onDone(cb: (sessionId: string) => void): Unsubscribe;
+  onPetState(cb: (state: string, emotionId?: string) => void): Unsubscribe;
+  onSubmitFromPet(cb: (text: string) => void): Unsubscribe;   // 主窗口收桌宠发的话，AD-5 链路靠它闭合
+  onCallFromPet(cb: () => void): Unsubscribe;                 // 主窗口收桌宠按的通话和弦
+  onPetFocus(cb: () => void): Unsubscribe;                    // 全局快捷键唤起后展开输入条
+  onAmbientToggle(cb: (paused: boolean) => void): Unsubscribe; // 托盘与右键菜单共用的开关，两个渲染进程都要知道
+  onSkin(cb: (skin: string) => void): Unsubscribe;            // 另一个窗口换了皮肤。收到只应用不再广播，否则来回弹
 }
 window.__QIUQIU_API__ = "http://127.0.0.1:8000";
 ```
@@ -564,7 +569,16 @@ prompt_persona = boundary_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.12**（形象与皮肤同步）
+当前：**v0.1.13**（桌宠气泡与首句不丢）
+
+v0.1.13 三条，都是修 bug 补的：
+
+- **§ 2 所有 `onX` 改为返回退订函数**。只订不退，开发模式下 effect 跑两遍就订两份，桌宠气泡里一条 delta 拼两遍，回复成了每个字重复
+
+- **§ 2 增 `setPetBubble`**。桌宠窗口透明无边框，画在窗口外的一律被裁掉；气泡钉在丘丘上方而收起态窗口只有 200 px 高、丘丘正好占满，于是气泡整块在窗口外，只在顶边露出一条。窗口高度必须由渲染进程量出的气泡高度撑开，球心保持不动
+- **§ 2 增 `mainReady`**。`ensureMain()` 只是把主窗口建出来，渲染进程要几百毫秒后才挂上监听，在那之前 `webContents.send` 是丢的——桌宠里打的第一句话就这么没的。主进程攒着，等这一声再送
+
+v0.1.12（形象与皮肤同步）
 
 v0.1.12 两条：
 

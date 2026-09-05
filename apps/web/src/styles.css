@@ -1034,11 +1034,13 @@ select {
    像是被关在一个框里。可读性改用描边光晕解决：文字外面一圈同色晕，
    压在任何壁纸上都读得出来，而且没有边界。 */
 .qq-pet__bubble {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--qq-ball-size-pet) + var(--qq-space-2));
-  max-width: 300px;
+  /* **不能用 position: absolute 钉在丘丘上方。**
+     桌宠窗口是透明无边框的，画在窗口外面的一律被裁掉；收起态窗口只有 200 px
+     高、丘丘正好占满，钉在上方的气泡整块都在窗口外，只在顶边露出一条。
+     改成正常排在丘丘前面的一块，窗口高度由主进程按量出来的气泡高度撑开
+     （PetApp 报 setPetBubble，geometry.petSize 算窗口）。 */
+  flex: 0 0 auto;
+  width: 100%;
   max-height: calc(6 * var(--qq-text-md) * var(--qq-leading-normal));
   overflow-y: auto;
   padding: 0 var(--qq-space-2);

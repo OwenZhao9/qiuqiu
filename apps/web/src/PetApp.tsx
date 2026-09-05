@@ -34,37 +34,65 @@ export function PetApp(): React.JSX.Element {
   const hovering = useRef(false);
   const linger = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ---- 主窗口转发过来的流 ---- */
+  /* ---- 主窗口转发过来的流 ----
+     四条都要退订。不退的话开发模式下 effect 跑两遍就订两份，
+     一条 delta 被拼进气泡两次，回复会变成每个字都重复。 */
   useEffect(() => {
-    bridge.onDelta((_sessionId: string, text: string) => {
-      if (linger.current) clearTimeout(linger.current);
-      setFading(false);
-      setBubble((b) => b + text);
-    });
-    bridge.onDone(() => {
-      if (linger.current) clearTimeout(linger.current);
-      linger.current = setTimeout(() => {
-        if (hovering.current) return; // 悬停在气泡上就不淡出
-        setFading(true);
-        setTimeout(() => {
-          setBubble('');
-          setFading(false);
-        }, 400);
-      }, BUBBLE_LINGER_MS);
-    });
-    bridge.onPetState((state: string, emotionId?: string) => {
-      const q = qiuqiuRef.current;
-      if (!q) return;
-      q.setState(state as CharacterState);
-      if (emotionId) q.setEmotion(emotionId);
-    });
-    bridge.onPetFocus(() => setExpanded(true));
+    const off = [
+      bridge.onDelta((_sessionId: string, text: string) => {
+        if (linger.current) clearTimeout(linger.current);
+        setFading(false);
+        setBubble((b) => b + text);
+      }),
+      bridge.onDone(() => {
+        if (linger.current) clearTimeout(linger.current);
+        linger.current = setTimeout(() => {
+          if (hovering.current) return; // 悬停在气泡上就不淡出
+          setFading(true);
+          setTimeout(() => {
+            setBubble('');
+            setFading(false);
+          }, 400);
+        }, BUBBLE_LINGER_MS);
+      }),
+      bridge.onPetState((state: string, emotionId?: string) => {
+        const q = qiuqiuRef.current;
+        if (!q) return;
+        q.setState(state as CharacterState);
+        if (emotionId) q.setEmotion(emotionId);
+      }),
+      bridge.onPetFocus(() => setExpanded(true))
+    ];
+    return () => {
+      for (const f of off) f();
+    };
   }, [bridge]);
 
   /* ---- 展开 / 收起要改窗口尺寸，且球心不动 ---- */
   useEffect(() => {
     bridge.setPetExpanded(expanded);
   }, [bridge, expanded]);
+
+  /* ---- 气泡有多高要报给主进程 ----
+     桌宠窗口是透明无边框的，画在窗口外面的一律被裁掉。气泡在丘丘上方，
+     而收起态窗口只有 200 px 高、丘丘就占满了，所以气泡整块都在窗口外，
+     只在顶边露出一条——看着就是丘丘头上多了一小块方的东西。
+     窗口得先在丘丘上方长出这块地方来，所以量一下报上去。
+     换行数（流式回复一个字一个字长）也要跟着报，用 ResizeObserver 盯着。 */
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bubbleRef.current;
+    if (!bubble || !el) {
+      bridge.setPetBubble(0);
+      return;
+    }
+    const report = (): void => bridge.setPetBubble(el.getBoundingClientRect().height);
+    report();
+    if (typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [bridge, bubble]);
 
   /* ---- 鼠标穿透：指针落在实心轮廓或输入条上才收事件，rAF 节流 ---- */
   useEffect(() => {
@@ -90,7 +118,7 @@ export function PetApp(): React.JSX.Element {
   const gesture = useRef<{ t: number; x: number; y: number; dragging: boolean } | null>(null);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    gesture.current = { t: Date.now(), x: e.clientX, y: e.clientY, dragging: false };
+    gesture.current = { t: Date.now(), x: e.screenX, y: e.screenY, dragging: false };
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, []);
 
@@ -100,6 +128,12 @@ export function PetApp(): React.JSX.Element {
    * 指针事件在 macOS 上一秒能来 100+ 次，每次都发一条 IPC 让主进程搬一次窗口，
    * 主进程那边就排起队来，手已经停了窗口还在追——看着就是跟不上手。
    * 攒到一帧发一次之后，发送频率与屏幕刷新对齐，多余的中间点本来也画不出来。
+   *
+   * 增量必须用 **`screenX/screenY`**，不能用 `clientX/clientY`。
+   * `clientX` 是相对窗口的，而拖动搬的正是这个窗口：窗口跟着走一步，
+   * 指针的 `clientX` 就退回原处，下一次算出来的增量接近 0，
+   * 于是只有手甩得比窗口快时窗口才动——那正是「跟不上手、一顿一顿」的来源。
+   * 屏幕坐标不随窗口动，算出来的才是手真正走了多少。
    */
   const pending = useRef<{ dx: number; dy: number } | null>(null);
   const flushing = useRef(0);
@@ -115,8 +149,8 @@ export function PetApp(): React.JSX.Element {
     (e: React.PointerEvent) => {
       const g = gesture.current;
       if (!g) return;
-      const dx = e.clientX - g.x;
-      const dy = e.clientY - g.y;
+      const dx = e.screenX - g.x;
+      const dy = e.screenY - g.y;
       if (!g.dragging && Math.hypot(dx, dy) <= DRAG_SLOP_PX) return;
       g.dragging = true;
       // 增量是相对上一次 move，不是相对起点
@@ -125,8 +159,8 @@ export function PetApp(): React.JSX.Element {
       acc.dy += dy;
       pending.current = acc;
       if (!flushing.current) flushing.current = requestAnimationFrame(flush);
-      g.x = e.clientX;
-      g.y = e.clientY;
+      g.x = e.screenX;
+      g.y = e.screenY;
     },
     [flush]
   );
@@ -141,7 +175,7 @@ export function PetApp(): React.JSX.Element {
         flush();
       }
       if (!g) return;
-      const moved = Math.hypot(e.clientX - g.x, e.clientY - g.y);
+      const moved = Math.hypot(e.screenX - g.x, e.screenY - g.y);
       if (!g.dragging && Date.now() - g.t <= CLICK_MS && moved <= DRAG_SLOP_PX) {
         setExpanded((v) => !v);
       }
@@ -153,6 +187,7 @@ export function PetApp(): React.JSX.Element {
     <div className="qq-pet" data-expanded={expanded ? 'true' : 'false'}>
       {bubble ? (
         <div
+          ref={bubbleRef}
           className={'qq-pet__bubble' + (fading ? ' qq-pet__bubble--fading' : '')}
           onMouseEnter={() => {
             hovering.current = true;

@@ -8,18 +8,26 @@ import { describe, expect, it, vi } from 'vitest';
 import { createQiuqiuBridge, type IpcLike } from '../src/bridge-factory.js';
 import { TO_MAIN, TO_RENDERER } from '../src/channels.js';
 
+type Listener = (event: unknown, ...args: unknown[]) => void;
+
 function fakeIpc() {
   const sent: Array<[string, ...unknown[]]> = [];
-  const handlers = new Map<string, (event: unknown, ...args: unknown[]) => void>();
+  // 一条通道可以有多个监听——「订两份收两份」正是要测的那个 bug
+  const handlers = new Map<string, Listener[]>();
   const ipc: IpcLike = {
     send: (channel, ...args) => sent.push([channel, ...args]),
-    on: (channel, listener) => handlers.set(channel, listener)
+    on: (channel, listener) => handlers.set(channel, [...(handlers.get(channel) ?? []), listener]),
+    removeListener: (channel, listener) =>
+      handlers.set(
+        channel,
+        (handlers.get(channel) ?? []).filter((l) => l !== listener)
+      )
   };
   return {
     ipc,
     sent,
     emit(channel: string, ...args: unknown[]) {
-      handlers.get(channel)?.({}, ...args);
+      for (const l of [...(handlers.get(channel) ?? [])]) l({}, ...args);
     }
   };
 }
@@ -169,5 +177,58 @@ describe('通道名', () => {
     for (const name of toMain) expect(toRenderer.has(name as never)).toBe(false);
     expect(toMain.size).toBe(Object.values(TO_MAIN).length);
     expect(toRenderer.size).toBe(Object.values(TO_RENDERER).length);
+  });
+});
+
+describe('订阅要能退订', () => {
+  /**
+   * 只订不退是这个项目栽过三次的坑：React 的 effect 在开发模式下跑两遍、
+   * 组件随页面切换重挂，监听就越攒越多。桌宠气泡里一条 delta 被拼两遍，
+   * 回复就成了「好好问题问题」那样每个字重复。
+   */
+  const SUBSCRIBERS = [
+    'onDelta',
+    'onDone',
+    'onPetState',
+    'onSubmitFromPet',
+    'onCallFromPet',
+    'onPetFocus',
+    'onAmbientToggle',
+    'onSkin'
+  ] as const;
+
+  it('每个 onX 都返回退订函数，调了就真的不再收', () => {
+    for (const name of SUBSCRIBERS) {
+      const { ipc, emit } = fakeIpc();
+      const bridge = createQiuqiuBridge(ipc);
+      const seen: number[] = [];
+      const off = (bridge[name] as (cb: () => void) => () => void)(() => seen.push(1));
+      expect(typeof off, `${name} 应该返回退订函数`).toBe('function');
+
+      const channel = Object.entries(TO_RENDERER).find(([k]) =>
+        name.toLowerCase().endsWith(k.toLowerCase())
+      )?.[1];
+      expect(channel, `${name} 找不到对应通道`).toBeTruthy();
+
+      emit(channel!, 'x', 'y');
+      expect(seen.length, `${name} 订了应该收得到`).toBe(1);
+      off();
+      emit(channel!, 'x', 'y');
+      expect(seen.length, `${name} 退订之后不该再收`).toBe(1);
+    }
+  });
+
+  it('订两份就收两份——这正是气泡里每个字重复的成因', () => {
+    const { ipc, emit } = fakeIpc();
+    const bridge = createQiuqiuBridge(ipc);
+    let n = 0;
+    const a = bridge.onDelta(() => void n++);
+    const b = bridge.onDelta(() => void n++);
+    emit(TO_RENDERER.delta, 's', '你');
+    expect(n).toBe(2);
+    a();
+    b();
+    emit(TO_RENDERER.delta, 's', '好');
+    expect(n).toBe(2);
   });
 });

@@ -44,30 +44,6 @@ function PhoneIcon({ hangUp }: { hangUp: boolean }): React.JSX.Element {
 /** 拨号和弦：同时按住 C 与 A。 */
 const CALL_CHORD = ['KeyC', 'KeyA'] as const;
 
-/**
- * 桌宠按的和弦经主进程转过来，落点只能有一个。
- *
- * `onCallFromPet` 没有退订口子（契约 § 2 只有订阅端），而 `Composer` 会随页面
- * 切换反复卸载重挂，每挂一次订一个的话会越攒越多——攒到十几个之后桌宠按一次
- * 和弦要 toggle 十几次，等于按了个寂寞（Electron 也会 warn 说监听器泄漏）。
- *
- * 所以整个渲染进程只订**一次**，挂载时只是把落点换成当前这个实例。
- */
-let petCallTarget: (() => void) | null = null;
-let petCallBound = false;
-
-function bindPetCall(fn: () => void): () => void {
-  petCallTarget = fn;
-  if (!petCallBound) {
-    petCallBound = true;
-    getBridge().onCallFromPet(() => petCallTarget?.());
-  }
-  return () => {
-    // 只清掉自己那一份。卸载后又挂了新的，就不该被旧的收尾清掉
-    if (petCallTarget === fn) petCallTarget = null;
-  };
-}
-
 export function VoiceButton({
   onFinal,
   onLevel,
@@ -132,10 +108,12 @@ export function VoiceButton({
   // 焦点在输入框里时不触发——拼音打「擦」「猜」都会让这两个键短暂同按
   useChord(CALL_CHORD, toggle, { disabled: startingRef.current });
 
-  // 桌宠上按的和弦经主进程转到这里。会话只跑在主窗口，两个窗口各开一个会抢麦克风
+  // 桌宠上按的和弦经主进程转到这里。会话只跑在主窗口，两个窗口各开一个会抢麦克风。
+  // 订阅只挂一次、卸载时退订：`Composer` 会随页面切换反复重挂，
+  // 每挂一份不退的话桌宠按一次和弦要 toggle 好多次，等于按了个寂寞
   const toggleRef = useRef(toggle);
   toggleRef.current = toggle;
-  useEffect(() => bindPetCall(() => toggleRef.current()), []);
+  useEffect(() => getBridge().onCallFromPet(() => toggleRef.current()), []);
 
   return (
     <>

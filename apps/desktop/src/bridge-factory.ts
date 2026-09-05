@@ -10,7 +10,12 @@ import { TO_MAIN, TO_RENDERER } from './channels.js';
 export interface IpcLike {
   send(channel: string, ...args: unknown[]): void;
   on(channel: string, listener: (event: unknown, ...args: unknown[]) => void): unknown;
+  /** 退订。`ipcRenderer` 本来就有，之前没用上——于是监听只增不减。 */
+  removeListener?(channel: string, listener: (event: unknown, ...args: unknown[]) => void): unknown;
 }
+
+/** 订阅返回的退订函数。组件在 effect 的清理里调它。 */
+export type Unsubscribe = () => void;
 
 export type PetState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -28,8 +33,8 @@ export interface QiuqiuBridge {
   setPetState(state: PetState, emotionId?: string): void;
   submitFromPet(text: string): void;
   callFromPet(): void;
-  onDelta(cb: (sessionId: string, text: string) => void): void;
-  onPetState(cb: (state: string, emotionId?: string) => void): void;
+  onDelta(cb: (sessionId: string, text: string) => void): Unsubscribe;
+  onPetState(cb: (state: string, emotionId?: string) => void): Unsubscribe;
 }
 
 /**
@@ -38,19 +43,31 @@ export interface QiuqiuBridge {
  * 桌宠展开时改窗口 bounds、原生右键菜单、全局快捷键的落点根本没有入口。
  */
 export interface QiuqiuBridgeExt extends QiuqiuBridge {
-  onDone(cb: (sessionId: string) => void): void;
-  onSubmitFromPet(cb: (text: string) => void): void;
+  onDone(cb: (sessionId: string) => void): Unsubscribe;
+  onSubmitFromPet(cb: (text: string) => void): Unsubscribe;
   /** 主窗口接住桌宠按的通话和弦。会话只跑在主窗口。 */
-  onCallFromPet(cb: () => void): void;
+  onCallFromPet(cb: () => void): Unsubscribe;
   /** 换皮肤。两个窗口是两个渲染进程，各有各的 localStorage 事件，只能过主进程同步。 */
   setSkin(skin: string): void;
+  /**
+   * 气泡量出来有多高。窗口是透明无边框的，画在窗口外面的一律被裁掉，
+   * 所以气泡出现时窗口得先在丘丘上方长出这么一块。0 表示没有气泡。
+   */
+  setPetBubble(height: number): void;
+  /**
+   * 主窗口的渲染进程已经挂好监听、可以收消息了。
+   *
+   * 桌宠发话时主窗口可能刚被 `ensureMain()` 建出来，渲染进程还没跑起来，
+   * 这时候 `webContents.send` 是丢的。主进程攒着，等这一声再发。
+   */
+  mainReady(): void;
   /** `setSkin` 的订阅端。**收到之后只应用不再广播**，否则两个窗口会来回弹。 */
-  onSkin(cb: (skin: string) => void): void;
+  onSkin(cb: (skin: string) => void): Unsubscribe;
   setPetPassthrough(ignore: boolean): void;
   setPetExpanded(expanded: boolean): void;
   popupPetMenu(state: { ambientPaused: boolean }): void;
-  onPetFocus(cb: () => void): void;
-  onAmbientToggle(cb: (paused: boolean) => void): void;
+  onPetFocus(cb: () => void): Unsubscribe;
+  onAmbientToggle(cb: (paused: boolean) => void): Unsubscribe;
   platform(): 'desktop';
 }
 
@@ -59,6 +76,21 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     (channel: string) =>
     (...args: unknown[]): void => {
       ipc.send(channel, ...args);
+    };
+
+  /**
+   * 订一条通道，返回退订函数。
+   *
+   * **必须能退订。** React 的 effect 在开发模式（StrictMode）下会跑两遍，
+   * 组件重挂也会再订一次；只订不退的话监听越攒越多，一条 delta 被拼进气泡
+   * 好几遍——桌宠的回复就变成「好好问题问题！！」那样每个字重复。
+   */
+  const sub =
+    (channel: string) =>
+    (handler: (...args: unknown[]) => void): Unsubscribe => {
+      const listener = (_e: unknown, ...args: unknown[]): void => handler(...args);
+      ipc.on(channel, listener);
+      return () => void ipc.removeListener?.(channel, listener);
     };
 
   return {
@@ -99,32 +131,38 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     setSkin(skin) {
       ipc.send(TO_MAIN.setSkin, skin);
     },
+    setPetBubble(height) {
+      ipc.send(TO_MAIN.setPetBubble, height);
+    },
+    mainReady() {
+      ipc.send(TO_MAIN.mainReady);
+    },
 
     onDelta(cb) {
-      ipc.on(TO_RENDERER.delta, (_e, sessionId, text) => cb(String(sessionId), String(text)));
+      return sub(TO_RENDERER.delta)((sessionId, text) => cb(String(sessionId), String(text)));
     },
     onDone(cb) {
-      ipc.on(TO_RENDERER.done, (_e, sessionId) => cb(String(sessionId)));
+      return sub(TO_RENDERER.done)((sessionId) => cb(String(sessionId)));
     },
     onPetState(cb) {
-      ipc.on(TO_RENDERER.petState, (_e, state, emotionId) =>
+      return sub(TO_RENDERER.petState)((state, emotionId) =>
         cb(String(state), emotionId === undefined ? undefined : String(emotionId))
       );
     },
     onSubmitFromPet(cb) {
-      ipc.on(TO_RENDERER.submitFromPet, (_e, text) => cb(String(text)));
+      return sub(TO_RENDERER.submitFromPet)((text) => cb(String(text)));
     },
     onCallFromPet(cb) {
-      ipc.on(TO_RENDERER.callFromPet, () => cb());
+      return sub(TO_RENDERER.callFromPet)(() => cb());
     },
     onPetFocus(cb) {
-      ipc.on(TO_RENDERER.petFocus, () => cb());
+      return sub(TO_RENDERER.petFocus)(() => cb());
     },
     onAmbientToggle(cb) {
-      ipc.on(TO_RENDERER.ambientToggle, (_e, paused) => cb(Boolean(paused)));
+      return sub(TO_RENDERER.ambientToggle)((paused) => cb(Boolean(paused)));
     },
     onSkin(cb) {
-      ipc.on(TO_RENDERER.skin, (_e, skin) => cb(String(skin)));
+      return sub(TO_RENDERER.skin)((skin) => cb(String(skin)));
     },
 
     platform: () => 'desktop'

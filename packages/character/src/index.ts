@@ -2,7 +2,7 @@
  * `@qiuqiu/character` —— 丘丘的表情引擎封装、状态机、事件映射、情绪推断。
  *
  * 纯 TypeScript，不依赖 React（`apps/web` 自己包一层 hook）。
- * 对应 `docs/CONTRACTS.md` § 6，契约版本 v0.1.12。
+ * 对应 `docs/CONTRACTS.md` § 6，契约版本 v0.1.13。
  *
  * 典型用法：
  *

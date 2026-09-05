@@ -11,7 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const calls: Array<() => void> = [];
 const bridge = {
-  onCallFromPet: vi.fn((cb: () => void) => void calls.push(cb))
+  onCallFromPet: vi.fn((cb: () => void) => {
+    calls.push(cb);
+    return () => {
+      const i = calls.indexOf(cb);
+      if (i >= 0) calls.splice(i, 1);
+    };
+  })
 };
 
 vi.mock('../src/bridge.js', () => ({ getBridge: () => bridge }));
@@ -28,14 +34,14 @@ describe('VoiceButton · 桌宠和弦', () => {
   });
   afterEach(cleanup);
 
-  it('反复卸载重挂只订一次，落点换成最新那个实例', async () => {
+  it('卸载会退订，活着的落点只剩一个', async () => {
     const first = render(<VoiceButton />);
-    expect(bridge.onCallFromPet, '第一次挂载订一次').toHaveBeenCalledTimes(1);
+    expect(calls, '第一次挂载订一份').toHaveLength(1);
     first.unmount();
+    expect(calls, '卸载要退订，不然会越攒越多').toHaveLength(0);
 
     render(<VoiceButton />);
-    render(<VoiceButton />);
-    expect(bridge.onCallFromPet, '再挂几次也不该再订').toHaveBeenCalledTimes(1);
+    expect(calls, '重挂之后仍然只有一份').toHaveLength(1);
 
     // 主进程推一次和弦，按钮应该只切一次状态。startVoice 是异步的，要等它落地
     await act(async () => {
