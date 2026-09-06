@@ -270,12 +270,41 @@ export function useWireGeom(
     measure();
     const el = host.current;
     if (!el) return;
-    // 盒子自己变大变小（文字换行、内容变了）也要重量，光看容器不够
+
+    /**
+     * **首次量完还要再量一次。**
+     *
+     * 第一次 `measure()` 跑在布局定下来之前：外面那条 `<details>` 刚展开、
+     * `max-height` 的夹取还没生效，量到的是没被夹之前的高度（实测 308.8，
+     * 稳定之后是 293.8）。SVG 的 `height` 按这个值写死（要和 `viewBox`
+     * 保持 1:1，不能交给 CSS 拉伸），于是它比容器高出十几像素、又是
+     * `overflow: visible`——那截多出来的画面把外层的滚动高度顶大，
+     * 图的底下就永远差一截显示不出来，加多少 padding 都追不上。
+     *
+     * 之后没有任何东西会再触发重量：容器的尺寸从此不再变，`ResizeObserver`
+     * 自然不叫。所以这里主动补两次——下一帧一次（布局已定），再隔 120 ms
+     * 一次（字体换成中文字体后行高会变，这一下把它兜住）。
+     */
+    const raf = requestAnimationFrame(() => measure());
+    const late = setTimeout(measure, 120);
+    /**
+     * 盒子自己变大变小（文字换行、内容变了）也要重量，光看容器不够。
+     *
+     * **量 border-box，而且要连外面那层一起看。** `ResizeObserver` 默认报的是
+     * content-box：容器的 padding 变了、外面的框把它压矮了，content-box 都可能
+     * 一动不动，回调就不会来，`geom.h` 停在上一次的值。SVG 的 `height` 是按
+     * `geom.h` 写死的（要跟 `viewBox` 保持 1:1，不能交给 CSS 拉伸），于是它比
+     * 容器高出十几像素、又是 `overflow: visible`，那截多出来的画面把外层的
+     * 滚动高度顶大——量出来永远差那么几像素，怎么加 padding 都追不上。
+     */
     const ro = new ResizeObserver(() => measure());
-    ro.observe(el);
+    ro.observe(el, { box: 'border-box' });
+    if (el.parentElement) ro.observe(el.parentElement, { box: 'border-box' });
     for (const n of el.querySelectorAll('[data-wire],[data-node]')) ro.observe(n);
     window.addEventListener('resize', measure);
     return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(late);
       ro.disconnect();
       window.removeEventListener('resize', measure);
     };

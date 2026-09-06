@@ -116,6 +116,9 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
         onSpeechEnd() {
           speaker.stop();
         },
+        // `done` 只说明文字流完了，声音通常还要再响几秒。这两个钩子把
+        // 「回 idle」推迟到真的没声音为止，不然丘丘还在说、窗口写着待机
+        speechActive: () => speaker.speaking(),
         onReplyComplete(full, userText) {
           qiuqiuRef.current?.applyReply(full, userText);
         },
@@ -147,6 +150,13 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
       alive = false;
     };
   }, [sessionId, chat]);
+
+  // 语音播完了通知 store 收尾（T7）。挂在这儿而不是 createChatStore 里：
+  // speaker 与 chat 是两个独立对象，谁也不该持有对方
+  useEffect(() => {
+    speaker.onDrained(() => chat.noteSpeechDrained());
+    return () => speaker.onDrained(null);
+  }, [speaker, chat]);
 
   useEffect(() => {
     events.connect();

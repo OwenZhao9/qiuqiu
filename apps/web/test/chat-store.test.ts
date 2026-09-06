@@ -77,6 +77,61 @@ describe('createChatStore · 本地状态机', () => {
     expect(reply?.streaming).toBe(false);
   });
 
+  it('T7：声音还在响就不回 idle——`done` 是文字流完了，不是丘丘闭嘴', () => {
+    let voice = true;
+    const { store, chat, states } = setup({ speechActive: () => voice });
+    store.send('在吗');
+    chat.seen[0].handlers.onDelta?.({ text: '在的' });
+    chat.seen[0].handlers.onDone?.({
+      message_id: 'm1',
+      tokens_in: 1,
+      tokens_out: 2,
+      latency_ms: 3
+    });
+    // 这一句正是录屏里看到的毛病：丘丘还在出声，窗口上写着「丘丘待机」
+    expect(store.get().character).toBe('speaking');
+    expect(store.get().busy).toBe(false); // 流结束了，能接着打字
+
+    voice = false;
+    store.noteSpeechDrained();
+    expect(store.get().character).toBe('idle');
+    expect(states).toEqual(['thinking', 'speaking', 'idle']);
+  });
+
+  it('T7：没有语音时 done 当场回 idle（网页端、静音都走这条）', () => {
+    const { store, chat } = setup({ speechActive: () => false });
+    store.send('在吗');
+    chat.seen[0].handlers.onDelta?.({ text: '在的' });
+    chat.seen[0].handlers.onDone?.({
+      message_id: 'm1',
+      tokens_in: 1,
+      tokens_out: 2,
+      latency_ms: 3
+    });
+    expect(store.get().character).toBe('idle');
+    // 没在等语音的时候，排空通知不该把状态再动一次
+    store.noteSpeechDrained();
+    expect(store.get().character).toBe('idle');
+  });
+
+  it('等语音期间用户又发一句：不等排空，直接进 thinking', () => {
+    const { store, chat, states } = setup({ speechActive: () => true });
+    store.send('在吗');
+    chat.seen[0].handlers.onDelta?.({ text: '在的' });
+    chat.seen[0].handlers.onDone?.({
+      message_id: 'm1',
+      tokens_in: 1,
+      tokens_out: 2,
+      latency_ms: 3
+    });
+    store.send('再说一句');
+    expect(store.get().character).toBe('thinking');
+    // 迟到的排空通知不能把正在思考的这一轮打回 idle
+    store.noteSpeechDrained();
+    expect(store.get().character).toBe('thinking');
+    expect(states.at(-1)).toBe('thinking');
+  });
+
   it('T6：done 先于任何 delta 到达也回 idle', () => {
     const { store, chat, states } = setup();
     store.send('在吗');

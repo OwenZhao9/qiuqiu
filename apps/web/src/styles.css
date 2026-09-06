@@ -364,6 +364,11 @@ select {
 
 .qq-thread {
   flex: 1;
+  /* **`min-height: 0` 不能省。** flex 子项的自动最小高度是内容高度，对话区
+     攒了几十条消息就是几千像素——那个最小值反过来去挤上面那条管线预览，
+     预览于是永远比它的 `max-height` 矮一截，图的底下被切掉一条。
+     解开之后预览拿到它该有的高度，对话区自己滚（它本来就有 overflow）。 */
+  min-height: 0;
   overflow-y: auto;
   /* 内容有最大宽度并居中：铺满整栏的话一行几十个字，眼睛要横扫，读着累。
      滚动条仍在外层，所以 padding 给外层、宽度限制给内容。 */
@@ -1768,12 +1773,28 @@ select {
   padding: var(--qq-space-5);
 }
 
+/**
+ * 「记忆结构」整页：**这张图比窗口高，必须能滚。**
+ *
+ * 原来这里什么都没写：`.qq-main` 是 flex 列、`overflow: visible`，图按自身
+ * 1683 px 撑开，823 px 的窗口把下面 860 px 整个裁掉——不是滚不到，是根本
+ * 没有滚动条。`min-height: 0` 少不得，flex 子项的默认最小高度是内容高度，
+ * 不解开的话 `overflow` 也没机会生效。
+ */
+.qq-main > .qq-map {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* 底下留一条道给回环那根线走。没有它线会压在最后一排方块上 */
 .qq-map__zones {
   position: relative;
   padding-bottom: var(--qq-space-6);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* 下限 300 px 在中栏（1200 px 窗口下只有 560 px）排不下两列，三段会竖着
+     叠成一条长卷，图立刻高出一倍。降到 260 px 就能排两列 */
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: var(--qq-space-6);
   /* 三段等高。删掉没实现的那几块之后 ② 比另外两段矮一大截，
      参差不齐反而像没排好 */
@@ -2437,7 +2458,7 @@ select {
      · 知识图谱的四个节点是示意图，紧凑档收掉，只留那行说明。
    字号不动——上一版缩字号的结果是糊成一片。真放不下时还有竖向滚动兜底。 */
 .qq-map--compact {
-  padding: 0 var(--qq-space-4) var(--qq-space-4);
+  padding: 0 var(--qq-space-4) var(--qq-space-2);
   /* 行距收到 1.25：图上都是三五个字的标签，不是正文，1.5 的行距全是空白。
      整张图二十多行，一行省 4 px 就是五六十 px */
   line-height: var(--qq-leading-tight);
@@ -2452,7 +2473,7 @@ select {
                    + 留给对话的 138。矮窗口下这一项最小，于是这条自己缩，
                    缩到只剩标题行也认——只压前两项的话，420 高的窗口里
                    预览占 220、对话只剩 32，等于把主角挤没了 */
-  max-height: min(420px, 46vh, calc(100vh - 340px));
+  max-height: min(360px, 44vh, calc(100vh - 380px));
   /* 上面是「最多多高」，这里是「可以被压到多矮」。少了它，flex 压不动一个
      有内容的块，压力就转成溢出，顶掉下面的输入框 */
   min-height: 0;
@@ -2499,7 +2520,43 @@ select {
 
 /* 紧凑档只把空档缩短，箭头按像素定尺寸，形状不跟着变小 */
 .qq-map--compact .qq-map__gap {
-  height: 16px;
+  height: 10px;
+}
+
+/* ── 让这条**装得下自己** ──────────────────────────────────────
+   实测：紧凑档的图 486 px 高，框子最多给 379，剩下 107 px 只能滚——
+   一条已经占掉半屏的预览，底下还看不全，两头都不讨好。
+
+   高度是被第三段撑起来的（446 px，另外两段被拉齐、白空一大片）。
+   这里按「预览只负责说清结构和这一轮走到哪儿」把第三段的细节收掉：
+   三路检索的算法名、token 预算那三条分档、以及「按预算截断」那行注脚——
+   它们都在左栏「记忆结构」页上，一键就到。 */
+
+/* 紧凑档一律不排英文。这是**折行**的问题不是字数的问题：
+   ① 那一栏宽 192 px，「词汇重合度去重 Jaccard」放不下要折两行，三条模态
+   就是 46 px；三路检索那三个格子只有 56 px 宽，折三四行，又是 70 px。
+   中文名本身已经说清楚了，英文术语（Jaccard / CLIP / VAD / FAISS / BM25）
+   在左栏「记忆结构」页上一个不少。 */
+.qq-map--compact .qq-map__box-en,
+.qq-map--compact .qq-map__zone-h span,
+.qq-map--compact .qq-map__paths .qq-map__box-note {
+  display: none;
+}
+
+/* 预算分档的三条（摘要 / 全文 / 原始内容）与注脚：预览里只说到「按预算截断」
+   这一步存在，具体怎么截在完整档看 */
+.qq-map--compact .qq-map__tiers,
+.qq-map--compact .qq-map__budget-detail {
+  display: none;
+}
+
+/* 分区内边距再收一档，三段各省 12 px */
+/* 底下这条道是留给「回复也记一遍」那根回环线的：线在分区底下 `LOOP_DROP`
+   处走，再加箭头和那行标签。留窄了线的下沿被切掉，它是图上唯一一条回环，
+   缺一块就看不出是回去的；留宽了整条预览又白高一截。24 px 配
+   `LOOP_DROP = 26` 加上箭头刚好装得下，实测溢出 0。 */
+.qq-map--compact .qq-map__zones {
+  padding-bottom: var(--qq-space-9);
 }
 
 /* 三块外壳加了描边之后高度紧了，紧凑档把块内那两处外边距收掉 */

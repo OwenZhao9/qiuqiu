@@ -29,7 +29,7 @@
 | T4 | `listening` | `idle` | 语音按钮松开且本轮无 `final`，或收到空 `final`，或 `error` 帧 | 前端本地 / WS |
 | T5 | `thinking` | `speaking` | 本轮**首个** `delta` 事件（`data.text` 长度 > 0） | `SSE /chat` |
 | T6 | `thinking` | `idle` | `error` 事件；或 `done` 先于任何 `delta` 到达；或用户点「停止」 | SSE / 前端本地 |
-| T7 | `speaking` | `idle` | `done` 事件；或 `error` 事件；或用户点「停止」 | SSE / 前端本地 |
+| T7 | `speaking` | `idle` | `done` 事件**且本轮 TTS 已播完**（没有语音时 `done` 当场生效）；或 `error` 事件；或用户点「停止」 | SSE / 前端本地 |
 | T8 | `speaking` | `thinking` | 同一 `session_id` 下开启新一轮（用户在回复途中再次提交，前端先中止当前流） | 前端本地 |
 | T9 | 任意 | `listening` | 语音按钮按下；若当前是 `speaking` 先中止 SSE 与音频播放（打断） | 前端本地 |
 | T10 | 任意 | `idle` | 连接断开且 8 s 内未重连成功 | 前端本地 |
@@ -61,6 +61,7 @@
 - 进入动作：`setEmotion('39')`；打开口型脉动通道
 - 退出条件：T7、T8、T9
 - 说明：`39` 的 `blinkMs` 为 `null`，说话期间不眨眼，这是上游有意的设计，不要覆盖
+- 说明：**`done` 不等于闭嘴。** TTS 帧跟在文字后面走，最后几秒还在播的时候文字流早就结束了。按 `done` 当场回 `idle` 的结果是：丘丘还在出声，窗口上已经写着「丘丘待机」。所以 T7 要等音频队列排空——`speak.ts` 的 `speaking()` 报还有没有声音，排空时回调 `noteSpeechDrained()` 补这一次迁移。§ 4 的口型脉动本来就是拿 TTS 包络驱动的，两处对「说」的定义必须是同一个
 
 ## 3 · 最短停留时间与事件表情
 

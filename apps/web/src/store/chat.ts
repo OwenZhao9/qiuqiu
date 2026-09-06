@@ -7,7 +7,7 @@
  *   T1  idle      → thinking  用户提交文本
  *   T5  thinking  → speaking  本轮首个 `delta`（`text` 长度 > 0）
  *   T6  thinking  → idle      `error`；`done` 先于任何 `delta`；用户点停止
- *   T7  speaking  → idle      `done`；`error`；用户点停止
+ *   T7  speaking  → idle      `done` **且这一轮的语音已经播完**；`error`；用户点停止
  *   T8  speaking  → thinking  回复途中再次提交，先中止当前流
  *
  * **AD-5：主窗口是唯一 SSE 持有者。** 每个 `delta` 与 `done` 立刻经
@@ -86,6 +86,15 @@ export interface ChatStoreDeps {
   onAudio?(pcmB64: string, sampleRate: number): void;
   /** 本轮结束或被打断：该闭嘴了。 */
   onSpeechEnd?(): void;
+  /**
+   * 这一轮的语音还在响吗。
+   *
+   * `done` 是**文字**流结束，不是丘丘闭嘴：TTS 帧跟在文字后面走，
+   * 最后几秒还在播的时候 `done` 早就到了。原来 `done` 当场回 idle，
+   * 于是丘丘还在出声、窗口上已经写着「丘丘待机」。
+   * 不传这个依赖时行为不变（`done` 直接回 idle），测试与网页端照旧。
+   */
+  speechActive?(): boolean;
   /** 注入 `postChat`，测试与 mock 用。 */
   chat?: typeof postChat;
   now?(): number;
@@ -94,6 +103,8 @@ export interface ChatStoreDeps {
 
 export interface ChatStore extends Store<ChatState> {
   send(text: string, attachments?: Attachment[]): void;
+  /** 语音播完了。宿主在 `Speaker` 排空时调，补上被 `done` 抢先的那次 T7。 */
+  noteSpeechDrained(): void;
   /** 用户点「停止」：中止本轮，T6 / T7 回 `idle`。 */
   stop(): void;
   /** 只切状态（语音链路的 T2 / T4 用）。 */
@@ -195,11 +206,21 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
     }));
   }
 
+  /** `done` 到了但语音还没播完，正等着 T7。 */
+  let awaitingSpeech = false;
+
   function endTurn(): void {
     stream = null;
     replyId = null;
     sawDelta = false;
     store.set((s) => ({ ...s, busy: false }));
+    // 声音还在响就先不回 idle——那一下会把「丘丘在说」写成「丘丘待机」，
+    // 而人耳听见的还是它在说。等 `noteSpeechDrained()` 来收尾
+    if (deps.speechActive?.()) {
+      awaitingSpeech = true;
+      return;
+    }
+    awaitingSpeech = false;
     toState('idle');
   }
 
@@ -209,6 +230,7 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
 
     // T8：回复途中再次提交，先中止当前流。上一轮的声音也一起掐掉
     deps.onSpeechEnd?.();
+    awaitingSpeech = false;
     if (stream) {
       stream.abort();
       patchReply((m) => ({ ...m, streaming: false }));
@@ -333,6 +355,11 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
   return {
     ...store,
     send,
+    noteSpeechDrained() {
+      if (!awaitingSpeech) return;
+      awaitingSpeech = false;
+      toState('idle');
+    },
     stop() {
       if (!stream) return;
       stream.abort();

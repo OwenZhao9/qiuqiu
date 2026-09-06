@@ -16,6 +16,10 @@
 export interface Speaker {
   push(pcmB64: string, sampleRate: number): void;
   stop(): void;
+  /** 现在还有声音在响吗（队列里有、或已排进图里还没播完）。 */
+  speaking(): boolean;
+  /** 全部播完时叫一声。只留最后一个回调。 */
+  onDrained(cb: (() => void) | null): void;
 }
 
 /** base64 → Int16 PCM。字节数是奇数时丢掉半个采样，别让整个缓冲错位。 */
@@ -40,6 +44,14 @@ export const LEAD_MS = 180;
 /** 没有新帧了就把尾巴排掉，别让最后不足一段的音频卡在队列里。 */
 const FLUSH_IDLE_MS = 80;
 
+/**
+ * 最后一段播完之后再等这么久才认定「说完了」。
+ *
+ * 比 `FLUSH_IDLE_MS` 长一档：后端两帧之间偶尔会卡一下，队列刚好放空、
+ * 下一帧还在路上，那一瞬间不能算说完——不然状态会在「说」和「待机」之间闪。
+ */
+const DRAIN_GRACE_MS = 200;
+
 export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
   /**
    * **按素材的采样率开 `AudioContext`。**
@@ -59,6 +71,17 @@ export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
   let rate = 16000;
   let idle: ReturnType<typeof setTimeout> | null = null;
   const sources = new Set<AudioBufferSourceNode>();
+  let drained: (() => void) | null = null;
+  let drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 排空了就通知一声，但要压过 `DRAIN_GRACE_MS` 的静默期再算数。 */
+  const armDrainCheck = (): void => {
+    if (drainTimer !== null) clearTimeout(drainTimer);
+    drainTimer = setTimeout(() => {
+      drainTimer = null;
+      if (queued === 0 && sources.size === 0) drained?.();
+    }, DRAIN_GRACE_MS);
+  };
 
   /**
    * 把攒着的采样拼成一段排进去。
@@ -96,7 +119,10 @@ export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
     src.start(playAt);
     playAt += buf.duration;
     sources.add(src);
-    src.onended = () => void sources.delete(src);
+    src.onended = () => {
+      sources.delete(src);
+      armDrainCheck();
+    };
   };
 
   return {
@@ -105,6 +131,10 @@ export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
       if (pcm.length === 0) return;
       rate = sampleRate > 0 ? sampleRate : 16000;
       if (!ctx) ctx = make(rate);
+      if (drainTimer !== null) {
+        clearTimeout(drainTimer);
+        drainTimer = null;
+      }
       queue.push(pcm);
       queued += pcm.length;
       if (queued >= (rate * BUFFER_MS) / 1000) drain();
@@ -114,10 +144,21 @@ export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
         drain();
       }, FLUSH_IDLE_MS);
     },
+    speaking() {
+      if (queued > 0 || sources.size > 0) return true;
+      return ctx !== null && playAt > ctx.currentTime;
+    },
+    onDrained(cb) {
+      drained = cb;
+    },
     stop() {
       if (idle !== null) {
         clearTimeout(idle);
         idle = null;
+      }
+      if (drainTimer !== null) {
+        clearTimeout(drainTimer);
+        drainTimer = null;
       }
       queue = [];
       queued = 0;
