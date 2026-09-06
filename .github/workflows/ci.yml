@@ -1,0 +1,46 @@
+# 四个 JS 包加一套 Python，一共一千两百多个测试。
+# 之前全靠手跑：改一处忘了跑另一处，只能等下次撞上。
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # character 先构建：apps 的类型检查要读它的 dist
+      - run: pnpm --filter @qiuqiu/character build
+      - run: pnpm -r typecheck
+      - run: pnpm -r test
+      - run: pnpm -r build
+      - run: pnpm exec prettier --check .
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      # 不出网、不写仓库、不读 .env：三条规矩在 conftest 里，这里只是兜一层
+      - run: uv run pytest -q
+        env:
+          MODELS_MOCK: '1'
+          QIUQIU_NO_DOTENV: '1'

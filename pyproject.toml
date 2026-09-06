@@ -34,6 +34,10 @@ qiuqiu-api = { workspace = true }
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# 别碰 Markdown 里的代码块。`docs/CONTRACTS.md` 是契约本身，那些签名是**对齐着
+# 写给人看的**（尾注释成列、一行一个协议），ruff 一格式化就把它们拆开重排，
+# 解析这份文档的契约测试当场全红。文档不是待格式化的源码
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
