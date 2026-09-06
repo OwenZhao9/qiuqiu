@@ -453,6 +453,8 @@ select {
 /* 输入区 */
 
 .qq-composer {
+  /* 永不压缩、永不被顶出去。窗口再矮也得能打字 */
+  flex: none;
   border-top: var(--qq-border-thin) solid var(--qq-color-border);
   background: var(--qq-color-bg);
   padding: var(--qq-space-5) var(--qq-space-6);
@@ -2298,7 +2300,17 @@ select {
    看着像画坏了。压一道向下淡出的遮罩，读起来就是「下面还有」 */
 .qq-mapstrip {
   position: relative;
-  flex: none;
+  /* **可以被压**。原来是 `flex: none`，窗口一矮它就是不让位：
+     抬头 48 + 这条 190 + 输入框 120 = 358，装进 340 高的窗口里，
+     多出来的部分从底下溢出去——输入框被顶出窗口，只剩半个「发送」露在边上。
+
+     优先级是 输入框 > 对话 > 这条预览：能打字最要紧，其次是看得见说了什么，
+     这条是**预览**（完整的图在左栏「记忆结构」页），最先该牺牲的就是它。
+     压下去之后里面的图自己竖着滚，标题行不动，随时点得到「收起」。 */
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
   background: var(--qq-color-bg-subtle);
   /* 紧凑档按**这一条的宽度**决定排几列，不是按窗口宽度。中栏宽度 =
@@ -2309,6 +2321,8 @@ select {
 }
 
 .qq-mapstrip__head {
+  /* 标题行不参与压缩：这条被压到很矮时，「点这里收起」还得点得到 */
+  flex: none;
   display: flex;
   align-items: baseline;
   gap: var(--qq-space-3);
@@ -2364,7 +2378,17 @@ select {
      上限一路调到 63vh 是错的——800 px 高的窗口里，抬头 48 + 条带标题 34 + 图 504
      之后只剩两百来像素给对话，输入框占掉一大半，聊天区就剩两条消息的位置。
      压到 46vh：图放不下的部分竖着滚，对话区拿回三百多像素。 */
-  max-height: min(420px, 46vh);
+  /* 三个上限取最小的那个：
+       420px    —— 再高就不是「预览」了
+       46vh     —— 高窗口下别占掉半屏
+       100vh−340 —— **给对话留的底线**。340 = 抬头 48 + 本条标题 34 + 输入框 120
+                   + 留给对话的 138。矮窗口下这一项最小，于是这条自己缩，
+                   缩到只剩标题行也认——只压前两项的话，420 高的窗口里
+                   预览占 220、对话只剩 32，等于把主角挤没了 */
+  max-height: min(420px, 46vh, calc(100vh - 340px));
+  /* 上面是「最多多高」，这里是「可以被压到多矮」。少了它，flex 压不动一个
+     有内容的块，压力就转成溢出，顶掉下面的输入框 */
+  min-height: 0;
   overflow-y: auto;
 }
 
