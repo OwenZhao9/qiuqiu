@@ -58,10 +58,11 @@ describe('skin', () => {
     for (const s of SKINS) expect(s.label && s.blurb && s.look).toBeTruthy();
   });
 
-  it('二次元换的不只是令牌，丘丘本人也换形象', () => {
-    // 素净和卡哇伊只动 CSS，丘丘照旧；二次元连球一起换
+  it('粉皮肤连丘丘本人一起换，不只是令牌', () => {
+    // 只有素净留暖色球。卡哇伊是出厂皮肤，界面粉了球还是米色的话，
+    // 「默认可爱」就只落在 CSS 上
     expect(lookOf('default')).toBe('warm');
-    expect(lookOf('kawaii')).toBe('warm');
+    expect(lookOf('kawaii')).toBe('anime');
     expect(lookOf('anime')).toBe('anime');
     applySkin('anime');
     expect(document.documentElement.getAttribute('data-skin')).toBe('anime');
@@ -95,4 +96,16 @@ describe('首帧皮肤引导', () => {
       expect(found![1]).toBe(FACTORY.skin);
     });
   }
+});
+
+describe('皮肤与丘丘本人', () => {
+  it('出厂皮肤配的球不能是米色的', () => {
+    // 「默认可爱」如果只落在 CSS 上，就是粉界面裹着一颗米色的球。
+    // 球是 SVG，CSS 令牌管不到它，只能靠 skin.ts 里这条 look 映射
+    expect(lookOf(FACTORY.skin)).not.toBe('warm');
+  });
+
+  it('素净配暖色球', () => {
+    expect(lookOf('default')).toBe('warm');
+  });
 });

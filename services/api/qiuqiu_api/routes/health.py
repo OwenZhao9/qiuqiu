@@ -16,7 +16,7 @@ from ..deps import StateDep
 
 router = APIRouter(tags=["health"])
 
-CONTRACT_VERSION = "v0.1.17"
+CONTRACT_VERSION = "v0.1.18"
 """本服务实现的契约版本。改契约先改 `docs/CONTRACTS.md`，再改这里。"""
 
 

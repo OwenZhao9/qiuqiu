@@ -26,8 +26,10 @@ export interface SkinDef {
 
 export const SKINS: SkinDef[] = [
   { id: 'default', label: '素净', blurb: '暖棕米色，安静耐看', look: 'warm' },
-  { id: 'kawaii', label: '卡哇伊', blurb: '草莓粉，圆角更大', look: 'warm' },
-  { id: 'anime', label: '二次元', blurb: '樱粉紫瞳，丘丘会戴蝴蝶结', look: 'anime' }
+  // 卡哇伊是出厂皮肤（契约 § 9），球必须跟着粉。原来这里写的是 `look: 'warm'`
+  // ——粉界面配一颗米色的球，「默认可爱」四个字只落在 CSS 上，丘丘本人没变可爱
+  { id: 'kawaii', label: '卡哇伊', blurb: '草莓粉，圆角更大，丘丘也是粉的', look: 'anime' },
+  { id: 'anime', label: '二次元', blurb: '樱紫调，丘丘同样是樱粉紫瞳', look: 'anime' }
 ];
 
 const KEY = 'qiuqiu.skin';

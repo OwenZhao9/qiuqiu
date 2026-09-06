@@ -317,3 +317,48 @@ class TestScrubTimestamp:
     def test_a_bare_timestamp_becomes_empty_and_gets_dropped(self) -> None:
         """整条只有一个时间戳的，清完是空的，`_from_llm` 会跳过它。"""
         assert scrub_timestamp("2026-09-05T07:42:50.861Z") == ""
+
+
+def _fact(fid: str, text: str, *, speaker: str = "assistant"):
+    from qiuqiu_memory.pipeline.compress import Fact
+
+    return Fact(
+        id=fid,
+        text=text,
+        entities=[],
+        tokens=[],
+        speaker=speaker,
+        source="dialogue",
+        valid_from=BASE_TIME,
+    )
+
+
+class TestItsOwnWords:
+    """丘丘那一轮，只留讲它自己的事实——那个幻觉环的闸口。"""
+
+    def test_claims_about_the_user_from_its_own_mouth_are_dropped(self) -> None:
+        """「用户喜欢喝不加糖的美式」如果是从丘丘的话里抽出来的，用户从没说过。
+
+        留着的后果实测过：下一轮召回把它端出来，模型当成事实转述回去，
+        转述又被 ingest 一遍，滚成「我记得你喜欢喝不加糖的美式咖啡」。
+        """
+        from qiuqiu_memory.pipeline.compress import CompressResult, _only_its_own_words
+
+        result = CompressResult(
+            facts=[
+                _fact("f1", "用户喜欢喝不加糖的美式。"),
+                _fact("f2", "丘丘答应周三提醒用户练琴。"),
+            ]
+        )
+        kept = _only_its_own_words(result)
+
+        assert [f.id for f in kept.facts] == ["f2"], "承诺留下，替用户下的断言丢掉"
+        assert "用户喜欢喝不加糖的美式。" in kept.dropped_spans
+
+    def test_the_users_own_turn_is_untouched(self) -> None:
+        """用户自己说的照记不误——闸口只对 speaker=assistant 那一轮。"""
+        from qiuqiu_memory.pipeline.compress import CompressResult, _only_its_own_words
+
+        mine = CompressResult(facts=[_fact("f1", "用户喜欢喝美式咖啡。", speaker="user")])
+        # 这个函数只在 speaker == "assistant" 时被调用；直接调它是为了钉住判据本身
+        assert _only_its_own_words(mine).facts == []

@@ -324,10 +324,18 @@ class LanceStore:
         """语义路。返回的每条带 `_distance`。
 
         有没有向量索引对调用方不可见：没索引时 LanceDB 全扫，语义与返回结构一样。
+
+        **`.metric()` 不能省。** 索引是按 `VECTOR_METRIC`（余弦）建的，但查询不指定
+        的话 LanceDB 按 L2 算，`_distance` 就成了平方欧氏距离。上层
+        （`retrieve.py::_semantic`）按余弦距离换算 `1 - _distance`，拿到的是负数，
+        被 `max(0.0, ...)` 一律夹成 **0**——语义路每一条的分数都是 0，
+        排序完全失效，合并时又永远输给有分的字面路。等于这一路白跑。
         """
         if len(vector) != VECTOR_DIM:
             raise ValueError(f"vector 维度应为 {VECTOR_DIM}，收到 {len(vector)}")
-        query = self.table(tier).search(list(vector), vector_column_name="vector")
+        query = (
+            self.table(tier).search(list(vector), vector_column_name="vector").metric(VECTOR_METRIC)
+        )
         clause = _and([where, "valid_to IS NULL" if only_valid else None])
         if clause:
             query = query.where(clause)

@@ -45,7 +45,28 @@ __all__ = [
 
 log = structlog.get_logger("qiuqiu_api.orchestrator")
 
-MEMORY_HEADER = "【记忆】下面是你记得的、和这次对话相关的事实。当作已知信息用，不要复述这段话本身。"
+MEMORY_HEADER = (
+    "【记忆】下面是你记得的、和这次对话相关的事实。当作已知信息用，不要复述这段话本身。\n"
+    "**这张表之外的事，你不知道。** 不许说「我记得你……」去讲一件没列在上面的事，"
+    "也不许在列出来的事上加没写的细节（表里写「在学吉他」，就不能说成「每周末抱着吉他练」）。"
+    "想知道就直接问他——问一句是正常的，编一段会让他以为你记错了人。"
+)
+
+NO_MEMORY_NOTE = (
+    "【记忆】这一轮什么都没召回到。**别说你记得任何事**，也别顺着话头编一段过往。"
+    "这不是你的失职，只是这句话跟存着的事对不上；想知道就问。"
+)
+
+#: 事实文本里出现这个名字，才算「讲的是丘丘自己」。
+#: 与 `qiuqiu_memory.pipeline.compress.SELF_LABEL` 是同一个判据
+SELF_LABEL = "丘丘"
+
+SELF_HEADER = (
+    "【你自己说过的话】下面这些是**你从前说出口的**，不是他告诉你的，也不一定是真的——"
+    "里面可能有你当时的猜测、玩笑和随口一问。可以用来保持前后一致（尤其是你答应过的事），"
+    "**但不许拿它当事实转述给他**，更不许在它上面接着编细节。"
+    "要说「我记得你……」，那件事得出现在上面【记忆】那一段里。"
+)
 IMAGE_HEADER = "【图片】"
 VISION_PROMPT = "用一到三句中文描述这张图里有什么，说清楚人、物、地点和正在发生的事。"
 
@@ -107,10 +128,43 @@ def model_name(chat: Any) -> str:
     return str(getattr(chat, "model", None) or getattr(chat, "provider", "unknown"))
 
 
-def _memory_block(hits: list[Any]) -> str:
-    lines = [MEMORY_HEADER]
-    lines.extend(f"- {hit.text}" for hit in hits if getattr(hit, "text", ""))
-    return "\n".join(lines)
+def _memory_block(hits: list[Any]) -> list[str]:
+    """召回结果拼成 prompt 段落。**按说话人分成两段**，不是一个列表。
+
+    AD-6 让 AI 的回复也进记忆——不然它答应过的事没法召回。代价是它自己的猜测
+    也一起进去了：丘丘随口问一句「早上还想喝美式咖啡吧？」，抽出来就是一条
+    「丘丘询问赵宁是否喝到了美式咖啡」。
+
+    这些原来和用户真说过的话混在同一个「你记得的事」列表里发给模型。模型读不出
+    区别，就把自己从前的猜测当成事实接着说——「我记得你喜欢喝**不加糖的**美式咖啡」，
+    不加糖是它自己编的。编出来的这句又被 `ingest` 一遍，下一轮再召回、再加料。
+    **一个会自我强化的幻觉环，而且每转一圈都更像真的。**
+
+    分成两段就断开了：哪些是他告诉你的、哪些是你自己说的，模型一眼看得见。
+    """
+    theirs: list[Any] = []
+    mine: list[Any] = []
+    for hit in hits:
+        text = getattr(hit, "text", "")
+        if not text:
+            continue
+        if getattr(hit, "speaker", "") != "assistant":
+            theirs.append(hit)
+        elif SELF_LABEL in text:
+            # 「丘丘答应…」这种，讲的是它自己，留着才有 AD-6 说的那个用处
+            mine.append(hit)
+        # 剩下的一概不端出来：从丘丘嘴里出来、却写成「用户……」的断言。
+        # 抽取那头已经不写这种了（`compress.py::_only_its_own_words`），
+        # 但库里还躺着一批旧的——同一条判据在这儿再挡一次，不用去删用户的库。
+        # 删是危险的：里头混着真话（用户说过、丘丘复述了一遍），
+        # 删掉就把真记忆一起丢了
+
+    blocks: list[str] = []
+    if theirs:
+        blocks.append("\n".join([MEMORY_HEADER, *(f"- {h.text}" for h in theirs)]))
+    if mine:
+        blocks.append("\n".join([SELF_HEADER, *(f"- {h.text}" for h in mine)]))
+    return blocks
 
 
 def token_totals(state: AppState, trace_id: str) -> tuple[int, int]:
@@ -192,8 +246,11 @@ def build_messages(
     from qiuqiu_models import Message
 
     system_parts = [persona_text.strip()] if persona_text.strip() else []
-    if hits:
-        system_parts.append(_memory_block(hits))
+    blocks = _memory_block(hits) if hits else []
+    # 没召回到也要说一句。什么都不说的时候它最爱编：实测拿一条「用户正在学吉他」
+    # 就能顺出「我记得你周末一般抱着吉他练一会儿，累了冲杯美式，天气好还去爬山」，
+    # 后面两件事库里根本没有
+    system_parts.extend(blocks or [NO_MEMORY_NOTE])
     messages: list[Any] = []
     if system_parts:
         messages.append(Message(role="system", content="\n\n".join(system_parts)))

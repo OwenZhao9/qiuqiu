@@ -308,7 +308,7 @@ class Budget:
 
 @dataclass
 class RecallResult:
-    items: list[Hit]               # Hit = { id, text, path, score, valid_from }
+    items: list[Hit]               # Hit = { id, text, path, score, valid_from, speaker }
     paths_used: list[str]
     plan: RetrievalPlan
     cold_promoted: list[FactId]
@@ -324,6 +324,20 @@ class MemoryFacade:
     def note_filter(self, *, decision: str, score: float, reason: str, source: Source,
                     input_preview: str, trace_id: str | None = None) -> str: ...
 ```
+
+**`Hit.speaker` 必须分开摆。** 这条事实是从谁说的话里抽出来的（`user` / `assistant` /
+采集来源）。AD-6 让 AI 的回复也进记忆——不然它答应过的事没法召回；代价是它自己的
+猜测也一起进去了。丘丘随口问一句「早上还想喝美式咖啡吧？」，抽出来就是一条
+「丘丘询问赵宁是否喝到了美式咖啡」。
+
+这些如果和用户真说过的话混在同一个「你记得的事」列表里发给模型，模型读不出区别，
+就把自己从前的猜测当成事实转述——「我记得你喜欢喝**不加糖的**美式咖啡」，不加糖是
+它自己编的。编出来的这句又被 `ingest` 一遍，下一轮再召回、再加料：**一个会自我强化的
+幻觉环，每转一圈都更像真的。**
+
+所以拼 prompt 的一方（`orchestrator.py::_memory_block`）必须按 `speaker` 拆成两段：
+`assistant` 的进「你自己说过的话」，明说「不是他告诉你的，也不一定是真的，不许拿它
+当事实转述」；其余的才进「你记得的事」。
 
 **`trace_id` 由调用方传。** ARCHITECTURE 第 7 节要求一条 `trace_id` 贯穿 `ingest`、事件信封与 `run_metrics`；`/chat` 与 `/ingest` 生成它，经这两个参数传进来，中间件发出的 `filter` `write` `merge` `recall` 事件都挂在同一条 trace 上。不传时中间件自己生成一条，返回值里照常带回。
 
@@ -597,7 +611,22 @@ prompt_persona = identity_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.17**（出厂就是可爱的）
+当前：**v0.1.18**（丘丘不许拿自己说过的话当事实）
+
+v0.1.18 两条：**§ 3 `Hit` 增 `speaker`**，并规定拼 prompt 的一方必须按它分段。
+AD-6 让 AI 的回复也进记忆——不然它答应过的事没法召回；代价是它自己的猜测也一起
+进去了，而且**和用户真说过的话混在同一个「你记得的事」列表里发给模型**。模型读不出
+区别，就把自己从前的随口一说当成事实转述回去，转述又被 `ingest` 一遍：一个会自我强化
+的幻觉环，每转一圈都更笃定。实测滚出过「我记得你喜欢喝**不加糖的**美式咖啡」，
+不加糖三个字从头到尾没人说过。
+
+两头都堵：抽取时丘丘那一轮只留讲它自己的事实（`compress.py::_only_its_own_words`），
+拼 prompt 时同一条判据再挡一次（`orchestrator.py::_memory_block`）——库里还躺着一批
+旧的，而删库会连真话一起删（用户说过、丘丘复述了一遍的那些）。
+
+第二条：**召回为空也要明说「别说你记得任何事」**。什么都不给的时候它最爱编。
+
+v0.1.17（出厂就是可爱的）
 
 v0.1.17 一条：**增 § 9 出厂默认**。原来「装完长什么样」散在三处——皮肤是
 `skin.ts` 里的一个字面量、人格预设压根没有（空库是真空）、表情停留时长是
@@ -745,7 +774,7 @@ v0.1.7 十一条，全部来自 `memory` 分支报上来的缺口，逐条裁决
 |---|---|---|
 | 皮肤 | `kawaii` | `packages/character/src/defaults.ts::FACTORY.skin` |
 | 人格预设 | `cute` | `packages/memory/persona.py::FACTORY_PRESET` |
-| 形象 | `warm` | 由皮肤推出（`skin.ts::lookOf`），不单独存 |
+| 形象 | `anime` | 由皮肤推出（`skin.ts::lookOf`），不单独存。粉皮肤配粉球，界面粉了球还是米色的话「默认可爱」就只落在 CSS 上 |
 
 **为什么种而不是兜底。** 「读不到就当 `cute`」会让 AD-11 的真空态永远回不去——
 用户把预设清空，下次启动又变回可爱。所以是一次性种下：种过留一个记号

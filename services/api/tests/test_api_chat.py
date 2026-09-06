@@ -237,3 +237,136 @@ def test_nothing_about_expressions_is_sent_to_the_model(state: AppState) -> None
     blob = "\n".join(str(getattr(m, "content", "")) for m in messages)
     for forbidden in ("emotionId", "当前表情", "你现在的表情", "emotion_id"):
         assert forbidden not in blob
+
+
+def test_its_own_words_are_kept_out_of_what_it_remembers(state: AppState) -> None:
+    """丘丘自己说过的话不能混进「你记得的事」——那是幻觉自我强化的入口。
+
+    AD-6 让 AI 的回复也进记忆（不然它答应过的事没法召回），代价是它的猜测也进去了。
+    丘丘随口问一句「早上还想喝美式咖啡吧？」，抽出来是一条
+    「丘丘询问赵宁是否喝到了美式咖啡」；跟用户真说过的话混在一个列表里发过去，
+    模型读不出区别，下一轮就当事实转述并加料，加料的又被 ingest——一圈比一圈像真的。
+    """
+    from qiuqiu_api.orchestrator import MEMORY_HEADER, SELF_HEADER, build_messages
+    from qiuqiu_memory.types import Hit
+
+    hits = [
+        Hit(
+            id="f1",
+            text="用户住在深圳南山",
+            path="lexical",
+            score=0.9,
+            valid_from="",
+            speaker="user",
+        ),
+        Hit(
+            id="f2",
+            text="丘丘询问赵宁是否喝到了美式咖啡",
+            path="lexical",
+            score=0.7,
+            valid_from="",
+            speaker="assistant",
+        ),
+    ]
+    system = build_messages(
+        state, persona_text="【身份】你叫丘丘。", hits=hits, history=[], user_text="我在哪"
+    )[0].content
+
+    assert MEMORY_HEADER in system and SELF_HEADER in system
+    # 用户那条在【记忆】段，丘丘自己那条在【你自己说过的话】段，两段不能串
+    remembered = system[system.index(MEMORY_HEADER) : system.index(SELF_HEADER)]
+    own = system[system.index(SELF_HEADER) :]
+    assert "用户住在深圳南山" in remembered
+    assert "美式咖啡" not in remembered
+    assert "美式咖啡" in own
+
+
+def test_only_one_header_shows_up_when_one_side_is_empty(state: AppState) -> None:
+    """全是用户说的就不该出现空的「你自己说过的话」标题，反之亦然。"""
+    from qiuqiu_api.orchestrator import MEMORY_HEADER, SELF_HEADER, build_messages
+    from qiuqiu_memory.types import Hit
+
+    only_theirs = [
+        Hit(id="f1", text="用户养了猫", path="lexical", score=0.9, valid_from="", speaker="user")
+    ]
+    system = build_messages(state, persona_text="", hits=only_theirs, history=[], user_text="?")[
+        0
+    ].content
+    assert MEMORY_HEADER in system and SELF_HEADER not in system
+
+
+def test_claims_it_made_about_the_user_never_reach_the_prompt(state: AppState) -> None:
+    """从丘丘嘴里出来、却写成「用户……」的断言，一条都不端给模型。
+
+    抽取那头已经不写这种了，但库里还躺着一批旧的——同一条判据在拼 prompt 时
+    再挡一次。不去删库：里头混着真话（用户说过、丘丘复述了一遍），删掉就把
+    真记忆一起丢了。
+    """
+    from qiuqiu_api.orchestrator import build_messages
+    from qiuqiu_memory.types import Hit
+
+    hits = [
+        Hit(
+            id="a",
+            text="用户住在深圳南山",
+            path="lexical",
+            score=0.9,
+            valid_from="",
+            speaker="user",
+        ),
+        Hit(
+            id="b",
+            text="用户喜欢喝不加糖的美式。",  # 丘丘当初随口说的，用户没说过
+            path="lexical",
+            score=0.8,
+            valid_from="",
+            speaker="assistant",
+        ),
+        Hit(
+            id="c",
+            text="丘丘答应周三提醒用户练琴。",  # 承诺，AD-6 要的就是这个
+            path="lexical",
+            score=0.7,
+            valid_from="",
+            speaker="assistant",
+        ),
+    ]
+    system = build_messages(state, persona_text="", hits=hits, history=[], user_text="?")[0].content
+
+    assert "用户住在深圳南山" in system
+    assert "丘丘答应周三提醒用户练琴。" in system
+    assert "不加糖" not in system
+
+
+def test_it_is_told_not_to_invent_memories(state: AppState) -> None:
+    """召回为空也要明说「别说你记得任何事」。
+
+    什么都不说的时候它最爱编：实测只给一条「用户正在学吉他」，它就顺出
+    「我记得你周末一般抱着吉他练一会儿，累了冲杯美式，天气好还去爬山」——
+    后面两件事库里根本没有。
+    """
+    from qiuqiu_api.orchestrator import MEMORY_HEADER, NO_MEMORY_NOTE, build_messages
+    from qiuqiu_memory.types import Hit
+
+    empty = build_messages(state, persona_text="", hits=[], history=[], user_text="我周末干嘛")
+    assert NO_MEMORY_NOTE in empty[0].content
+
+    one = build_messages(
+        state,
+        persona_text="",
+        hits=[
+            Hit(
+                id="a",
+                text="用户正在学吉他。",
+                path="lexical",
+                score=0.9,
+                valid_from="",
+                speaker="user",
+            )
+        ],
+        history=[],
+        user_text="我周末干嘛",
+    )
+    system = one[0].content
+    assert MEMORY_HEADER in system and NO_MEMORY_NOTE not in system
+    assert "这张表之外的事，你不知道" in system

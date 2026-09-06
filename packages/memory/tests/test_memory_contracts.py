@@ -221,7 +221,14 @@ class TestDataclassShapes:
         """`Hit = { id, text, path, score, valid_from }`，同样写在 `RecallResult` 的注释里。"""
         line = next(ln for ln in spec.section(3).split("\n") if "Hit = {" in ln)
         declared = set(line.split("{", 1)[1].split("}", 1)[0].replace(",", " ").split())
-        hit = Hit(id="fact_1", text="t", path="semantic", score=0.5, valid_from=iso(BASE_TIME))
+        hit = Hit(
+            id="fact_1",
+            text="t",
+            path="semantic",
+            score=0.5,
+            valid_from=iso(BASE_TIME),
+            speaker="user",
+        )
         assert set(hit.to_dict()) == declared
 
     def test_visible_memory_matches_the_typescript_interface(self) -> None:

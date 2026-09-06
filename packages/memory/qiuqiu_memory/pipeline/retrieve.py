@@ -83,6 +83,9 @@ class _Candidate:
     score: float
     valid_from: str
     tier: str
+    #: 这条事实是从谁说的话里抽出来的。`assistant` 的那些是丘丘自己说过的，
+    #: 不是用户告诉它的——两者在 prompt 里必须分开摆，见 `_memory_block`
+    speaker: str
 
 
 # --------------------------------------------------------------------------- 规划
@@ -229,6 +232,7 @@ def _candidate(row: dict[str, Any], path: str, score: float, tier: str) -> _Cand
         score=round(float(score), 4),
         valid_from=iso(valid_from) if isinstance(valid_from, dt.datetime) else "",
         tier=tier,
+        speaker=str(row.get("speaker") or ""),
     )
 
 
@@ -297,6 +301,7 @@ def _truncate(merged: dict[str, _Candidate], budget: Budget, paths: list[str]) -
                 path=candidate.path,
                 score=candidate.score,
                 valid_from=candidate.valid_from,
+                speaker=candidate.speaker,
             )
         )
     return hits

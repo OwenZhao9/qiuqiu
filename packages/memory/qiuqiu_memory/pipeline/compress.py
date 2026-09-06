@@ -135,6 +135,10 @@ _USER_TEMPLATE = (
   模型自己就知道，存了纯属占地方）、任何一方说的问句、寒暄与客套、
   对当下这轮对话的复述（「丘丘做了自我介绍」「丘丘询问用户想聊什么」）、
   临时的天气与心情闲聊
+- **说话人是丘丘时，只记丘丘自己的承诺与建议**（「丘丘答应周三提醒用户练琴」）。
+  丘丘嘴里说出来的、关于用户的断言一概不记——它可能是在猜、在打趣、在顺着话说。
+  「用户喜欢喝不加糖的美式」这条如果是从丘丘的话里抽出来的，那用户从没说过这件事，
+  记下来它下一轮就会当成事实转述回去，再抽一遍，越滚越像真的
 
 **这一句没有任何值得长期记住的东西，就给空数组**——这是常态，不是失败。
 
@@ -152,6 +156,38 @@ _USER_TEMPLATE = (
 {{"facts": [{{"text": "...", "entities": ["..."]}}], "dropped_spans": ["..."], "summary": null}}
 """
 )
+
+
+#: 事实文本里出现这个名字，才算「讲的是丘丘自己」。与 `text.py::_SPEAKER_LABELS` 一致
+SELF_LABEL = "丘丘"
+
+
+def _only_its_own_words(result: CompressResult) -> CompressResult:
+    """丘丘那一轮，只留讲它自己的事实，其余丢掉。
+
+    **这是那个幻觉环的闸口。** AD-6 让 AI 的回复也进记忆，理由是「AI 的承诺与建议
+    无从召回」——要的是「丘丘答应周三提醒用户练琴」这种。但抽取器经常把丘丘随口
+    的猜测也写成一条关于用户的事实：丘丘说一句「不加糖的美式在雨天喝着提神」，
+    存进去就是「用户喜欢喝不加糖的美式」——**用户从没说过这件事**。
+
+    下一轮召回把它端出来，模型当成事实转述回去，转述又被 ingest 一遍，
+    一圈比一圈笃定。实测就是这么滚出「我记得你喜欢喝不加糖的美式咖啡」的。
+
+    判据是文本里有没有提到丘丘自己。承诺与建议天然写成「丘丘答应…」「丘丘建议…」，
+    留得下；「用户喜欢…」这种从它嘴里出来的断言留不下——真话用户自己会说，
+    那一轮的 `speaker=user` 会把它记上。
+
+    提示词里也写了同样的规则（模型照做就不用走到这儿），但不能只靠它自觉：
+    抽取是一次 LLM 调用，规则再清楚也会有漏网的。
+    """
+    kept: list[Fact] = []
+    for fact in result.facts:
+        if SELF_LABEL in (fact.text or ""):
+            kept.append(fact)
+        else:
+            result.dropped_spans.append(fact.text)
+    result.facts = kept
+    return result
 
 
 async def compress(
@@ -183,6 +219,9 @@ async def compress(
     )
     if result is None:
         result = _fallback(text, speaker=speaker, source=source, moment=moment, blob_id=blob_id)
+
+    if speaker == "assistant":
+        result = _only_its_own_words(result)
 
     if source is Source.JOURNAL and not result.summary:
         result.summary = _naive_summary(text)

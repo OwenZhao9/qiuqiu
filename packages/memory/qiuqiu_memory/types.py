@@ -214,6 +214,14 @@ class Hit:
     path: str  # semantic | lexical | symbolic
     score: float
     valid_from: str
+    #: 这条事实是从谁说的话里抽出来的：`user` / `assistant` / 采集来源。
+    #:
+    #: **调用方必须分开摆。** AD-6 让 AI 的回复也进记忆（不然它答应过的事没法召回），
+    #: 代价是它自己的猜测也一起进去了：丘丘随口问一句「早上还想喝美式咖啡吧？」，
+    #: 抽出来就是一条「丘丘询问赵宁是否喝到了美式咖啡」。下一轮召回把它和用户
+    #: 真说过的话混在同一个「你记得的事」列表里，模型读不出区别，就当成事实接着编，
+    #: 编出来的又被 ingest 一遍——一个会自我强化的幻觉环。
+    speaker: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -222,6 +230,7 @@ class Hit:
             "path": self.path,
             "score": self.score,
             "valid_from": self.valid_from,
+            "speaker": self.speaker,
         }
 
     def to_event_hit(self) -> dict[str, Any]:
