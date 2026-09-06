@@ -2462,7 +2462,7 @@ select {
                    + 留给对话的 138。矮窗口下这一项最小，于是这条自己缩，
                    缩到只剩标题行也认——只压前两项的话，420 高的窗口里
                    预览占 220、对话只剩 32，等于把主角挤没了 */
-  max-height: min(360px, 44vh, calc(100vh - 380px));
+  max-height: min(400px, 48vh, calc(100vh - 350px));
   /* 上面是「最多多高」，这里是「可以被压到多矮」。少了它，flex 压不动一个
      有内容的块，压力就转成溢出，顶掉下面的输入框 */
   min-height: 0;
@@ -2481,8 +2481,8 @@ select {
 }
 
 .qq-map--compact .qq-map__zone {
-  gap: var(--qq-space-1);
-  padding: var(--qq-space-4) var(--qq-space-4) var(--qq-space-3);
+  gap: var(--qq-space-2);
+  padding: var(--qq-space-5) var(--qq-space-4);
 }
 
 .qq-map--compact .qq-map__zone-h {
@@ -2500,7 +2500,7 @@ select {
   flex-flow: row wrap;
   justify-content: center;
   gap: 0 var(--qq-space-3);
-  padding: var(--qq-space-2) var(--qq-space-3);
+  padding: var(--qq-space-2) var(--qq-space-4);
 }
 
 .qq-map--compact .qq-map__box--lg {
@@ -2508,8 +2508,10 @@ select {
 }
 
 /* 紧凑档只把空档缩短，箭头按像素定尺寸，形状不跟着变小 */
+/* 空档 10 px 时整张图挤成一坨——上限加高之后这里跟着放开，
+   多出来的高度要花在「透气」上，不然只是框子变大内容照旧 */
 .qq-map--compact .qq-map__gap {
-  height: 10px;
+  height: 12px;
 }
 
 /* ── 让这条**装得下自己** ──────────────────────────────────────
