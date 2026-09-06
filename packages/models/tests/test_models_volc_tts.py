@@ -208,7 +208,7 @@ class TestStreamDecoding:
                     pass
         finally:
             tts._restore()  # type: ignore[attr-defined]
-        assert "额度" in excinfo.value.hint
+        assert excinfo.value.hint  # 任何非零码都得带一句能照做的提示
 
 
 class TestErrors:
@@ -247,3 +247,21 @@ class TestConfig:
         monkeypatch.setenv("VOLC_SPEECH_TOKEN", "t")
         monkeypatch.setenv("VOLC_TTS_SPEAKER", "zh_male_custom")
         assert volc_tts.from_env().speaker == "zh_male_custom"
+
+
+async def test_quota_error_says_topping_up_the_balance_will_not_help() -> None:
+    """免费字数耗尽要单独给提示：这个额度挂在资源上，充账户余额解不开。
+
+    实测过——用户看到「额度用完」去充了值，再跑还是同一个错误码。
+    提示里不写清楚，下一个人还会白充一次。
+    """
+    from qiuqiu_models.base import UpstreamError
+    from qiuqiu_models.providers.volc_tts import QUOTA_EXHAUSTED, _decode_line
+
+    line = json.dumps(
+        {"code": QUOTA_EXHAUSTED, "message": "quota exceeded for types: text_words_lifetime"}
+    )
+    with pytest.raises(UpstreamError) as caught:
+        _decode_line(line)
+    assert "充值解不开" in caught.value.hint
+    assert "资源包" in caught.value.hint

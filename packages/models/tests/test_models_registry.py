@@ -183,3 +183,22 @@ def test_list_providers_honours_model_env(monkeypatch: pytest.MonkeyPatch) -> No
     infos = {i["capability"]: i for i in registry.list_providers()}
     assert infos["chat"]["model"] == "deepseek-custom"
     assert infos["vision"]["model"] == "deepseek-custom-vision"
+
+
+def test_tts_defaults_to_the_realtime_say_route(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认走实时语音的 SayHello，不走语音合成接口。
+
+    两个服务配额分开：语音合成那条有终身免费字数上限，用完之后丘丘在应用里
+    整个哑了（文字照常，一个音频帧都不发），而且充值解不开。实时语音那条配额独立。
+    """
+    from qiuqiu_models.registry import TTS_ROUTE_ENV
+
+    monkeypatch.setenv("VOLC_SPEECH_APPID", "a")
+    monkeypatch.setenv("VOLC_SPEECH_TOKEN", "t")
+    monkeypatch.delenv(TTS_ROUTE_ENV, raising=False)
+    registry.reset()
+    assert type(registry.get("tts")).__name__ == "DoubaoSay"
+
+    monkeypatch.setenv(TTS_ROUTE_ENV, "tts")
+    registry.reset()
+    assert type(registry.get("tts")).__name__ != "DoubaoSay"

@@ -151,10 +151,31 @@ def tts_provider() -> str:
     return "volcengine"
 
 
-def _build_tts() -> Any:
-    from .providers import volc_tts
+#: 语音合成走哪条。`say`（默认）用端到端实时语音的 `SayHello`，`tts` 用语音合成接口。
+TTS_ROUTE_ENV = "TTS_ROUTE"
 
-    return volc_tts.from_env()
+
+def _build_tts() -> Any:
+    """默认走 `doubao_say`（实时语音的 SayHello），不走语音合成接口。
+
+    这两个服务的配额是分开的。语音合成那条（`seed-tts-2.0`）有个
+    **终身**免费字数上限，用完报 45000292，充账户余额解不开、换资源 ID 要另外开通；
+    实测耗尽之后丘丘在应用里整个哑了——文字照常，一个音频帧都不发。
+    实时语音那条配额独立，`SayHello` 正好是照文本合成，凭证相同、音色同一家族，
+    下行 24k 还高一档。所以默认换过去。
+
+    要走回语音合成接口就设 `TTS_ROUTE=tts`。
+    """
+    import os
+
+    if os.environ.get(TTS_ROUTE_ENV, "say").strip().lower() == "tts":
+        from .providers import volc_tts
+
+        return volc_tts.from_env()
+
+    from .providers import doubao_say
+
+    return doubao_say.from_env()
 
 
 def _build_mock(capability: str) -> Any:

@@ -36,6 +36,10 @@ from . import _audio
 
 ENDPOINT = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
 RESOURCE_ID = "seed-tts-2.0"
+
+#: 免费字数耗尽。单独认出来是因为它的处理方式跟别的错完全不同——
+#: 不是配错了，是要去买资源包，充账户余额没用
+QUOTA_EXHAUSTED = 45000292
 #: 缺省音色从音色目录取，两条链路共用同一份表（`qiuqiu_models.voices`）。
 DEFAULT_SPEAKER = voices.tts_id(voices.DEFAULT_VOICE)
 SAMPLE_RATE = 16000
@@ -104,9 +108,22 @@ def _decode_line(line: str) -> bytes | None:
     # `20000000` 也是成功码（message 就是 "OK"），只认 0 会把正常响应全判成错误。
     # 之前就是这么挂的：十个音色全报「错误码 20000000：OK」。
     if code not in (None, 0, 20000000):
+        message = str(payload.get("message", ""))
+        if code == QUOTA_EXHAUSTED or "quota exceeded" in message:
+            # 这个额度是**挂在资源上的终身免费字数**，不是账户余额——
+            # 给账户充值不会解开它，实测充完照样报同一个码
+            hint = (
+                f"`{RESOURCE_ID}` 的免费字数用完了（`text_words_lifetime` 是**终身**上限，"
+                "不是按月重置的）。**给账户充值解不开**——要去火山引擎控制台的"
+                "「语音技术 › 语音合成大模型」，给这个 APPID 买一个资源包或开通后付费。\n"
+                "在那之前对话照常，只是丘丘不出声（TTS 失败不影响文字，见 orchestrator 里"
+                "`_stream_audio` 的兜底）。"
+            )
+        else:
+            hint = "音色 ID 不存在，或试用额度已用完（控制台 > 豆包语音合成模型2.0 看余量）。"
         raise UpstreamError(
-            f"豆包语音合成返回错误码 {code}：{payload.get('message', '')}",
-            hint="音色 ID 不存在，或试用额度已用完（控制台 > 豆包语音合成模型2.0 看余量）。",
+            f"豆包语音合成返回错误码 {code}：{message}",
+            hint=hint,
             provider="volcengine",
         )
     data = payload.get("data")

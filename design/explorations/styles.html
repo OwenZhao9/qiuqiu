@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>丘丘 · 四个界面方向</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: #17181b; color: #e8e6e3;
+        font: 14px/1.6 "PingFang SC", system-ui, sans-serif;
+        padding: 40px 28px 80px;
+      }
+      .page-head { max-width: 1280px; margin: 0 auto 36px; }
+      .page-head h1 { font-size: 22px; margin: 0 0 8px; font-weight: 600; }
+      .page-head p { margin: 0; color: #9b9793; max-width: 760px; }
+      .opt { max-width: 1280px; margin: 0 auto 60px; }
+      .opt__head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 6px; }
+      .opt__no {
+        font: 600 13px/1 ui-monospace, Menlo, monospace;
+        color: #17181b; background: #e8e6e3; padding: 5px 8px; border-radius: 5px;
+      }
+      .opt__name { font-size: 18px; font-weight: 600; }
+      .opt__en { color: #78746f; font-size: 13px; }
+      .opt__why { margin: 0 0 14px; color: #9b9793; max-width: 900px; }
+      .opt__why b { color: #d6d2cd; font-weight: 600; }
+      .swatches { display: flex; gap: 6px; margin: 0 0 14px; }
+      .sw { width: 26px; height: 26px; border-radius: 5px; border: 1px solid #ffffff1a; }
+      .mock {
+        border-radius: 10px; overflow: hidden;
+        border: 1px solid #ffffff1f; box-shadow: 0 18px 40px -18px #000000cc;
+      }
+      .bar { height: 30px; display: flex; align-items: center; gap: 7px; padding: 0 12px; background: #2a2b2f; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+      /* ══ 应用骨架：首屏 = 对话页 + 顶上展开的记忆结构 ══ */
+      .app {
+        display: grid; grid-template-columns: 176px 1fr 246px;
+        height: 660px; background: var(--bg); color: var(--text); font-family: var(--font);
+      }
+      .left { background: var(--surface-2); border-right: var(--line-w) solid var(--line); }
+      .hero {
+        padding: 16px 0 12px; display: flex; flex-direction: column; align-items: center; gap: 7px;
+        border-bottom: var(--line-w) solid var(--line);
+      }
+      .ball {
+        width: 66px; height: 66px; border-radius: 50%;
+        background: var(--ball); box-shadow: var(--ball-shadow); position: relative;
+      }
+      .ball::before, .ball::after {
+        content: ""; position: absolute; top: 27px; width: 6px; height: 10px;
+        border-radius: 50%; background: var(--ball-eye);
+      }
+      .ball::before { left: 20px; }
+      .ball::after { right: 20px; }
+      .hero span { font-size: 11px; color: var(--text-3); }
+      .nav { padding: 9px 7px; display: flex; flex-direction: column; gap: 1px; }
+      .nav i {
+        font-style: normal; font-size: 12px; padding: 6px 10px;
+        border-radius: var(--r-sm); color: var(--text-2);
+      }
+      .nav i.on { background: var(--nav-on-bg); color: var(--nav-on-text); font-weight: var(--nav-on-weight); }
+
+      .mid { display: flex; flex-direction: column; min-width: 0; }
+      .head {
+        height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 14px;
+        border-bottom: var(--line-w) solid var(--line);
+        font-size: 12px; font-weight: 600;
+        letter-spacing: var(--head-tracking); text-transform: var(--head-transform);
+      }
+      .head em { font-style: normal; font-weight: 400; color: var(--text-3); font-size: 10.5px; }
+
+      /* ── 记忆结构条（首屏默认展开的那一条）── */
+      .strip {
+        border-bottom: var(--line-w) solid var(--line);
+        background: var(--surface-2); padding: 8px 12px 12px;
+      }
+      .strip__t { font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+      .strip__t em { font-style: normal; font-weight: 400; color: var(--text-3); margin-left: 6px; }
+      .zones { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; align-items: start; }
+      .zone {
+        border: var(--line-w) solid var(--line-strong); border-radius: var(--r-md);
+        border-top: var(--zone-top); background: var(--surface); padding: 8px 8px 10px;
+      }
+      .zone > h4 {
+        margin: 0 0 7px; font-size: 11px; font-weight: 600; text-align: center;
+        color: var(--zone-ink);
+      }
+      .zone > h4 em { display: block; font-style: normal; font-weight: 400; font-size: 9px; color: var(--text-3); }
+      .row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+      .tag {
+        font-size: 9.5px; padding: 3px 6px; border-radius: var(--r-sm);
+        border: var(--line-w) solid var(--line-strong); color: var(--text-2); white-space: nowrap;
+      }
+      .to { color: var(--text-3); font-size: 9px; }
+      .cell {
+        flex: 1; font-size: 9.5px; text-align: center; padding: 4px 5px;
+        border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm);
+        background: var(--surface); line-height: 1.35;
+      }
+      .cell u { display: block; text-decoration: none; color: var(--text-3); font-size: 8.5px; }
+      .gap { text-align: center; font-size: 8.5px; color: var(--text-3); margin: 3px 0; }
+      .funnel {
+        margin-top: 5px; padding: 6px; text-align: center; font-size: 9.5px;
+        border: var(--line-w) dashed var(--line-strong); border-radius: var(--r-sm);
+      }
+      .funnel u { display: block; text-decoration: none; font-size: 8.5px; color: var(--text-3); }
+      .shelf {
+        border: var(--line-w) solid var(--line-strong); border-radius: var(--r-sm);
+        padding: 5px 6px; margin-bottom: 4px; background: var(--surface);
+      }
+      .shelf > b { font-size: 9.5px; display: flex; justify-content: space-between; font-weight: 600; }
+      .shelf > b i { font-style: normal; font-weight: 400; color: var(--text-3); font-size: 8.5px; }
+      .unit {
+        margin-top: 4px; font-size: 9px; padding: 3px 5px; border-radius: var(--r-sm);
+        background: var(--unit-bg); color: var(--text-2);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .lit {
+        background: var(--accent-soft) !important; border-color: var(--accent) !important;
+        color: var(--accent-ink) !important; font-weight: 600; box-shadow: var(--glow);
+      }
+
+      /* ── 对话 ── */
+      .thread { flex: 1; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+      .msg { max-width: 76%; padding: 7px 11px; font-size: 12px; line-height: 1.55; }
+      .msg--me { align-self: flex-end; background: var(--me-bg); color: var(--me-text); border-radius: var(--r-msg-me); }
+      .msg--it {
+        align-self: flex-start; background: var(--it-bg); color: var(--text);
+        border-radius: var(--r-msg-it); border: var(--it-border);
+      }
+      .cite { font-size: 10px; color: var(--text-3); margin-top: 4px; }
+      .composer { border-top: var(--line-w) solid var(--line); padding: 9px 13px 11px; background: var(--surface-2); }
+      .box { border: var(--line-w) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); padding: 8px 10px; }
+      .box p { margin: 0 0 8px; font-size: 11.5px; color: var(--text-3); }
+      .tools { display: flex; align-items: center; gap: 9px; }
+      .ico { width: 15px; height: 15px; opacity: .6; }
+      .send {
+        margin-left: auto; font-size: 11px; padding: 5px 12px; border-radius: var(--r-pill);
+        background: var(--accent); color: var(--on-accent); font-weight: 600;
+      }
+
+      /* ── 右栏 ── */
+      .right { background: var(--surface-2); border-left: var(--line-w) solid var(--line); }
+      .ev { padding: 8px 11px; display: flex; flex-direction: column; gap: 6px; }
+      .card {
+        border: var(--line-w) solid var(--line-strong); border-left: var(--card-rail);
+        border-radius: var(--r-sm); background: var(--surface); padding: 6px 8px;
+      }
+      .card b { display: block; font-size: 11px; font-weight: 600; }
+      .card span { font-size: 10px; color: var(--text-3); }
+      .trace { font-family: var(--mono); font-size: 9.5px; color: var(--text-3); }
+
+      /* ════ 一 · 静谧纸感 ════ */
+      .t-paper {
+        --font: "PingFang SC", system-ui, sans-serif; --mono: ui-monospace, Menlo, monospace;
+        --bg: #faf8f3; --surface: #ffffff; --surface-2: #f4f1ea;
+        --text: #2b2823; --text-2: #5f594f; --text-3: #948c7e;
+        --line: #e6e0d4; --line-strong: #d8d0c0; --line-w: 1px;
+        --accent: #7a6a4f; --accent-soft: #efe8d8; --accent-ink: #4d4231;
+        --on-accent: #fffdf8; --glow: none;
+        --r-sm: 3px; --r-md: 4px; --r-pill: 3px; --r-msg-me: 3px; --r-msg-it: 3px;
+        --me-bg: #ece5d5; --me-text: #322d24; --it-bg: #ffffff; --it-border: 1px solid #e6e0d4;
+        --nav-on-bg: transparent; --nav-on-text: #2b2823; --nav-on-weight: 600;
+        --ball: radial-gradient(circle at 35% 30%, #fdfbf6, #eae3d4 70%, #d9d0bd);
+        --ball-eye: #4a4438; --ball-shadow: 0 5px 14px -6px #00000026;
+        --head-tracking: .06em; --head-transform: none;
+        --card-rail: 1px solid #d8d0c0; --zone-top: 1px solid #d8d0c0;
+        --zone-ink: #5f594f; --unit-bg: #f7f4ec;
+      }
+      .t-paper .nav i.on { box-shadow: inset 2px 0 0 var(--accent); border-radius: 0; }
+      .t-paper .head, .t-paper .strip__t { font-family: "Songti SC", serif; font-size: 13px; }
+
+      /* ════ 二 · 暗色控制台 ════ */
+      .t-console {
+        --font: "PingFang SC", system-ui, sans-serif; --mono: ui-monospace, "SF Mono", Menlo, monospace;
+        --bg: #101215; --surface: #171a1f; --surface-2: #131619;
+        --text: #dfe3e8; --text-2: #98a1ac; --text-3: #6b737e;
+        --line: #232830; --line-strong: #2d333d; --line-w: 1px;
+        --accent: #35d6a4; --accent-soft: #0f2a24; --accent-ink: #6ff0c6;
+        --on-accent: #06231a; --glow: 0 0 0 1px #35d6a466, 0 0 16px -2px #35d6a466;
+        --r-sm: 4px; --r-md: 6px; --r-pill: 5px; --r-msg-me: 6px; --r-msg-it: 6px;
+        --me-bg: #1d3a33; --me-text: #d6f7ec; --it-bg: #171a1f; --it-border: 1px solid #232830;
+        --nav-on-bg: #1d2128; --nav-on-text: #eef2f6; --nav-on-weight: 600;
+        --ball: radial-gradient(circle at 35% 30%, #2c3440, #1b2029 72%, #12161c);
+        --ball-eye: #35d6a4; --ball-shadow: 0 0 22px -6px #35d6a455;
+        --head-tracking: .1em; --head-transform: uppercase;
+        --card-rail: 2px solid #35d6a4; --zone-top: 2px solid #2d333d;
+        --zone-ink: #b9c2cc; --unit-bg: #12151a;
+      }
+      .t-console .trace, .t-console .cite, .t-console .cell u { font-family: var(--mono); }
+      .t-console .zone:nth-child(1) { border-top-color: #d99a3c; }
+      .t-console .zone:nth-child(2) { border-top-color: #35d6a4; }
+      .t-console .zone:nth-child(3) { border-top-color: #4aa8e0; }
+
+      /* ════ 三 · 柔和拟物 ════ */
+      .t-soft {
+        --font: "PingFang SC", system-ui, sans-serif; --mono: ui-monospace, Menlo, monospace;
+        --bg: #f6f4f8; --surface: #ffffff; --surface-2: #f1eef5;
+        --text: #322c3a; --text-2: #6c6478; --text-3: #9d95a8;
+        --line: #e8e3ef; --line-strong: #ded7e8; --line-w: 1px;
+        --accent: #8b7bd8; --accent-soft: #efeafc; --accent-ink: #5b4bab;
+        --on-accent: #ffffff; --glow: 0 4px 14px -4px #8b7bd866;
+        --r-sm: 8px; --r-md: 13px; --r-pill: 999px;
+        --r-msg-me: 15px 15px 4px 15px; --r-msg-it: 15px 15px 15px 4px;
+        --me-bg: linear-gradient(135deg, #9b8ce4, #7f6dd0); --me-text: #ffffff;
+        --it-bg: #ffffff; --it-border: none;
+        --nav-on-bg: #ffffff; --nav-on-text: #5b4bab; --nav-on-weight: 600;
+        --ball: radial-gradient(circle at 34% 28%, #fdfcff, #e9e2fa 62%, #cdc2ea);
+        --ball-eye: #4b3f77; --ball-shadow: 0 10px 22px -10px #6b5aba59;
+        --head-tracking: 0; --head-transform: none;
+        --card-rail: 1px solid #ded7e8; --zone-top: 1px solid #ded7e8;
+        --zone-ink: #6c6478; --unit-bg: #f7f5fc;
+      }
+      .t-soft .card, .t-soft .box, .t-soft .zone, .t-soft .msg--it { box-shadow: 0 2px 7px -4px #4a3f6b26; }
+      .t-soft .nav i.on { box-shadow: 0 2px 8px -3px #6b5aba33; }
+      .t-soft .zone:nth-child(1) { border-top: 3px solid #f0b37a; }
+      .t-soft .zone:nth-child(2) { border-top: 3px solid #86d3b4; }
+      .t-soft .zone:nth-child(3) { border-top: 3px solid #9ab8ea; }
+
+      /* ════ 四 · 编辑部 ════ */
+      .t-editorial {
+        --font: "PingFang SC", system-ui, sans-serif; --mono: ui-monospace, Menlo, monospace;
+        --bg: #fbfaf7; --surface: #ffffff; --surface-2: #fbfaf7;
+        --text: #14130f; --text-2: #4a4740; --text-3: #8a857b;
+        --line: #14130f1a; --line-strong: #14130f2b; --line-w: 1px;
+        --accent: #d8402f; --accent-soft: #fdece9; --accent-ink: #a82a1c;
+        --on-accent: #ffffff; --glow: none;
+        --r-sm: 0px; --r-md: 0px; --r-pill: 0px; --r-msg-me: 0px; --r-msg-it: 0px;
+        --me-bg: #14130f; --me-text: #fbfaf7; --it-bg: #ffffff; --it-border: 1px solid #14130f1a;
+        --nav-on-bg: transparent; --nav-on-text: #14130f; --nav-on-weight: 700;
+        --ball: radial-gradient(circle at 35% 30%, #ffffff, #f0ede6 68%, #ddd8cd);
+        --ball-eye: #14130f; --ball-shadow: none;
+        --head-tracking: .02em; --head-transform: none;
+        --card-rail: 3px solid #14130f; --zone-top: 3px solid #14130f;
+        --zone-ink: #14130f; --unit-bg: #f6f4ef;
+      }
+      .t-editorial .head, .t-editorial .strip__t { font-size: 14px; font-weight: 700; }
+      .t-editorial .nav i.on { border-bottom: 2px solid var(--accent); border-radius: 0; }
+      .t-editorial .zone { border-left: none; border-right: none; border-bottom: none; }
+      .t-editorial .card { border-top: none; border-right: none; border-bottom: none; }
+      .t-editorial .lit { border-width: 2px !important; }
+    </style>
+  </head>
+  <body>
+    <div class="page-head">
+      <h1>丘丘 · 四个界面方向</h1>
+      <p>
+        首屏：对话页，顶上是默认展开的记忆结构条（三段管线图那一整块）。
+        四个方向渲染的是同一份 DOM、同一份内容，只有配色、字体、圆角、边界与密度不同。
+        高亮的都是「压缩 · 生成记忆原子单元」这同一步，方便比较状态表达。
+      </p>
+    </div>
+
+    <section class="opt">
+      <div class="opt__head"><span class="opt__no">01</span><span class="opt__name">静谧纸感</span><span class="opt__en">Quiet Paper</span></div>
+      <p class="opt__why"><b>克制到几乎没有装饰。</b>纸白底、发丝细线、近乎方角，颜色只留一支土褐做强调，标题用宋体。管线图变成一张论文插图——安静、耐看、经得住长时间盯着。代价是不可爱，丘丘也成了素净的米色球。</p>
+      <div class="swatches"><span class="sw" style="background:#faf8f3"></span><span class="sw" style="background:#f4f1ea"></span><span class="sw" style="background:#d8d0c0"></span><span class="sw" style="background:#7a6a4f"></span><span class="sw" style="background:#2b2823"></span></div>
+      <div class="mock"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><div class="app t-paper" data-app></div></div>
+    </section>
+
+    <section class="opt">
+      <div class="opt__head"><span class="opt__no">02</span><span class="opt__name">暗色控制台</span><span class="opt__en">Dark Console</span></div>
+      <p class="opt__why"><b>把它当成一台可观测的机器。</b>近黑底，trace id 与检索路径用等宽字，三段各有一条顶色，正在走的那一步亮薄荷绿带辉光，其余压暗。四个里最能撑住「记忆过程看得见」这个卖点——它看起来像一个真在跑的系统。代价是冷。</p>
+      <div class="swatches"><span class="sw" style="background:#101215"></span><span class="sw" style="background:#171a1f"></span><span class="sw" style="background:#2d333d"></span><span class="sw" style="background:#35d6a4"></span><span class="sw" style="background:#dfe3e8"></span></div>
+      <div class="mock"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><div class="app t-console" data-app></div></div>
+    </section>
+
+    <section class="opt">
+      <div class="opt__head"><span class="opt__no">03</span><span class="opt__name">柔和拟物</span><span class="opt__en">Soft Depth</span></div>
+      <p class="opt__why"><b>现在这一版该有的样子。</b>同样是可爱路线，但把散落的粉色收成一支紫罗兰，圆角统一放大、气泡带方向性尖角、卡片靠极浅投影分层而不是靠一圈边框；三段仍用暖／绿／蓝区分，只是压成很淡的顶条。你现在觉得不协调，根子就是球很软、界面很硬。</p>
+      <div class="swatches"><span class="sw" style="background:#f6f4f8"></span><span class="sw" style="background:#f1eef5"></span><span class="sw" style="background:#ded7e8"></span><span class="sw" style="background:#8b7bd8"></span><span class="sw" style="background:#322c3a"></span></div>
+      <div class="mock"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><div class="app t-soft" data-app></div></div>
+    </section>
+
+    <section class="opt">
+      <div class="opt__head"><span class="opt__no">04</span><span class="opt__name">编辑部</span><span class="opt__en">Editorial</span></div>
+      <p class="opt__why"><b>靠字号和留白分层，不靠框。</b>全直角、去掉大部分描边，三段各用一条粗黑顶线开头，事件用粗竖线标，只有一支正红做强调。信息密度最高，管线图读起来像一页排版考究的图解。代价是最不「桌宠」。</p>
+      <div class="swatches"><span class="sw" style="background:#fbfaf7"></span><span class="sw" style="background:#ffffff"></span><span class="sw" style="background:#14130f2b"></span><span class="sw" style="background:#d8402f"></span><span class="sw" style="background:#14130f"></span></div>
+      <div class="mock"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div><div class="app t-editorial" data-app></div></div>
+    </section>
+
+    <script>
+      // 四个方向共用这一份 DOM。比出来的才是风格差异，不是内容差异。
+      // 结构与文案照 apps/web/src/components/MemoryMap.tsx 的三段图取。
+      const APP = `
+        <div class="left">
+          <div class="hero"><div class="ball"></div><span>丘丘在想</span></div>
+          <div class="nav"><i class="on">对话</i><i>记忆结构</i><i>记忆库</i><i>人格</i><i>设置</i></div>
+        </div>
+        <div class="mid">
+          <div class="head">对话 <em>正在写入</em></div>
+          <div class="strip">
+            <div class="strip__t">记忆结构 <em>点这里收起</em></div>
+            <div class="zones">
+
+              <div class="zone">
+                <h4>① 选择性摄入<em>Selective Ingestion</em></h4>
+                <div class="row"><span class="tag">文字</span><span class="to">→</span>
+                  <span class="cell">词汇重合度去重<u>Jaccard</u></span></div>
+                <div class="row"><span class="tag">图片</span><span class="to">→</span>
+                  <span class="cell">画面相似度比对<u>CLIP · 实为 Vision 转描述</u></span></div>
+                <div class="row"><span class="tag">音频</span><span class="to">→</span>
+                  <span class="cell">语音活动检测<u>VAD</u></span></div>
+                <div class="gap">↓ 三路汇成一路</div>
+                <div class="funnel">新颖度过滤器<u>Novelty Filter · 留 / 丢 / 拿不准</u></div>
+                <div class="gap">× 冗余，丢掉</div>
+                <div class="cell lit">生成记忆原子单元<u>大模型产出摘要 + 向量</u></div>
+              </div>
+
+              <div class="zone">
+                <h4>② 两层存储<em>MAU Storage</em></h4>
+                <div class="shelf">
+                  <b>热存储 <i>常驻，随时可取</i></b>
+                  <div class="unit">记忆原子单元 · 用户下周五去上海出差</div>
+                  <div class="unit">记忆原子单元 · 住在静安寺附近</div>
+                </div>
+                <div class="gap">↓ 指针 p</div>
+                <div class="shelf">
+                  <b>冷存储 <i>归档，按需加载</i></b>
+                  <div class="unit">记忆原子单元 · 摘要：…</div>
+                  <div class="unit">记忆原子单元 · 摘要：…</div>
+                </div>
+                <div class="gap">命中即回热</div>
+              </div>
+
+              <div class="zone">
+                <h4>③ 检索<em>Retrieval</em></h4>
+                <div class="cell">用户提问 q</div>
+                <div class="gap">↓ 三路并行</div>
+                <div class="row"><span class="cell">稠密检索<u>FAISS 向量</u></span></div>
+                <div class="row"><span class="cell">稀疏检索<u>BM25 关键词</u></span></div>
+                <div class="row"><span class="cell">图检索<u>实体标签</u></span></div>
+                <div class="gap">↓</div>
+                <div class="cell">并集</div>
+                <div class="gap">↓ token 预算 B</div>
+                <div class="cell">答案</div>
+              </div>
+
+            </div>
+          </div>
+          <div class="thread">
+            <div class="msg msg--me">我下周五要去上海出差，住静安寺附近</div>
+            <div class="msg msg--it">好，记下了：下周五、上海、静安寺附近。要不要我提前一天提醒你？
+              <div class="cite">参考了 3 条记忆</div></div>
+          </div>
+          <div class="composer">
+            <div class="box">
+              <p>说点什么，Enter 发送，Shift+Enter 换行</p>
+              <div class="tools">
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="5.5" width="18" height="13" rx="2.5"/><circle cx="8" cy="9.6" r="1.2"/><path d="M5 16.2l3.5-3.3 2.6 2.3 2.3-2 3.6 3.3"/></svg>
+                <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7.4 10.5c1.5 2.9 3.9 5.3 6.7 6.8l2.1-2.1a1 1 0 0 1 1-.25c1.05.35 2.2.54 3.35.54a1 1 0 0 1 1 1v3.35a1 1 0 0 1-1 1C11.3 20.84 3.5 13.04 3.5 3.5a1 1 0 0 1 1-1h3.35a1 1 0 0 1 1 1c0 1.16.19 2.3.54 3.35a1 1 0 0 1-.25 1L7.4 10.5z"/></svg>
+                <span class="send">发送</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="right">
+          <div class="head">记忆过程</div>
+          <div class="ev">
+            <div class="card"><b>记下来</b><span class="trace">trc_9f2a41</span></div>
+            <div class="card"><b>压缩 · 拆出 2 条</b><span>用户下周五去上海出差<br>用户在上海住静安寺附近</span></div>
+            <div class="card"><b>写入热存储</b><span>2 条事实</span></div>
+            <div class="card"><b>合并去重</b><span>吸收 1 条旧事实</span></div>
+            <div class="card"><b>检索</b><span>命中 3 条 · 走了语义 / 字面</span></div>
+          </div>
+        </div>`;
+      document.querySelectorAll('[data-app]').forEach((el) => (el.innerHTML = APP));
+    </script>
+  </body>
+</html>
