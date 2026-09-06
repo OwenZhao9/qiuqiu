@@ -1186,7 +1186,11 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  /* 从**底下**往上排：丘丘钉在窗口底部，气泡的下沿跟着不动，长高只动上沿。
+     原来是 flex-start，气泡贴着窗口上沿——而窗口高度又是按气泡算的，
+     等于气泡的位置由窗口说了算，每多一行窗口就跳一次，CSS 过渡插不上手。
+     没气泡时窗口正好等于内容高，这一改看不出区别。 */
+  justify-content: flex-end;
   gap: var(--qq-pet-gap);
   padding: var(--qq-pet-bleed);
 }
@@ -1370,7 +1374,16 @@ select {
   border-radius: var(--qq-radius-2xl);
   background: var(--qq-pet-balloon-bg);
   box-shadow: var(--qq-shadow-3);
-  transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
+  /* 高度由 `PetApp` 显式写，这里负责把每一行的增量滑过去。
+     不加这条的话，流式回复从一行长到七行是六次三十几像素的跳——
+     气泡只能朝上长，每长一行，正在读的那几行就整体上移一行，看着是抖的。
+     `--qq-duration-fast` 在「减弱动效」下会变成 1 ms，跟着系统偏好走。 */
+  transition:
+    opacity var(--qq-duration-slow) var(--qq-ease-out),
+    /* 缓动用 standard 不用 out：`ease-out` 起手就冲（0.05, 0.7, …），
+       每来一行重定目标的那一帧要走二十几像素，看着还是一顿一顿的。
+       standard 从零速起步，接上一段的余速刚好，整段是连着滑的。 */
+    height var(--qq-duration-base) var(--qq-ease-standard);
 }
 
 .qq-pet__bubble {
@@ -1773,19 +1786,6 @@ select {
   padding: var(--qq-space-5);
 }
 
-/**
- * 「记忆结构」整页：**这张图比窗口高，必须能滚。**
- *
- * 原来这里什么都没写：`.qq-main` 是 flex 列、`overflow: visible`，图按自身
- * 1683 px 撑开，823 px 的窗口把下面 860 px 整个裁掉——不是滚不到，是根本
- * 没有滚动条。`min-height: 0` 少不得，flex 子项的默认最小高度是内容高度，
- * 不解开的话 `overflow` 也没机会生效。
- */
-.qq-main > .qq-map {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
 
 /* 底下留一条道给回环那根线走。没有它线会压在最后一排方块上 */
 .qq-map__zones {
@@ -2393,7 +2393,7 @@ select {
      多出来的部分从底下溢出去——输入框被顶出窗口，只剩半个「发送」露在边上。
 
      优先级是 输入框 > 对话 > 这条预览：能打字最要紧，其次是看得见说了什么，
-     这条是**预览**（完整的图在左栏「记忆结构」页），最先该牺牲的就是它。
+     这条被压时最先该牺牲——能打字、看得见说了什么，比看图要紧。
      压下去之后里面的图自己竖着滚，标题行不动，随时点得到「收起」。 */
   flex: 0 1 auto;
   min-height: 0;
@@ -2530,13 +2530,13 @@ select {
    高度是被第三段撑起来的（446 px，另外两段被拉齐、白空一大片）。
    这里按「预览只负责说清结构和这一轮走到哪儿」把第三段的细节收掉：
    三路检索的算法名、token 预算那三条分档、以及「按预算截断」那行注脚——
-   它们都在左栏「记忆结构」页上，一键就到。 */
+   预览只说清结构和这一轮走到哪儿，细节不在这儿摊开。 */
 
 /* 紧凑档一律不排英文。这是**折行**的问题不是字数的问题：
    ① 那一栏宽 192 px，「词汇重合度去重 Jaccard」放不下要折两行，三条模态
    就是 46 px；三路检索那三个格子只有 56 px 宽，折三四行，又是 70 px。
    中文名本身已经说清楚了，英文术语（Jaccard / CLIP / VAD / FAISS / BM25）
-   在左栏「记忆结构」页上一个不少。 */
+   在完整档（`.qq-map` 不带 `--compact`）里一个不少。 */
 .qq-map--compact .qq-map__box-en,
 .qq-map--compact .qq-map__zone-h span,
 .qq-map--compact .qq-map__paths .qq-map__box-note {

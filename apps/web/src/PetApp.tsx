@@ -6,7 +6,7 @@
  * 自己发出去的话交 `submitFromPet`，由主窗口 `POST /chat`。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { getBridge } from './bridge.js';
 import { Composer } from './components/Composer.js';
 import { useChord } from './useChord.js';
@@ -105,31 +105,82 @@ export function PetApp(): React.JSX.Element {
      窗口得先在丘丘上方长出这块地方来，所以量一下报上去。
      换行数（流式回复一个字一个字长）也要跟着报，用 ResizeObserver 盯着。 */
   const bubbleRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
   const hasBubble = bubble.length > 0;
-  useEffect(() => {
+  /* `useLayoutEffect` 而不是 `useEffect`：高度要在**这一帧画出去之前**写好。
+     用 `useEffect` 的话气泡会先按 auto 高度画一帧、下一帧才被我们改成目标值——
+     实测是一帧 +390 px 再退回 266 px 的闪。 */
+  useLayoutEffect(() => {
     const el = bubbleRef.current;
-    if (!hasBubble || !el) {
+    const text = textRef.current;
+    if (!hasBubble || !el || !text) {
       bridge.setPetBubble(0);
       return;
     }
-    // 只在气泡出现 / 消失时重装监听。挂在文字上的话，流式回复每来一段就要
-    // 拆一次装一次，还顺带量一次布局——回复会一段一段地爬
+
+    /**
+     * **气泡的高度自己给，不让它跟着内容一跳一跳地长。**
+     *
+     * 流式回复每多一行，气泡就整块往上蹿一行——从一行长到七行是六次
+     * 三十几像素的跳，看着就是抖。（气泡贴着丘丘的头顶，只能向上长，
+     * 所以长高一行 = 已经在读的那几行整体上移一行。）
+     *
+     * 这里把外层的高度**显式写死成目标值**，由 CSS 过渡把这一下滑过去；
+     * 内层文字照旧按内容排。报给主进程的是**目标高度**、不是过渡中的高度：
+     * 窗口得先长够，否则动画走到一半气泡的上沿会被窗口边裁掉。
+     */
+    const cs = getComputedStyle(el);
+    const chrome =
+      parseFloat(cs.paddingTop) +
+      parseFloat(cs.paddingBottom) +
+      parseFloat(cs.borderTopWidth) +
+      parseFloat(cs.borderBottomWidth);
+
+    /**
+     * **窗口按气泡的上限一次性留够，中途不再改。**
+     *
+     * 抖的根子在这儿：窗口是透明无边框的，气泡画在窗口外面会被裁掉，所以
+     * 原来每多一行就报一次新高度、主进程就 resize 一次窗口。窗口是往上长的，
+     * 它的上沿就是气泡的上沿——**气泡的位置由窗口决定，不由 CSS 决定**，
+     * 于是每一行都是一次三十几像素的整帧跳，CSS 过渡根本插不上手。
+     *
+     * 现在一有气泡就按 `max-height`（七行）把地方留够，窗口只动这一次；
+     * 多留出来的是透明的，看不见也点不着。气泡自己在这块地方里由 CSS
+     * 过渡着长高——`.qq-pet` 改成 `justify-content: flex-end` 之后
+     * 丘丘钉在窗口底部，气泡的下沿跟着不动，长高只动上沿。
+     */
+    const reserved =
+      Math.ceil(parseFloat(getComputedStyle(text).maxHeight || '0') || 0) + chrome;
+
     let last = -1;
     let raf = 0;
+    let first = true;
     const report = (): void => {
       raf = 0;
-      const h = Math.ceil(el.getBoundingClientRect().height);
-      if (h === last) return; // 行数没变就别惊动主进程去 resize 窗口
-      last = h;
-      bridge.setPetBubble(h);
+      const target = Math.ceil(text.getBoundingClientRect().height + chrome);
+      if (target === last) return;
+      last = target;
+      // 第一次别从 0 滑上来——那是「气泡吹起来」，不是「气泡长高」
+      if (first) {
+        first = false;
+        el.style.transitionProperty = 'opacity';
+        el.style.height = `${target}px`;
+        void el.offsetHeight;
+        el.style.transitionProperty = '';
+        // 地方一次留够，后面每行只在这块地方里滑
+        bridge.setPetBubble(Math.max(reserved, target));
+      } else {
+        el.style.height = `${target}px`;
+      }
     };
     const schedule = (): void => {
       if (!raf) raf = requestAnimationFrame(report);
     };
     report();
     if (typeof ResizeObserver !== 'function') return;
+    // 盯**内层**：外层的高度是我们自己写的，盯外层会自己触发自己
     const ro = new ResizeObserver(schedule);
-    ro.observe(el);
+    ro.observe(text);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       ro.disconnect();
@@ -295,7 +346,9 @@ export function PetApp(): React.JSX.Element {
           onClick={() => bridge.openMain()}
           role="status"
         >
-          <div className="qq-pet__bubble">{bubble}</div>
+          <div className="qq-pet__bubble" ref={textRef}>
+            {bubble}
+          </div>
         </div>
       ) : null}
 

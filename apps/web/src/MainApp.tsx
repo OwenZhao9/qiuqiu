@@ -29,11 +29,10 @@ import { createEventsStore } from './store/events.js';
 import { DEFAULT_THRESHOLDS } from './store/thresholds.js';
 import type { QiuqiuInstance } from '@qiuqiu/character';
 
-type Page = 'chat' | 'map' | 'memories' | 'persona' | 'settings';
+type Page = 'chat' | 'memories' | 'persona' | 'settings';
 
 const NAV: Array<{ page: Page; label: string }> = [
   { page: 'chat', label: '对话' },
-  { page: 'map', label: '记忆结构' },
   { page: 'memories', label: '记忆库' },
   { page: 'persona', label: '人格' },
   { page: 'settings', label: '设置' }
@@ -313,7 +312,6 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
             />
           </>
         ) : null}
-        {page === 'map' ? <MemoryMap events={eventsState.events} /> : null}
         {page === 'memories' ? <MemoryLibrary /> : null}
         {page === 'persona' ? <PersonaPage /> : null}
         {page === 'settings' ? <SettingsPage /> : null}

@@ -1,21 +1,17 @@
 /**
- * 设置页：场景控制台 + 音色 + 供应商清单。
+ * 设置页：外观 + 音色 + 供应商清单。
  *
  * 供应商只看 `has_key` 的真假，**密钥永远不落前端**（`docs/CONVENTIONS.md`）。
- * 场景列表走 `GET /scenarios`（契约 v0.1.8 § 1 收编）；请求不通时退回写死的四个，
- * 让界面上还看得见有哪些演示。
+ *
+ * **场景控制台去掉了。** 那四个「一键回放」把脚本里写好的台词当成用户真说过的话
+ * 灌进记忆库——点一下「过了三个月」，深圳、南山那一套就进了真实记忆，
+ * 而人从没说过。演示归演示，不该和真话共用一个库。
+ * 后端的 `GET /scenarios` / `POST /scenario/{name}/play` 还在（契约 § 1 里有），
+ * 只是界面上不再有入口。
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ApiError,
-  FALLBACK_SCENARIOS,
-  getProviders,
-  getScenarios,
-  playScenario,
-  type ProviderInfo,
-  type ScenarioInfo
-} from '../api.js';
+import { ApiError, getProviders, type ProviderInfo } from '../api.js';
 import { VoicePicker } from './VoicePicker.js';
 import { applySkin, readSkin, SKINS, type Skin } from '../skin.js';
 
@@ -33,9 +29,6 @@ export interface SettingsPageProps {}
 export function SettingsPage({}: SettingsPageProps): React.JSX.Element {
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [scenarios, setScenarios] = useState<readonly ScenarioInfo[]>(FALLBACK_SCENARIOS);
   const [skin, setSkin] = useState<Skin>(readSkin);
 
   const load = useCallback(() => {
@@ -55,58 +48,9 @@ export function SettingsPage({}: SettingsPageProps): React.JSX.Element {
 
   useEffect(load, [load]);
 
-  useEffect(() => {
-    getScenarios()
-      .then((list) => {
-        if (list.length > 0) setScenarios(list);
-      })
-      .catch(() => {
-        /* 列不出来就用兜底的四个，不打断这一页的其余部分 */
-      });
-  }, []);
-
   return (
     <div className="qq-page">
       <h1 className="qq-page__title">设置</h1>
-
-      <section>
-        <h2 className="qq-section__title">场景控制台</h2>
-        <p className="qq-note">一键回放演示场景，事件会实时落进右边的记忆过程侧栏。</p>
-        <div className="qq-scenarios">
-          {scenarios.map((s) => (
-            <div className="qq-scenario" key={s.name}>
-              <div style={{ flex: 1 }}>
-                <div>{s.title}</div>
-                <div className="qq-note qq-mono">{s.name}</div>
-              </div>
-              <button
-                type="button"
-                className="qq-btn qq-focusable"
-                disabled={busy === s.name}
-                onClick={() => {
-                  setBusy(s.name);
-                  playScenario(s.name)
-                    .then(() => setNote(`已开始回放「${s.title}」`))
-                    .catch((err: unknown) =>
-                      setError(
-                        err instanceof ApiError
-                          ? err
-                          : new ApiError(
-                              'scenario_failed',
-                              String(err),
-                              '确认后端实现了场景回放路由'
-                            )
-                      )
-                    )
-                    .finally(() => setBusy(null));
-                }}
-              >
-                {busy === s.name ? '回放中…' : '回放'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section>
         <h2 className="qq-section__title">外观</h2>
@@ -162,7 +106,6 @@ export function SettingsPage({}: SettingsPageProps): React.JSX.Element {
         )}
       </section>
 
-      {note ? <div className="qq-note">{note}</div> : null}
       {error ? (
         <div className="qq-error">
           {error.message}
