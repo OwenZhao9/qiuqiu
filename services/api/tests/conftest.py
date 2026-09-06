@@ -2,7 +2,8 @@
 
 1. **不出网**：`MODELS_MOCK=1`，注册表全返回 mock；嵌入走默认的离线哈希
 2. **不写仓库**：`DATA_DIR` 指到 pytest 的 `tmp_path`，每个用例一套干净的库
-3. **不留真实 key**：环境里跟 key 沾边的一律清掉
+3. **不留真实 key**：环境里跟 key 沾边的一律清掉，并且 `QIUQIU_NO_DOTENV=1`
+   关掉 `.env` 读取——只删环境变量不管用，dotenv 会照 `.env` 把缺的那些再填回来
 
 `state` 与 `client` 分开：有些用例（事件总线、定时任务）要在没有 HTTP 请求的时候
 直接动 `facade`，那时候只需要 `state`。
@@ -39,6 +40,7 @@ def offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     from qiuqiu_memory import embed
     from qiuqiu_models import registry
 
+    monkeypatch.setenv("QIUQIU_NO_DOTENV", "1")
     for name in _DIRTY_ENV:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))

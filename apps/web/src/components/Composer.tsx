@@ -9,6 +9,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { ApiError, postBlob, type Attachment } from '../api.js';
 import { VoiceButton } from './VoiceButton.js';
+import type { VoicePhase } from '../voice.js';
 
 export const MAX_IMAGES = 4;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -36,6 +37,8 @@ export interface ComposerProps {
   onVoiceLevel?(rms: number): void;
   /** 语音会话连上 / 断开。 */
   onVoiceActive?(active: boolean): void;
+  /** 通话中在听 / 在想 / 在说。 */
+  onVoicePhase?(phase: VoicePhase): void;
 }
 
 interface Pending {
@@ -46,7 +49,7 @@ interface Pending {
   error: string | null;
 }
 
-/** 语音输入推迟到 M5：按钮画出来，点了提示。 */
+/** 输入区：文字、图片、通话按钮。 */
 export function Composer({
   variant,
   onSubmit,
@@ -60,7 +63,8 @@ export function Composer({
   onTextChange,
   onVoiceFinal,
   onVoiceLevel,
-  onVoiceActive
+  onVoiceActive,
+  onVoicePhase
 }: ComposerProps): React.JSX.Element {
   const [own, setOwn] = useState('');
   const text = controlled ?? own;
@@ -126,6 +130,8 @@ export function Composer({
     },
     [isPet, streaming, onStop, onEscape, submit, text, history, setText]
   );
+
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const upload = useCallback(
     async (files: readonly File[]) => {
@@ -245,18 +251,57 @@ export function Composer({
         </div>
       ))}
 
-      <div className="qq-composer__row">
+      {/* 一个框，字在上、工具在下——微信那个样子。
+          原来是「输入框 + 右边并排三颗按钮」：输入框被挤窄，三颗按钮抢主次，
+          通话状态那一行还得靠 flex-wrap 兜着，一开通话整排就乱 */}
+      <div className="qq-composer__box">
         <textarea aria-label="说点什么" rows={2} {...inputProps} />
-        <VoiceButton onFinal={onVoiceFinal} onLevel={onVoiceLevel} onActiveChange={onVoiceActive} />
-        {streaming ? (
-          <button type="button" className="qq-btn qq-focusable" onClick={() => onStop?.()}>
-            停止
+        <div className="qq-composer__bar">
+          {/* 拖进来和粘贴一直都能发图，但界面上没有任何入口——不告诉你就等于没有 */}
+          <button
+            type="button"
+            className="qq-icon-btn qq-focusable"
+            aria-label="发图片"
+            title={`发图片。也可以直接拖进来或粘贴，一条最多 ${MAX_IMAGES} 张`}
+            onClick={() => fileRef.current?.click()}
+          >
+            {/* 画法（格子、粗细、端点）全在 `.qq-icon` 里，这里只给形状。
+                外框跟着界面的圆角走，不是硬角；山脊收在框里留一道缝——
+                贴着底边画的话，18px 下山脚和边框糊成一条粗线 */}
+            <svg className="qq-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+              <circle cx="8" cy="9.6" r="1.2" />
+              <path d="M5 16.2l3.5-3.3 2.6 2.3 2.3-2 3.6 3.3" />
+            </svg>
           </button>
-        ) : (
-          <button type="button" className="qq-btn qq-btn--primary qq-focusable" onClick={submit}>
-            发送
-          </button>
-        )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept={ACCEPTED_IMAGE_TYPES.join(',')}
+            multiple
+            hidden
+            onChange={(e) => {
+              void upload(Array.from(e.target.files ?? []));
+              e.target.value = '';
+            }}
+          />
+          <VoiceButton
+            onFinal={onVoiceFinal}
+            onLevel={onVoiceLevel}
+            onActiveChange={onVoiceActive}
+            onPhase={onVoicePhase}
+          />
+          <span className="qq-spacer" />
+          {streaming ? (
+            <button type="button" className="qq-btn qq-focusable" onClick={() => onStop?.()}>
+              停止
+            </button>
+          ) : (
+            <button type="button" className="qq-btn qq-btn--primary qq-focusable" onClick={submit}>
+              发送
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

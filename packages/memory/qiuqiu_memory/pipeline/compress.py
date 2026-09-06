@@ -211,6 +211,30 @@ async def compress(
 
 # ---------- 模型路径 ----------
 
+#: ISO-8601 时间戳，模型偶尔会把它写进正文。
+#: 形如 `2026-09-05T07:42:50.861Z`，秒的小数位与时区都可有可无。
+_ISO = re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?")
+
+
+def scrub_timestamp(text: str) -> str:
+    """把正文里的 ISO 时间戳去掉。
+
+    提示词里已经明写「绝不要在正文里写时间戳，绝不要出现
+    `2026-09-05T09:27:22.192Z`」，模型照样写——库里真存进去过
+    「截至2026-09-05T07:42:50.861Z，赵宁居住在深圳市。」。
+    时间该待在 `valid_from` 字段里，不该混进人读的那句话。
+
+    连「截至」「于」这类引导词一起去掉，不然会剩一个孤零零的逗号开头。
+    """
+
+    out = _ISO.sub("", text)
+    if out == text:
+        return text.strip()
+    out = re.sub(r"(截至|截止|于|在)\s*[，,]\s*", "", out)
+    out = re.sub(r"^\s*[，,、：:]\s*", "", out)
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip()
+
 
 def _from_llm(
     parsed: Any,
@@ -228,7 +252,7 @@ def _from_llm(
     for item in parsed["facts"]:
         if not isinstance(item, dict):
             continue
-        body = str(item.get("text") or "").strip()
+        body = scrub_timestamp(str(item.get("text") or ""))
         if not body:
             continue
         extra = item.get("entities")

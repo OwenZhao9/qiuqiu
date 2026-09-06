@@ -11,6 +11,7 @@
 
 import { useMemo } from 'react';
 import type { MemoryEventEnvelope } from '../api.js';
+import { reasonCN } from '../format.js';
 import {
   derivePipeline,
   INGEST_STAGES,
@@ -212,7 +213,9 @@ export function MemoryFlow({ events }: MemoryFlowProps): React.JSX.Element {
         </ul>
       ) : null}
 
-      {p.reason && p.decision === 'reject' ? <p className="qq-flow__reason">{p.reason}</p> : null}
+      {p.reason && p.decision === 'reject' ? (
+        <p className="qq-flow__reason">{reasonCN(p.reason)}</p>
+      ) : null}
     </div>
   );
 }

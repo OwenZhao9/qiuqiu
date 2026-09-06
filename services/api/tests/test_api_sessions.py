@@ -16,6 +16,7 @@ CONTRACT_MESSAGE_KEYS = {
     "content",
     "model",
     "favorite",
+    "attachments",
     "created_at",
 }
 
@@ -68,3 +69,29 @@ def test_unknown_session_is_404_with_a_hint(client: TestClient) -> None:
     body = client.get("/sessions/nope/messages").json()
     assert body["error"]["code"] == "session_not_found"
     assert body["error"]["hint"]
+
+
+def test_attachments_survive_a_restart(client: TestClient) -> None:
+    """发过的图要跟着消息回来。
+
+    附件原来只活在前端内存里：`hydrate` 一律填空数组，重开窗口那条消息
+    只剩「带了 1 张图」几个字，图去哪了没人知道。
+    """
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
+    blob_id = client.post("/blobs", files={"file": ("x.png", png, "image/png")}).json()["blob_id"]
+    response = client.post(
+        "/chat",
+        json={
+            "session_id": "s-img",
+            "content": "这是什么",
+            "attachments": [{"type": "image", "blob_id": blob_id}],
+        },
+    )
+    assert response.status_code == 200
+    assert response.text  # 读完流才落库
+
+    rows = client.get("/sessions/s-img/messages").json()
+    assert rows[0]["role"] == "user"
+    assert rows[0]["attachments"] == [blob_id]
+    assert rows[1]["attachments"] == []  # 回复没带图
+    assert client.get("/blobs/" + blob_id).content == png

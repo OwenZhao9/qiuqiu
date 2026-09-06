@@ -105,7 +105,7 @@ export function ThresholdPanel({
         <div className="qq-track" style={{ background: trackGradient(draft) }} aria-hidden="true" />
 
         <label className="qq-slider-row">
-          <span style={{ minWidth: '4em' }}>保留线</span>
+          <span className="qq-slider-row__name">保留线</span>
           <input
             type="range"
             className="qq-focusable"
@@ -120,7 +120,7 @@ export function ThresholdPanel({
         </label>
 
         <label className="qq-slider-row">
-          <span style={{ minWidth: '4em' }}>丢弃线</span>
+          <span className="qq-slider-row__name">丢弃线</span>
           <input
             type="range"
             className="qq-focusable"
@@ -147,11 +147,7 @@ export function ThresholdPanel({
   );
 }
 
-/** 折叠时标题栏齿轮右侧的紧凑形式。 */
+/** 折叠时「采集阈值」按钮上带的两个数。 */
 export function ThresholdBadge({ value }: { value: Thresholds }): React.JSX.Element {
-  return (
-    <span className="qq-mono" style={{ fontSize: 'var(--qq-text-2xs)' }}>
-      {compactLabel(value)}
-    </span>
-  );
+  return <span className="qq-mono qq-btn__meta">{compactLabel(value)}</span>;
 }

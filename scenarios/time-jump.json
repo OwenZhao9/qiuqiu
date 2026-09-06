@@ -1,0 +1,17 @@
+{
+  "name": "time-jump",
+  "title": "过了三个月",
+  "clock_offset_days": 92,
+  "steps": [
+    { "at_ms": 0, "source": "dialogue", "speaker": "user", "text": "我搬到深圳了，住南山" },
+    {
+      "at_ms": 600,
+      "source": "dialogue",
+      "speaker": "user",
+      "text": "新公司在科技园，走路二十分钟"
+    },
+    { "at_ms": 1200, "source": "dialogue", "speaker": "user", "text": "我养了一只猫，叫团团" },
+    { "at_ms": 2000, "source": "dialogue", "speaker": "user", "query": "我住哪儿来着" },
+    { "at_ms": 2600, "source": "dialogue", "speaker": "user", "query": "我那只猫叫什么名字" }
+  ]
+}

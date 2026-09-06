@@ -148,22 +148,41 @@ async def play(
 
     每一步的时刻 = 现在 + `clock_offset_days` 天 + `at_ms` 毫秒。前端在 `/events` 上
     看到的事件顺序就是脚本顺序。
+
+    **开演前清一次筛选器的去重窗口。** 同一个脚本点第二次，上一次的句子还留在窗口里，
+    每一句都判成「重复」——「99% 是废话，但那 1% 记住了」就演不出来了。
+    一次回放是一段独立的模拟会话，不该继承上一次的窗口。
+
+    **`clock_offset_days` 拉开的是「说」和「问」之间的距离。** 写入按此刻记，召回站在
+    偏移之后的那一天问；第一次召回之前用那一天的时钟跑一遍降冷。少了这一步，写和问
+    是同一时刻，事实还热着，「过了三个月」演的就只是普通召回，看不到下探冷表回热。
+    降冷是归档不是删除，命中会整条回热——夜里的定时任务做的也是同一件事。
     """
     from qiuqiu_memory import Budget, Source
 
+    state.facade.forget_recent_inputs()
     trace_id = trace_id or new_trace_id()
-    base = dt.datetime.now(dt.UTC) + dt.timedelta(days=scenario.clock_offset_days)
+    write_base = dt.datetime.now(dt.UTC)
+    read_base = write_base + dt.timedelta(days=scenario.clock_offset_days)
     elapsed_ms = 0
     played: list[dict[str, Any]] = []
+    demoted = 0
+    aged = scenario.clock_offset_days <= 0
 
     for index, step in enumerate(scenario.steps):
         wait_ms = max(0, step.at_ms - elapsed_ms)
         if speed > 0 and wait_ms:
             await asyncio.sleep(wait_ms / 1000.0 / speed)
         elapsed_ms = max(elapsed_ms, step.at_ms)
-        moment = base + dt.timedelta(milliseconds=step.at_ms)
 
         if step.query:
+            # 第一次提问之前，把时钟推到偏移那一天再跑一遍降冷
+            if not aged:
+                aged = True
+                summary = await state.off_loop(state.facade.demote_stale, at=read_base)
+                demoted = int(summary.get("demoted") or 0)
+                log.info("scenario.aged", name=scenario.name, demoted=demoted)
+            moment = read_base + dt.timedelta(milliseconds=step.at_ms)
             result = await state.off_loop(
                 state.facade.recall,
                 step.query,
@@ -187,6 +206,7 @@ async def play(
             )
             continue
 
+        moment = write_base + dt.timedelta(milliseconds=step.at_ms)
         result = await state.off_loop(
             state.facade.ingest,
             step.text,
@@ -213,6 +233,8 @@ async def play(
         "title": scenario.title,
         "trace_id": trace_id,
         "clock_offset_days": scenario.clock_offset_days,
-        "played_from": base.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "played_from": write_base.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "asked_from": read_base.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "demoted": demoted,
         "steps": played,
     }

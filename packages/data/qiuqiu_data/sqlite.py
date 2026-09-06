@@ -39,7 +39,7 @@ TABLES: tuple[str, ...] = (
 )
 
 _JSON_COLUMNS: frozenset[str] = frozenset(
-    {"payload_json", "fact_ids_json", "learned_json", "models_json"}
+    {"payload_json", "fact_ids_json", "learned_json", "models_json", "attachments_json"}
 )
 _BOOL_COLUMNS: frozenset[str] = frozenset({"archived", "favorite", "enabled"})
 
@@ -126,6 +126,10 @@ class SqliteStore:
 
         幂等有两层保险：`schema_migrations` 账本，加上迁移脚本本身全是
         `IF NOT EXISTS`——账本丢了重跑也不炸。
+
+        **加列是唯一的例外**：SQLite 没有 `ADD COLUMN IF NOT EXISTS`，也不认
+        条件 DDL，所以「列已经有了」这一种报错在这里当成「这条早就跑过了」。
+        别的 `OperationalError` 照抛——那是真出事了。
         """
         with self._lock:
             conn = self.conn
@@ -142,7 +146,13 @@ class SqliteStore:
                 version = script.stem
                 if version in applied:
                     continue
-                conn.executescript(script.read_text(encoding="utf-8"))
+                try:
+                    conn.executescript(script.read_text(encoding="utf-8"))
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc):
+                        raise
+                    # 账本丢了重跑，列已经在了。补记一笔账就是
+                    conn.rollback()
                 conn.execute(
                     "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
                     (version, to_iso()),
@@ -230,16 +240,19 @@ class SqliteStore:
         *,
         model: str | None = None,
         favorite: bool = False,
+        attachments: Sequence[str] | None = None,
         created_at: dt.datetime | None = None,
     ) -> dict[str, Any]:
         self._execute(
-            "INSERT INTO messages(id, session_id, role, content, model, favorite, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO messages"
+            "(id, session_id, role, content, model, favorite, attachments_json, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
             " ON CONFLICT(id) DO UPDATE SET"
             "   role = excluded.role,"
             "   content = excluded.content,"
             "   model = excluded.model,"
-            "   favorite = excluded.favorite",
+            "   favorite = excluded.favorite,"
+            "   attachments_json = excluded.attachments_json",
             (
                 message_id,
                 session_id,
@@ -247,6 +260,7 @@ class SqliteStore:
                 content,
                 model,
                 int(favorite),
+                json.dumps(list(attachments or []), ensure_ascii=False),
                 to_iso(created_at),
             ),
         )

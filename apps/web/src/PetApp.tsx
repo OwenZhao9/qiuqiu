@@ -35,6 +35,8 @@ export function PetApp(): React.JSX.Element {
   const bridge = getBridge();
   const qiuqiuRef = useRef<QiuqiuInstance | null>(null);
   const [expanded, setExpanded] = useState(false);
+  /** 主窗口镜像过来的状态。表情引擎自己会用，这一份是给样式用的体态。 */
+  const [petState, setPetState] = useState<CharacterState>('idle');
   const [bubble, setBubble] = useState('');
   const [fading, setFading] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
@@ -67,6 +69,7 @@ export function PetApp(): React.JSX.Element {
         }, BUBBLE_LINGER_MS);
       }),
       bridge.onPetState((state: string, emotionId?: string) => {
+        setPetState(state as CharacterState);
         const q = qiuqiuRef.current;
         if (!q) return;
         q.setState(state as CharacterState);
@@ -309,6 +312,7 @@ export function PetApp(): React.JSX.Element {
       >
         <QiuqiuBall
           preset="pet"
+          state={petState}
           // 本地那条 pointermove 注视关掉：桌宠窗口穿透，它只在光标压在丘丘
           // 身上时才有事件，且坐标是窗口内的。全局那条（onPetGaze）已经覆盖，
           // 两条一起开会互相打架

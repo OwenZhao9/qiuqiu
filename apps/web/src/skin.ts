@@ -11,7 +11,7 @@
  * （契约 v0.1.10 第 20 条：纯本地 UI 状态不进后端）。
  */
 
-import type { CharacterLook } from '@qiuqiu/character';
+import { FACTORY, type CharacterLook } from '@qiuqiu/character';
 import { getBridge } from './bridge.js';
 
 export type Skin = 'default' | 'kawaii' | 'anime';
@@ -39,13 +39,22 @@ function isSkin(v: unknown): v is Skin {
   return SKINS.some((s) => s.id === v);
 }
 
+/**
+ * 出厂皮肤。取自 `@qiuqiu/character` 的出厂表（契约 § 9），不在这儿另写一个字面量。
+ *
+ * 注意它是**没选过时用哪个**，不是「选空了回到哪个」——`applySkin` 存的永远是
+ * 一个具体的皮肤 id，没有「清空」这个动作，所以这里当兜底是安全的。
+ * 人格预设那边不一样：真空是一个用户能主动选到的状态，所以是种子不是兜底。
+ */
+export const DEFAULT_SKIN: Skin = FACTORY.skin;
+
 export function readSkin(): Skin {
   try {
     const v = localStorage.getItem(KEY);
-    return isSkin(v) ? v : 'default';
+    return isSkin(v) ? v : DEFAULT_SKIN;
   } catch {
     // 无痕窗口或禁了站点数据，退回默认，别让整页挂掉
-    return 'default';
+    return DEFAULT_SKIN;
   }
 }
 

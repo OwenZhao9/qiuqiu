@@ -157,13 +157,15 @@ class TestPersonaSignatures:
         assert isinstance(persona.run_consolidation(), Learned)
 
     def test_composition_order_follows_section_seven(self, persona: PersonaService) -> None:
-        """§ 7 的公式：identity → boundary → preset → learned，顺序不能变（AD-12）。
+        """§ 7 的公式：identity → output → boundary → preset → learned，顺序不能变（AD-12）。
 
         `identity_block` 排在最前，写明「你叫丘丘」——没有它，模型被问名字只能现编。
+        `output_block` 紧跟其后，禁止括号旁白。
         """
         order = spec.persona_composition_order()
-        assert order[:4] == [
+        assert order[:5] == [
             "identity_block",
+            "output_block",
             "boundary_block",
             "preset_block",
             "learned_block",
@@ -180,8 +182,7 @@ class TestPersonaSignatures:
         persona.runtime.sqlite.append_persona_learned({"nickname": "小赵"})
         text = persona.recompute()
         positions = [
-            text.index(m)
-            for m in (IDENTITY_MARKER, BOUNDARY_MARKER, PRESET_MARKER, LEARNED_MARKER)
+            text.index(m) for m in (IDENTITY_MARKER, BOUNDARY_MARKER, PRESET_MARKER, LEARNED_MARKER)
         ]
         assert positions == sorted(positions)
 
@@ -608,3 +609,31 @@ class TestPublicSurface:
         }
         for path, names in self._imported_modules().items():
             assert not {n.split(".")[0] for n in names} & banned, path
+
+
+class TestFactoryDefaults:
+    """§ 9 出厂默认。表在文档里，值在代码里，这里逼两边对上。"""
+
+    def test_factory_preset_matches_the_contract(self) -> None:
+        from qiuqiu_memory.persona import FACTORY_PRESET, PRESETS
+
+        declared = spec.factory_defaults()["人格预设"]
+        assert FACTORY_PRESET == declared
+        assert declared in PRESETS, "出厂预设必须是 PRESETS 里真有的一个"
+
+    def test_the_persona_prompt_carries_no_expression_state(self) -> None:
+        """§ 9「不往上送」的 Python 半边：人格 prompt 里没有当前表情。
+
+        模型不知道脸上在演什么，也就无从配合着演——32 个表情的调度权在本地
+        规则表里。`OUTPUT` 里提到「表情」是在**禁止**模型写动作描写，
+        不是在告诉它现在是哪个表情，两回事。
+        """
+        from qiuqiu_memory.persona import compose
+        from qiuqiu_memory.types import Learned, Sliders
+
+        prompt = compose("cute", Sliders(), Learned())
+        for forbidden in ("emotionId", "当前表情", "你现在的表情", "表情 id"):
+            assert forbidden not in prompt
+
+        body = spec.section(9)
+        assert "不往上送" in body and "不从下取" in body

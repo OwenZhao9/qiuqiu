@@ -41,6 +41,13 @@ export interface PipelineState {
   traceId: string | null;
   /** 这一轮是写入还是召回。两者都有就按最后一条事件算。 */
   lane: 'ingest' | 'recall' | null;
+  /**
+   * 这一轮真实经过的两条线，**按第一次出现的先后排**。
+   *
+   * 一句话往往两条都走：先检索拿旧记忆去答，答完再把这句和回复记下来。
+   * 只看 `lane`（最后一条事件属于哪条线）的话，图上永远只画得出其中一条。
+   */
+  lanes: ('ingest' | 'recall')[];
   stages: Record<StageId, Stage>;
   /** 进管线的原话，来自 `write.raw` 或 `filter.input_preview`。 */
   input: string;
@@ -71,6 +78,7 @@ function blank(): PipelineState {
   return {
     traceId: null,
     lane: null,
+    lanes: [],
     stages: {
       filter: stage('filter'),
       compress: stage('compress'),
@@ -115,11 +123,15 @@ export function derivePipeline(events: readonly MemoryEventEnvelope[]): Pipeline
 
   const s = blank();
   s.traceId = trace;
+  const seen = (lane: 'ingest' | 'recall'): void => {
+    s.lane = lane;
+    if (!s.lanes.includes(lane)) s.lanes.push(lane);
+  };
 
   for (const ev of round) {
     if (ev.type === 'filter') {
       const p = ev.payload;
-      s.lane = 'ingest';
+      seen('ingest');
       s.decision = p.decision;
       s.reason = p.reason ?? '';
       if (!s.input) s.input = p.input_preview ?? '';
@@ -138,7 +150,7 @@ export function derivePipeline(events: readonly MemoryEventEnvelope[]): Pipeline
 
     if (ev.type === 'write') {
       const p = ev.payload;
-      s.lane = 'ingest';
+      seen('ingest');
       const facts = (p.facts ?? []).map((f) => ({ id: f.id, text: f.text }));
       // **一轮里有两次写入**：用户那句和 AI 那句（AD-6）。分开存，
       // 后一条覆盖前一条的话，图上会显示成「拆出 0 条」而卡片里明明有事实
@@ -160,7 +172,7 @@ export function derivePipeline(events: readonly MemoryEventEnvelope[]): Pipeline
 
     if (ev.type === 'merge') {
       const p = ev.payload;
-      s.lane = 'ingest';
+      seen('ingest');
       s.absorbed = (p.absorbed ?? []).map((a) => ({ id: a.id, text: a.text }));
       s.invalidated = (p.invalidated ?? []).map((a) => ({ id: a.id, text: a.text }));
       const merged = s.absorbed.length + s.invalidated.length;
@@ -173,7 +185,7 @@ export function derivePipeline(events: readonly MemoryEventEnvelope[]): Pipeline
 
     if (ev.type === 'recall') {
       const p = ev.payload;
-      s.lane = 'recall';
+      seen('recall');
       s.input = p.query || s.input;
       s.paths = p.plan?.paths ?? [];
       s.skipped = p.skipped_paths ?? [];

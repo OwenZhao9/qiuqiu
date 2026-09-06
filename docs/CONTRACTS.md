@@ -23,7 +23,7 @@ event: meta
 data: { "model": string, "memory_used": boolean, "recall_ids": string[] }
 
 event: delta
-data: { "text": string }
+data: { "text": string }     已滤掉括号形式的动作描写，见下
 
 event: done
 data: { "message_id": string, "tokens_in": number, "tokens_out": number, "latency_ms": number }
@@ -34,6 +34,18 @@ data: { "pcm_b64": string, "sample_rate": number, "rms": 0–1 }     有 TTS 时
 event: error
 data: { "code": string, "message": string, "hint": string }
 ```
+
+**`delta` 里不会出现括号形式的动作描写。** 「（愣了一下，随即叉腰）」这类旁白在
+`services/api/qiuqiu_api/stagecut.py` 里边流边滤掉，**只此一处**——`delta`、TTS 合成、
+落库、下一轮喂给模型的历史拿到的是同一份文本。丘丘有表情引擎，那句话的情绪会渲染
+到脸上，括号里再写一遍等于同一件事说两遍。
+
+只滤开头、独占一行、以及结尾的括号组；句子中间的不动（「我明天去（也可能后天）看看」
+是真的补充说明）。流式判「在结尾」靠先扣住不发：后面又来了正文就放出来，一直到流
+结束都没有，才确认它在结尾、丢掉。
+
+前端**不要再擦一遍**：这条规则曾经在显示层也实现过一份，结果屏幕上干净、语音合成
+用的是原文——念出来的比屏幕上写的多。
 
 ### 记忆事件流
 
@@ -127,7 +139,9 @@ GET /sessions/{id}/messages?limit=&before=  → Message[]
 ```ts
 interface Session  { id: string; title: string; archived: boolean; created_at: iso; updated_at: iso; }
 interface Message  { id: string; session_id: string; role: "user"|"assistant";
-                     content: string; model: string|null; favorite: boolean; created_at: iso; }
+                     content: string; model: string|null; favorite: boolean;
+                     attachments: string[];   // blob_id[]，配 GET /blobs/{blob_id} 取回
+                     created_at: iso; }
 ```
 
 会话由 `POST /chat` 自动创建。这两条只读，前端用来渲染历史；写入始终经 `/chat`。
@@ -190,6 +204,7 @@ GET  /providers            → ProviderInfo[]（透传 registry.list_providers()
 POST /current-model        Body: { "capability": "chat"|"vision", "model": string }
                            → { capability, model, provider: ProviderInfo }
 POST /blobs  (multipart)   → { "blob_id": string, "kind": "image"|"text"|"audio", "bytes": number }
+GET  /blobs/{blob_id}      → 原字节（blob_id 形如 image/<sha256>，长缓存）
 GET  /health
 ```
 
@@ -501,6 +516,7 @@ init()   一次建齐目录、表与索引，可重复调用
 
 | 触发 | 判定 | emotionId | Emotion Ball 名 | 优先级 |
 |---|---|---|---|---|
+| 用户点停止 | 中止本轮 | `41` | 停止终止 | 95 |
 | 请求出错 | SSE / WS `error` 事件 | `34` | 出错 | 90 |
 | 回复含拒绝 | `done` 后对全文跑 `design/emotion-rules.md` § 4 的拒绝式 | `38` | 拒绝/受限 | 80 |
 | `recall`（下探冷存储） | `payload.cold_promoted.length > 0` | `40` | 检索资料 | 70 |
@@ -509,6 +525,8 @@ init()   一次建齐目录、表与索引，可重复调用
 | `write` | `payload.facts.length > 0` | `10` | 开心 | 50 |
 | `filter.uncertain` | `payload.decision === "uncertain"` | `11` | 疑惑 | 40 |
 | 情绪推断 | `done` 后对全文跑 `design/emotion-rules.md` | `10`–`21` 之一 | — | 30 |
+| 用户按下发送 | 无附件 | `31` | 接收任务 | 20 |
+| 用户按下发送（带图片） | `attachments.length > 0` | `03` | 好奇 | 20 |
 | `filter.reject` | `payload.decision === "reject"` | **不切换** | — | — |
 | `filter.accept` | `payload.decision === "accept"` | **不切换** | — | — |
 | `recall`（空命中） | `hits` 与 `cold_promoted` 都为空 | **不切换** | — | — |
@@ -561,12 +579,14 @@ init()   一次建齐目录、表与索引，可重复调用
 
 ```
 prompt_persona = identity_block
+               + output_block
                + boundary_block
                + (preset_block(sliders) if preset is not None else "")
                + learned_block(learned)
 ```
 
 - `identity_block` 是常量，**永远在最前**，内容见 `packages/memory/persona.py::IDENTITY`。它写明「你叫丘丘」。没有它，模型被问「你叫什么」只能现编——实测会把记忆里的用户名（「用户名叫赵宁」）改一改说成自己叫「阿宁」
+- `output_block` 是常量，紧跟身份之后，内容见 `packages/memory/persona.py::OUTPUT`。它禁止括号旁白（「（叉腰）」「（愣了一下，随即笑了）」）。写成「永远生效、谁都不能改写」是因为塞在身份末尾压不住：用户一句「表演一个生气」，模型照写动作描写。丘丘有表情引擎，那句话的情绪会被渲染到脸上，括号里再写一遍等于同一件事说两遍，聊天窗口里读起来像剧本
 - `boundary_block` 是常量，紧跟其后，内容见 `packages/memory/persona.py::BOUNDARY`
 - `preset is None` 时不生成 `preset_block`，**不是**生成一个「中等」块
 - `learned_block` 覆盖 `preset_block` 里的同名维度（例如 learned 里有 `reply_length`，就覆盖 sliders.verbosity 的描述）
@@ -577,7 +597,21 @@ prompt_persona = identity_block
 
 契约文件顶部维护版本号。破坏性改动升主版本，各分支在 PR 描述里声明依赖的契约版本。
 
-当前：**v0.1.15**（表情只有一个来源）
+当前：**v0.1.17**（出厂就是可爱的）
+
+v0.1.17 一条：**增 § 9 出厂默认**。原来「装完长什么样」散在三处——皮肤是
+`skin.ts` 里的一个字面量、人格预设压根没有（空库是真空）、表情停留时长是
+`state-machine.ts` 的常量。配置一个系统的人要找的是一张表，不是三个包里的常量。
+§ 9 把出厂值定死（皮肤 `kawaii`、人格 `cute`），并把「表情不经过模型」这条
+一直是事实、但只存在于代码里的约束写成契约：**不往上送**（prompt 里没有表情）、
+**不从下取**（模型没有输出表情标记的口子）。三条测试分别在 memory、api、character
+对着这一节读，任何一边飘了就红。
+
+出厂值是种子不是兜底——空库种一次，之后以库为准，真空态（AD-11）回得去。
+
+v0.1.16 两条：**§ 1 `Message` 增 `attachments: string[]`**，**§ 1 增 `GET /blobs/{blob_id}`**。上传时前端手上有 `File`，能 `createObjectURL` 临时显示，但那个 URL 活不过刷新——重开窗口，发过图的那条消息只剩「带了 1 张图」几个字。`messages` 表增 `attachments_json`（迁移 `002`），读回来配这条只读路由取字节。内容寻址，所以响应可以 `immutable` 长缓存。
+
+v0.1.15（表情只有一个来源）
 
 v0.1.15 一条：**§ 2 增 `pokePet` 与 `onPoke`**。闲置推进从桌宠挪到主窗口（桌宠传 `idle: false`）——表情只能有一个来源，桌宠自己推进闲置的话它会照自己的计时器睡过去而主窗口那只还醒着。挪过去之后主窗口看不见「用户在动桌宠」，所以点 / 拖 / 展开都报一声，主窗口据此复位闲置计时。
 
@@ -701,3 +735,36 @@ v0.1.7 十一条，全部来自 `memory` 分支报上来的缺口，逐条裁决
 
 - v0.1.3 — `run_metrics` 增 `provider` 列；补 `GET /providers` 响应体；§ 4 定死 `stream()` / `synthesize()` 的异步形状为「await 后 async for」；§ 4 补齐六个数据类的字段与错误约定
 - v0.1.2 — 契约地位说明；`/chat` 增 `audio` 事件；增 `/voice/session` 与 `WS /voice/stream`；事件 `id` 与游标的对应；`recall()` 增 `now`
+
+## 9 · 出厂默认
+
+装完就能用的那一套。这些值是**代码里的常量，不是数据库里的行**——空库第一次启动时种进去，
+之后用户改过的以数据库为准，代码里的常量不再回头覆盖。
+
+| 项 | 出厂值 | 落在哪 |
+|---|---|---|
+| 皮肤 | `kawaii` | `packages/character/src/defaults.ts::FACTORY.skin` |
+| 人格预设 | `cute` | `packages/memory/persona.py::FACTORY_PRESET` |
+| 形象 | `warm` | 由皮肤推出（`skin.ts::lookOf`），不单独存 |
+
+**为什么种而不是兜底。** 「读不到就当 `cute`」会让 AD-11 的真空态永远回不去——
+用户把预设清空，下次启动又变回可爱。所以是一次性种下：种过留一个记号
+（`settings` 表的 `persona.seeded`），此后真空就是真空。
+
+### 表情不经过模型
+
+**两个方向都断开**：
+
+1. **不往上送**。发给模型的 prompt 里没有任何表情信息——`build_messages()` 拼的是
+   人格 + 召回 + 历史 + 这句话，没有「你现在的表情是 14 害羞」。模型不知道脸上在演什么，
+   也就无从配合着演。
+2. **不从下取**。表情不是模型说了算：回复全文回来之后，由
+   `packages/character/src/emotion.ts::RULES`（关键词规则表）与
+   `event-map.ts::EVENT_EMOTION_TABLE`（记忆事件表）在**本地**判出一个 emotionId。
+   模型没有输出表情标记的口子，也没人解析它写的括号旁白——那些在
+   `stagecut.py` 就被滤掉了。
+
+换句话说，32 个表情的调度权整个在这套系统里，模型只负责说话。这条是硬约束：
+任何「让模型自己报情绪」的改法都要先改这一节。
+
+规则表本身见 § 6；出厂的优先级与停留时长在 `defaults.ts::FACTORY.emotion`。

@@ -31,13 +31,20 @@ def _load_env() -> None:
     `usecwd=True` 是必须的：默认行为是从**调用方文件**往上找，包被装进
     site-packages 之后那条路径上不会有 `.env`。
     已经在进程环境里的变量优先，`.env` 不覆盖。
+
+    `QIUQIU_NO_DOTENV=1` 时整个跳过。测试把真实 key 从环境里删掉之后，dotenv 会
+    照 `.env` 再填回来（它只是不覆盖已有的，缺的照填），等于白删：真 key 会回到
+    进程里，`VOICE_MODE` 之类的开关也跟着开发机上的 `.env` 飘，同一份测试在两台
+    机器上结论不同。
     """
     global _env_loaded
     if not _env_loaded:
+        _env_loaded = True
+        if os.environ.get("QIUQIU_NO_DOTENV", "").strip() in {"1", "true", "True", "yes"}:
+            return
         found = find_dotenv(usecwd=True)
         if found:
             load_dotenv(found)
-        _env_loaded = True
 
 
 def data_dir(override: str | os.PathLike[str] | None = None) -> Path:

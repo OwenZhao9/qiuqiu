@@ -13,9 +13,10 @@ from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, File, Form, UploadFile
+from fastapi.responses import Response
 
 from ..deps import StateDep
-from ..errors import BadRequest
+from ..errors import BadRequest, NotFound
 
 router = APIRouter(tags=["blobs"])
 log = structlog.get_logger("qiuqiu_api.blobs")
@@ -70,3 +71,47 @@ async def upload_blob(
     blob_id = await state.off_loop(state.blobs.put, data, resolved)
     log.info("blob.stored", blob_id=blob_id, kind=resolved, bytes=len(data))
     return {"blob_id": blob_id, "kind": resolved, "bytes": len(data)}
+
+
+#: 读回去的时候按内容前几个字节认类型。存的时候没记 MIME，也没必要为这个加一张表
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF8", "image/gif"),
+    (b"RIFF", "image/webp"),
+)
+
+
+def _mime(kind: str, data: bytes) -> str:
+    if kind == "image":
+        for magic, mime in _MAGIC:
+            if data.startswith(magic):
+                return mime
+        return "image/png"
+    if kind == "audio":
+        return "audio/wav"
+    return "text/plain; charset=utf-8"
+
+
+@router.get("/blobs/{kind}/{digest}")
+async def read_blob(state: StateDep, kind: str, digest: str) -> Response:
+    """把上传过的字节读回来。
+
+    聊天记录里那张图靠它显示。上传时前端手上有 `File`，能 `createObjectURL`
+    临时看一眼，但那个 URL 活不过刷新——重开窗口整条消息就只剩「带了 1 张图」。
+    内容寻址意味着这里可以放心长缓存：同一个 `blob_id` 的字节永远是同一份。
+    """
+    blob_id = f"{kind}/{digest}"
+    try:
+        data = await state.off_loop(state.blobs.get, blob_id)
+    except (FileNotFoundError, ValueError) as exc:
+        raise NotFound(
+            f"没有这份内容：{blob_id}",
+            hint="blob_id 形如 image/<sha256>，且必须先上传过。",
+            code="blob.not_found",
+        ) from exc
+    return Response(
+        content=data,
+        media_type=_mime(kind, data),
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )

@@ -8,7 +8,7 @@ import json
 import pytest
 from memory_helpers import BASE_TIME, FakeChat, make_runtime
 from qiuqiu_memory.llm import ChatUnavailable
-from qiuqiu_memory.pipeline.compress import compress, new_fact_id
+from qiuqiu_memory.pipeline.compress import compress, new_fact_id, scrub_timestamp
 from qiuqiu_memory.runtime import MemoryRuntime
 from qiuqiu_memory.types import Source
 
@@ -285,3 +285,35 @@ class TestWorthRemembering:
         from qiuqiu_memory.pipeline import compress as c
 
         assert c.COMPRESS_MARKER in c._USER_TEMPLATE
+
+
+class TestScrubTimestamp:
+    """正文里不该出现 ISO 时间戳。
+
+    提示词里已经明写「绝不要出现 `2026-09-05T09:27:22.192Z`」，模型照样写——
+    库里真存进去过「截至2026-09-05T07:42:50.861Z，赵宁居住在深圳市。」。
+    时间该待在 `valid_from` 里，不该混进人读的那句话。
+    """
+
+    def test_cuts_the_lead_in_too(self) -> None:
+        assert (
+            scrub_timestamp("截至2026-09-05T07:42:50.861Z，赵宁居住在深圳市。")
+            == "赵宁居住在深圳市。"
+        )
+
+    def test_handles_a_space_and_no_millis(self) -> None:
+        assert scrub_timestamp("于 2026-09-05T07:42:50Z，用户改名。") == "用户改名。"
+
+    def test_offset_timezone(self) -> None:
+        assert scrub_timestamp("截至2026-09-05T07:42:50+08:00，用户搬家。") == "用户搬家。"
+
+    def test_plain_dates_survive(self) -> None:
+        """日期本身是事实的一部分时要留着——提示词允许写「2026-03」这种。"""
+        assert scrub_timestamp("三月要搬家（2026-03）") == "三月要搬家（2026-03）"
+
+    def test_clean_text_untouched(self) -> None:
+        assert scrub_timestamp("赵宁住在深圳。") == "赵宁住在深圳。"
+
+    def test_a_bare_timestamp_becomes_empty_and_gets_dropped(self) -> None:
+        """整条只有一个时间戳的，清完是空的，`_from_llm` 会跳过它。"""
+        assert scrub_timestamp("2026-09-05T07:42:50.861Z") == ""

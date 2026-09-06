@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { blobUrl } from '../api.js';
 import type { ChatMessage } from '../store/chat.js';
 import { shortId } from '../format.js';
 
@@ -75,7 +76,19 @@ export function ChatPanel({ messages, recallTexts }: ChatPanelProps): React.JSX.
               <span className="qq-msg__caret" aria-hidden="true" />
             ) : null}
             {m.attachments.length > 0 ? (
-              <div className="qq-card__foot">带了 {m.attachments.length} 张图</div>
+              // 发出去的图要看得见。`blob_id` 是内容寻址的，同一份字节永远同一个
+              // 地址，重开窗口也还在——`createObjectURL` 那种临时地址活不过刷新
+              <div className="qq-msg__shots">
+                {m.attachments.map((a) => (
+                  <img
+                    key={a.blob_id}
+                    className="qq-msg__shot"
+                    src={blobUrl(a.blob_id)}
+                    alt="发出去的图"
+                    loading="lazy"
+                  />
+                ))}
+              </div>
             ) : null}
             {m.error ? (
               <div className="qq-error">

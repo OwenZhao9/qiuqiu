@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { startVoice, type VoiceSession } from '../voice.js';
+import { startVoice, type VoicePhase, type VoiceSession } from '../voice.js';
 import { useChord } from '../useChord.js';
 import { getBridge } from '../bridge.js';
 
@@ -20,23 +20,22 @@ export interface VoiceButtonProps {
   onLevel?(rms: number): void;
   /** 连上 / 断开，上层据此切状态机。 */
   onActiveChange?(active: boolean): void;
+  /** 通话中在听 / 在想 / 在说。上层据此换表情——一通电话不能只有一个表情。 */
+  onPhase?(phase: VoicePhase): void;
 }
 
 /** 听筒。挂断状态转 135 度——各家电话应用都是这么画的，不用另学。 */
 function PhoneIcon({ hangUp }: { hangUp: boolean }): React.JSX.Element {
   return (
+    // 线稿，跟隔壁那颗图片按钮同一套画法（`.qq-icon`）。原来这只听筒是实心色块，
+    // 界面里实心只留给主按钮，一颗次要图标做成色块会比「发送」还抢眼
     <svg
-      className={'qq-call__icon' + (hangUp ? ' qq-call__icon--hangup' : '')}
+      className={'qq-icon qq-call__icon' + (hangUp ? ' qq-call__icon--hangup' : '')}
       viewBox="0 0 24 24"
-      width="16"
-      height="16"
       aria-hidden="true"
       focusable="false"
     >
-      <path
-        fill="currentColor"
-        d="M6.6 10.8c1.6 3.1 4.1 5.6 7.2 7.2l2.4-2.4c.3-.3.7-.4 1.1-.3 1.2.4 2.4.6 3.7.6.6 0 1 .4 1 1V21c0 .6-.4 1-1 1C10.7 22 2 13.3 2 2.5c0-.6.4-1 1-1h4.1c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.7.1.4 0 .8-.3 1.1L6.6 10.8z"
-      />
+      <path d="M7.4 10.5c1.5 2.9 3.9 5.3 6.7 6.8l2.1-2.1a1 1 0 0 1 1-.25c1.05.35 2.2.54 3.35.54a1 1 0 0 1 1 1v3.35a1 1 0 0 1-1 1C11.3 20.84 3.5 13.04 3.5 3.5a1 1 0 0 1 1-1h3.35a1 1 0 0 1 1 1c0 1.16.19 2.3.54 3.35a1 1 0 0 1-.25 1L7.4 10.5z" />
     </svg>
   );
 }
@@ -47,7 +46,8 @@ const CALL_CHORD = ['KeyC', 'KeyA'] as const;
 export function VoiceButton({
   onFinal,
   onLevel,
-  onActiveChange
+  onActiveChange,
+  onPhase
 }: VoiceButtonProps): React.JSX.Element {
   const [active, setActive] = useState(false);
   const [partial, setPartial] = useState('');
@@ -83,6 +83,7 @@ export function VoiceButton({
           onFinal?.(role, text);
         },
         onLevel,
+        onPhase,
         onError: (_code, message, hint) => setError({ message, hint }),
         onClosed: () => {
           sessionRef.current = null;
@@ -97,7 +98,7 @@ export function VoiceButton({
     } finally {
       startingRef.current = false;
     }
-  }, [onFinal, onLevel, onActiveChange]);
+  }, [onFinal, onLevel, onActiveChange, onPhase]);
 
   const toggle = useCallback(() => {
     if (active) stop();
@@ -119,14 +120,13 @@ export function VoiceButton({
     <>
       <button
         type="button"
-        className={'qq-call qq-focusable' + (active ? ' qq-call--on' : '')}
+        className={'qq-icon-btn qq-call qq-focusable' + (active ? ' qq-call--on' : '')}
         aria-pressed={active}
         aria-label={active ? '挂断' : '打给丘丘'}
         title={active ? '挂断（C+A）' : '打给丘丘，同时按住 C 和 A 也行。说话就行，随时可以打断'}
         onClick={() => (active ? stop() : void start())}
       >
         <PhoneIcon hangUp={active} />
-        <span className="qq-call__text">{active ? '挂断' : '通话'}</span>
       </button>
       {active || partial || error ? (
         <div className="qq-voice-status" role="status">

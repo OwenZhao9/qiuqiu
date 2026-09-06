@@ -1,7 +1,7 @@
 /**
  * 后端契约的唯一出入口。
  *
- * `docs/CONTRACTS.md` § 1（HTTP 与 SSE），契约版本 **v0.1.11**。
+ * `docs/CONTRACTS.md` § 1（HTTP 与 SSE），契约版本 **v0.1.15**。
  *
  * 组件只调本文件导出的函数与类型，**组件里不许出现 `fetch`、`EventSource`、路径字符串**。
  * 契约升版本时改动只落在这一个文件里。
@@ -178,7 +178,7 @@ export interface ChatDone {
   latency_ms: number;
 }
 
-/** 有 TTS 时才发。**M5 才解码播放**，本轮收到即丢弃。 */
+/** 有 TTS 时才发。解码播放在 `speak.ts`。 */
 export interface ChatAudio {
   pcm_b64: string;
   sample_rate: number;
@@ -365,7 +365,7 @@ export interface ChatHandlers {
   onMeta?(meta: ChatMeta): void;
   onDelta?(delta: ChatDelta): void;
   onDone?(done: ChatDone): void;
-  /** M5 才接 TTS 播放；本轮收到即丢弃，类型先定好。 */
+  /** 一帧合成好的语音，交给 `speak.ts` 播。 */
   onAudio?(audio: ChatAudio): void;
   onError?(err: ErrorPayload): void;
 }
@@ -702,7 +702,14 @@ export interface StoredMessage {
   content: string;
   model: string | null;
   favorite: boolean;
+  /** 这条消息带的图，`blob_id[]`。用 `blobUrl()` 取回。契约 v0.1.16 § 1 */
+  attachments: string[];
   created_at: string;
+}
+
+/** `blob_id` → 可以直接塞进 `<img src>` 的地址。内容寻址，浏览器可以放心长缓存。 */
+export function blobUrl(blobId: string): string {
+  return apiBase() + '/blobs/' + blobId;
 }
 
 /** 会话列表。契约 v0.1.8 § 1，只读；写入只经 `/chat`。 */
@@ -740,42 +747,6 @@ export function postIngest(body: {
     method: 'POST',
     body: JSON.stringify(body)
   });
-}
-
-/* ---- 语音：M5 才接，类型先定好 ---- */
-
-export interface VoiceSession {
-  voice_session_id: string;
-  mode: 'cascade' | 'realtime';
-}
-
-/** M5 接入。本轮界面上的语音按钮点了只提示，不会调到这里。 */
-export function postVoiceSession(sessionId: string): Promise<VoiceSession> {
-  return json<VoiceSession>('/voice/session', {
-    method: 'POST',
-    body: JSON.stringify({ session_id: sessionId })
-  });
-}
-
-/** `WS /voice/stream` 的下行帧类型，M5 用。 */
-export type VoiceFrame =
-  | { type: 'partial'; role: 'user'; text: string }
-  | { type: 'final'; role: 'user' | 'assistant'; text: string }
-  | { type: 'audio'; pcm_b64: string; sample_rate: number; rms: number }
-  | { type: 'turn_end' }
-  | ({ type: 'error' } & ErrorPayload);
-
-/** `WS /voice/stream` 的完整地址。M5 建连时用，本轮只导出不调。 */
-export function voiceStreamUrl(voiceSessionId: string): string {
-  const base = apiBase();
-  const absolute = /^https?:/i.test(base)
-    ? base
-    : (globalThis.location?.origin ?? 'http://127.0.0.1:8000') + base;
-  return (
-    absolute.replace(/^http/i, 'ws') +
-    '/voice/stream?voice_session_id=' +
-    encodeURIComponent(voiceSessionId)
-  );
 }
 
 /* ---- 场景控制台 ---- */

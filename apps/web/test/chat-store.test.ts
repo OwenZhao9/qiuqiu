@@ -248,3 +248,85 @@ describe('createChatStore · 边说边换表情', () => {
     expect(seen).toEqual(['A', 'B']);
   });
 });
+
+describe('createChatStore · 历史与朗读', () => {
+  const rows = [
+    {
+      id: 'm1',
+      session_id: 's1',
+      role: 'user' as const,
+      content: '我住深圳',
+      model: null,
+      favorite: false,
+      attachments: ['image/abc123'],
+      created_at: '2026-09-05T10:00:00.000Z'
+    },
+    {
+      id: 'm2',
+      session_id: 's1',
+      role: 'assistant' as const,
+      content: '记住了',
+      model: 'deepseek',
+      favorite: false,
+      attachments: [],
+      created_at: '2026-09-05T10:00:01.000Z'
+    }
+  ];
+
+  /**
+   * 后端一直把消息存着，下一轮也会喂给模型——丘丘记得。界面不读的话重启就一片
+   * 空白：问它「刚才我说啥」它答得出，屏幕上什么都没有。
+   */
+  it('hydrate 把历史铺进来，时间与模型跟着走', () => {
+    const { store } = setup();
+    store.hydrate(rows);
+    expect(store.get().messages.map((m) => m.content)).toEqual(['我住深圳', '记住了']);
+    expect(store.get().messages[1]!.model).toBe('deepseek');
+    expect(store.get().messages[0]!.streaming).toBe(false);
+    // 发过的图也要回来：只留一行「带了 1 张图」等于图丢了
+    expect(store.get().messages[0]!.attachments).toEqual([
+      { type: 'image', blob_id: 'image/abc123' }
+    ]);
+  });
+
+  it('已经聊上了就不铺，免得把当前这一轮冲掉', () => {
+    const { store } = setup();
+    store.send('在吗');
+    store.hydrate(rows);
+    expect(store.get().messages.map((m) => m.content)).toEqual(['在吗', '']);
+  });
+
+  it('空历史什么也不做', () => {
+    const { store } = setup();
+    store.hydrate([]);
+    expect(store.get().messages).toHaveLength(0);
+  });
+
+  it('audio 帧交给上层去播，不再默默丢掉', () => {
+    const heard: [string, number][] = [];
+    const { store, chat } = setup({ onAudio: (b: string, r: number) => void heard.push([b, r]) });
+    store.send('念一遍');
+    chat.seen[0].handlers.onAudio?.({ pcm_b64: 'AAA=', sample_rate: 24000, rms: 0.4 });
+    expect(heard).toEqual([['AAA=', 24000]]);
+  });
+
+  it('采样率缺失时按 16k 兜底', () => {
+    const heard: number[] = [];
+    const { store, chat } = setup({ onAudio: (_b: string, r: number) => void heard.push(r) });
+    store.send('念一遍');
+    chat.seen[0].handlers.onAudio?.({ pcm_b64: 'AAA=', sample_rate: 0, rms: 0 });
+    expect(heard).toEqual([16000]);
+  });
+
+  it('点停止与开新一轮都要让上一轮闭嘴', () => {
+    let ends = 0;
+    const { store, chat } = setup({ onSpeechEnd: () => void (ends += 1) });
+    store.send('第一句');
+    expect(ends, '开第一轮时也报一次，幂等').toBe(1);
+    chat.seen[0].handlers.onDelta?.({ text: '嗯' });
+    store.stop();
+    expect(ends).toBe(2);
+    store.send('第二句');
+    expect(ends).toBe(3);
+  });
+});

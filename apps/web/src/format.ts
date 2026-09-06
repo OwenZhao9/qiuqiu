@@ -81,3 +81,31 @@ export const LAYER_CN: Record<string, { title: string; hint: string }> = {
   L1: { title: '偏好', hint: '变得慢：喜欢什么、讨厌什么、习惯怎样' },
   L2: { title: '近况', hint: '变得快：最近发生的事、临时安排' }
 };
+
+/**
+ * 筛选理由：机器串 → 中文。
+ *
+ * 后端那几个理由是任务书钉死的验收条件（`docs/agents/05-memory.md` 拿
+ * `Silence detected` 当断言），改不得；但它们会原样出现在中文界面里，
+ * 侧栏一条「Low information density (2 content tokens)」夹在中文事件流里很突兀。
+ * 所以后端保持机器串不动，翻译只在显示这一层做。
+ */
+export function reasonCN(reason: string): string {
+  const r = (reason || '').trim();
+  if (!r) return '';
+  if (r === 'Silence detected') return '这一段没有人声';
+  if (r === 'Blank frame detected') return '画面是空的';
+  if (r === 'Empty input') return '没有内容';
+  if (r === 'Question, not a statement') return '是个问句，不记';
+  if (r.startsWith('VAD ')) return r; // 后端已经是中文的那条
+  const dup = /^Duplicate of recent input \(Jaccard ([\d.]+)\): (.*)$/.exec(r);
+  if (dup) return `跟刚才那句重了（重合度 ${dup[1]}）：${dup[2]}`;
+  const info = /^(Informative speech|Low information density) \((\d+) content tokens?\)$/.exec(r);
+  if (info) {
+    const n = info[2];
+    return info[1] === 'Informative speech'
+      ? `有内容，${n} 个信息单元`
+      : `信息太少，只有 ${n} 个信息单元`;
+  }
+  return r;
+}

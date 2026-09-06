@@ -13,6 +13,7 @@ import {
   formatClock,
   formatDay,
   pathLabel,
+  reasonCN,
   score2,
   shortId,
   sourceLabel,
@@ -171,7 +172,7 @@ function EventDetail({ event }: { event: MemoryEventEnvelope }): React.JSX.Eleme
           <span className="qq-card__badge">{decisionLabel(p.decision)}</span>{' '}
           <span className="qq-mono">{score2(p.score)}</span>
         </div>
-        {p.reason ? <p style={{ margin: 0 }}>{p.reason}</p> : null}
+        {p.reason ? <p className="qq-plain">{reasonCN(p.reason)}</p> : null}
         {p.input_preview ? <p className="qq-card__preview">{p.input_preview}</p> : null}
         {p.source ? <div className="qq-card__foot">{sourceLabel(p.source)}</div> : null}
       </div>

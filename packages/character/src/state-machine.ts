@@ -9,6 +9,7 @@
  * `src/engine.ts` 提供真实的 sink，测试可以塞假的。
  */
 
+import { FACTORY } from './defaults.js';
 import { type CharacterState, type EmotionId } from './types.js';
 
 /* ------------------------------------------------------------------ *
@@ -24,10 +25,21 @@ export const STATE_EMOTION: Readonly<Record<CharacterState, EmotionId>> = {
 };
 
 /** 状态最短停留时间，四态统一 500 ms。只约束表情，不约束状态语义。 */
-export const MIN_DWELL_MS = 500;
+export const MIN_DWELL_MS = FACTORY.emotion.minDwellMs;
 
 /** 事件表情持续时间 1600 ms，到点回到**当前**状态的表情。 */
-export const EVENT_EMOTION_MS = 1600;
+export const EVENT_EMOTION_MS = FACTORY.emotion.eventHoldMs;
+
+/**
+ * 回复情绪停留多久。
+ *
+ * 记忆事件（写入、召回）是一闪而过的提示，1600 ms 够了。但「这句回复的情绪」
+ * 是这句话本身的表情，1.6 秒之后就切回去，等于让它演一个你看不见的表情——
+ * 问它「表演个生气的」，脸上确实变过，只是没人赶得上。
+ *
+ * 试过 6000 ms，太黏了：一句话说完脸还僵在那儿好几秒。
+ */
+export const REPLY_EMOTION_MS = FACTORY.emotion.replyHoldMs;
 
 /**
  * 引擎自驱的睡眠表情（`docs/CONTRACTS.md` § 6「引擎自驱」）。
@@ -298,12 +310,16 @@ export class CharacterMachine {
   /* ---------------- 事件表情 ---------------- */
 
   /**
-   * 施加一条事件表情，持续 1600 ms 后回到当前状态的表情。
+   * 施加一条事件表情，`holdMs` 之后回到当前状态的表情。
    *
    * 不排队：新的立即覆盖旧的并重置计时器。同一毫秒内到达多条时取优先级最高的，
    * 优先级相同取后到的。
    */
-  applyEventEmotion(emotionId: EmotionId, priority: number): boolean {
+  applyEventEmotion(
+    emotionId: EmotionId,
+    priority: number,
+    holdMs: number = EVENT_EMOTION_MS
+  ): boolean {
     if (this.destroyed) return false;
     const now = this.now();
     const cur = this.eventEmotion;
@@ -311,7 +327,7 @@ export class CharacterMachine {
 
     this.eventEmotion = { emotionId, priority, at: now };
     if (this.eventTimer) clearTimeout(this.eventTimer);
-    this.eventTimer = setTimeout(() => this.expireEventEmotion(), EVENT_EMOTION_MS);
+    this.eventTimer = setTimeout(() => this.expireEventEmotion(), holdMs);
 
     // 事件表情优先于最短停留（合成链第 2 条高于第 3 条），立即切
     this.pendingStateEmotion = null;

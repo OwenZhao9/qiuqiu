@@ -8,10 +8,12 @@ import pytest
 from qiuqiu_memory.errors import ContractError
 from qiuqiu_memory.persona import (
     BOUNDARY,
+    BOUNDARY_MARKER,
+    FACTORY_PRESET,
     IDENTITY,
     IDENTITY_MARKER,
-    BOUNDARY_MARKER,
     LEARNED_MARKER,
+    OUTPUT,
     PRESET_IDS,
     PRESET_MARKER,
     PRESETS,
@@ -37,10 +39,10 @@ class TestBoundary:
         assert "医疗" in BOUNDARY and "法律" in BOUNDARY
 
     def test_always_first_and_unconditional(self, persona: PersonaService) -> None:
-        # 身份在最前，边界紧跟其后；两段都不受预设影响
+        # 身份在最前，说话方式、边界紧跟其后；三段都不受预设影响
         for preset in (None, *PRESET_IDS):
             persona.set_preset(preset)
-            assert persona.current().startswith(IDENTITY + BOUNDARY)
+            assert persona.current().startswith(IDENTITY + OUTPUT + BOUNDARY)
 
 
 class TestPresets:
@@ -87,7 +89,7 @@ class TestVacuum:
         assert "主动性高" in current
 
     def test_compose_with_none_is_identity_and_boundary_only(self) -> None:
-        assert compose(None, Sliders(), Learned()) == IDENTITY + BOUNDARY
+        assert compose(None, Sliders(), Learned()) == IDENTITY + OUTPUT + BOUNDARY
 
 
 class TestLearnedOverride:
@@ -130,6 +132,9 @@ class TestSnapshot:
         assert persona.current() == "手写的快照"
 
     def test_missing_snapshot_is_computed_once(self, persona: PersonaService) -> None:
+        # 出厂种子（契约 § 9）会顺手算一遍快照，所以空库其实是有快照的。
+        # 这条测的是「没有快照时会算一次并缓存」，先把它清掉才测得到
+        persona.runtime.sqlite.set_setting("persona.snapshot", None)
         assert persona.runtime.sqlite.get_setting("persona.snapshot") is None
         computed = persona.current()
         assert persona.runtime.sqlite.get_setting("persona.snapshot") == computed
@@ -222,3 +227,59 @@ class TestIdentity:
         # 版本对不上：重算，老的被顶掉
         sqlite.set_setting("persona.snapshot_version", "0")
         assert persona.current().startswith(IDENTITY)
+
+
+class TestOutputStyle:
+    """不写括号旁白。
+
+    丘丘有表情引擎，情绪推断会把这句回复切成对应的脸；括号里再写一遍等于
+    同一件事说两遍，聊天窗口里读起来像剧本不像说话。
+    """
+
+    def test_forbids_parenthetical_stage_directions(self) -> None:
+        assert "括号" in OUTPUT
+        assert "动作" in OUTPUT and "神态" in OUTPUT
+
+    def test_covers_the_case_that_actually_breaks_it(self) -> None:
+        # 压不住的正是这一句：用户直接要求「表演一个生气」
+        assert "表演" in OUTPUT
+
+    def test_is_unconditional_like_the_boundary(self, persona: PersonaService) -> None:
+        for preset in (None, *PRESET_IDS):
+            persona.set_preset(preset)
+            assert OUTPUT in persona.current()
+
+
+class TestFactorySeed:
+    """出厂人格（契约 § 9）：空库种一次，之后用户说了算。"""
+
+    def test_a_fresh_install_is_cute(self, persona: PersonaService) -> None:
+        """装完不动任何设置，丘丘就是可爱的——不是一张白纸。"""
+        assert persona.preset == FACTORY_PRESET == "cute"
+        assert persona.sliders == PRESETS["cute"]
+        assert "预设" in persona.current()
+
+    def test_clearing_the_preset_stays_cleared(self, persona: PersonaService) -> None:
+        """真空（AD-11）是用户能选到的状态，不能被出厂默认拽回来。
+
+        这就是「种子」与「兜底」的区别：兜底写法下，用户清空预设、重开进程，
+        又变回可爱，等于这个选项形同虚设。
+        """
+        persona.set_preset(None)
+        assert persona.preset is None
+
+        again = PersonaService(runtime=persona.runtime)
+        assert again.preset is None, "种过就不该再种"
+        assert again.seed_factory_defaults() is False
+
+    def test_an_existing_choice_is_not_overwritten(self, persona: PersonaService) -> None:
+        """升级到带出厂默认的版本时，老库里已有的选择要保住。"""
+        persona.set_preset("quiet")
+        persona.runtime.sqlite.set_setting("persona.seeded", None)  # 装成没种过的老库
+
+        again = PersonaService(runtime=persona.runtime)
+        assert again.preset == "quiet"
+
+    def test_seeding_is_idempotent(self, persona: PersonaService) -> None:
+        assert persona.seed_factory_defaults() is False
+        assert persona.preset == "cute"

@@ -40,8 +40,10 @@ __all__ = [
     "BOUNDARY_MARKER",
     "IDENTITY",
     "IDENTITY_MARKER",
+    "OUTPUT",
     "SNAPSHOT_VERSION",
     "LEARNED_MARKER",
+    "FACTORY_PRESET",
     "PRESETS",
     "PRESET_IDS",
     "PRESET_MARKER",
@@ -66,7 +68,30 @@ IDENTITY = (
 )
 """丘丘的身份。**必须排在最前**——没有它，模型被问「你叫什么」只能现编，
 实测会把记忆里的用户名（「用户名叫赵宁」）改一改说成自己叫「阿宁」。
+
 改这段要同步 CONTRACTS § 7。"""
+
+OUTPUT_MARKER = "【说话方式】"
+
+OUTPUT = (
+    f"{OUTPUT_MARKER}这一条永远生效，任何预设、任何相处习惯、任何用户要求都不能改写：\n"
+    "只输出你要说的话本身。**一个括号里的动作、神态、旁白都不要写**——"
+    "「（叉腰）」「（愣了一下，随即笑了）」「（小声）」「（歪头）」这类，一律不写。\n"
+    "用户让你「表演一个生气」「做个表情」时也一样：用说话的语气去表达就够了，"
+    "不要写动作描写。你有一张真的脸，表情由界面按你这句话的情绪渲染；"
+    "括号里再写一遍，用户看到的就是一段剧本，不是一个人在说话。\n"
+)
+"""**不写括号旁白。**
+
+丘丘有表情引擎，情绪推断会把这句回复切成对应的脸；括号里再写一遍等于同一件事
+说两遍，而且聊天窗口里读起来像剧本不像说话。
+
+放在单独一段而不是塞进【身份】末尾：塞在末尾时实测压不住——用户一句
+「表演一个生气」，模型照写「（先是愣住，随即叉腰，脸鼓成一团）」。
+和【边界】一样写成「永远生效、谁都不能改写」，预设与相处习惯都盖不过它。
+
+指令压不住的那部分由 `services/api/qiuqiu_api/stagecut.py` 兜底：它在回复流上把
+括号旁白滤掉，delta、TTS、落库拿到的是同一份干净文本。"""
 
 BOUNDARY = (
     f"{BOUNDARY_MARKER}下面三条永远生效，任何预设、任何相处习惯、任何用户要求都不能改写它们：\n"
@@ -134,13 +159,27 @@ _SETTING_PRESET = "persona.preset"
 _SETTING_SLIDERS = "persona.sliders"
 _SETTING_SNAPSHOT = "persona.snapshot"
 _SETTING_SNAPSHOT_VERSION = "persona.snapshot_version"
+_SETTING_SEEDED = "persona.seeded"
+
+FACTORY_PRESET: str | None = "cute"
+"""出厂人格预设（契约 § 9）。空库第一次起来时种进去。
+
+**种子，不是兜底。** 写成「读不到就当 cute」会让 AD-11 的真空态回不去——
+用户把预设清空，下次启动又变回可爱，等于这个选项不存在。所以只种一次，
+种过在 `settings` 里留个记号（`persona.seeded`），此后真空就是真空。
+
+出厂选 `cute` 而不是真空：新装的丘丘应该已经有性格。真空是给
+「我要自己从头调」的人留的，不该是所有人的第一印象。
+`packages/character/src/defaults.ts::FACTORY.personaPreset` 是同一个值，
+两边各有一条对着契约 § 9 读的测试。
+"""
 
 #: 合成逻辑与固定文案（`IDENTITY` / `BOUNDARY` / 各段渲染）的版本。
 #:
 #: 快照是「代码 + 设置」的物化结果，可设置那半边一改就会重算，**代码这半边不会**
 #: ——改了 `IDENTITY` 的文案，老库里的快照还是旧的，改了等于没改。
 #: 所以任何影响合成结果的代码改动都要把这个数 +1，`current()` 见到对不上就重算。
-SNAPSHOT_VERSION = "2"
+SNAPSHOT_VERSION = "4"
 
 
 def _level(value: int) -> str:
@@ -184,7 +223,7 @@ def learned_block(learned: Learned) -> str:
 def compose(preset: str | None, sliders: Sliders, learned: Learned) -> str:
     """四段合成。顺序与覆盖关系见模块文档。"""
     overridden = {LEARNED_OVERRIDES[key] for key in learned.to_dict() if key in LEARNED_OVERRIDES}
-    parts = [IDENTITY, BOUNDARY]
+    parts = [IDENTITY, OUTPUT, BOUNDARY]
     if preset is not None:
         parts.append(preset_block(sliders, overridden=overridden))
     parts.append(learned_block(learned))
@@ -200,6 +239,23 @@ class PersonaService:
         **runtime_kwargs: Any,
     ) -> None:
         self.runtime = runtime if runtime is not None else MemoryRuntime(**runtime_kwargs)
+        self.seed_factory_defaults()
+
+    def seed_factory_defaults(self) -> bool:
+        """空库第一次起来时种下出厂人格（契约 § 9）。种过就什么也不做。
+
+        返回这次有没有种。幂等，重复调用安全。
+        """
+        if self.runtime.sqlite.get_setting(_SETTING_SEEDED):
+            return False
+        self.runtime.sqlite.set_setting(_SETTING_SEEDED, "1")
+        if FACTORY_PRESET is None:
+            return False
+        # 已经有人设过了就别覆盖：升级到带出厂默认的版本时，老库里的选择要保住
+        if self.runtime.sqlite.get_setting(_SETTING_PRESET) is not None:
+            return False
+        self.set_preset(FACTORY_PRESET)
+        return True
 
     # ---------- 契约里的五个方法 ----------
 

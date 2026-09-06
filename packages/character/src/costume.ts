@@ -191,11 +191,14 @@ export function mountCostume(
   });
   mid.appendChild(gloss);
 
-  // 蝴蝶结：戴在头顶偏左，避开眼睛能游走到的高度
-  const bow = el('g', {
-    class: 'qq-costume__bow',
-    transform: 'translate(70 28) rotate(-16) scale(1.15)'
-  });
+  // 蝴蝶结：戴在头顶偏左，避开眼睛能游走到的高度。
+  //
+  // 分两层：外层只管戴在哪，内层留给宿主拿 CSS 做动作（`.qq-costume__bow`）。
+  // 合成一层的话，CSS 的 transform 会整个盖掉这里的 translate/rotate/scale，
+  // 蝴蝶结会掉到球心去——SVG 的 transform 属性斗不过样式表。
+  // 内层的局部原点正好是结心，绕着它转就是布料该有的样子。
+  const bowAt = el('g', { transform: 'translate(70 28) rotate(-16) scale(1.15)' });
+  const bow = el('g', { class: 'qq-costume__bow' });
   const bowFill = '#FF8FB6';
   const bowLine = '#E2618F';
   for (const s of [-1, 1] as const) {
@@ -220,7 +223,8 @@ export function mountCostume(
       'stroke-width': 1.6
     })
   );
-  mid.appendChild(bow);
+  bowAt.appendChild(bow);
+  mid.appendChild(bowAt);
 
   // 腮红：两片，每帧跟着对应那只眼睛走位
   function makeBlush(side: -1 | 1): SVGElement {

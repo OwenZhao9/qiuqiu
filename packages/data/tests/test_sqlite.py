@@ -6,7 +6,7 @@ import datetime as dt
 from pathlib import Path
 
 import pytest
-from qiuqiu_data.sqlite import TABLES, SqliteStore
+from qiuqiu_data.sqlite import MIGRATIONS_DIR, TABLES, SqliteStore
 
 
 @pytest.fixture
@@ -23,6 +23,10 @@ def test_migrate_creates_eight_tables_in_wal_mode(store: SqliteStore) -> None:
     assert store.journal_mode().lower() == "wal"
 
 
+#: 迁移目录里现有的全部脚本，按版本序
+ALL_MIGRATIONS = sorted(p.stem for p in MIGRATIONS_DIR.glob("[0-9][0-9][0-9]_*.sql"))
+
+
 def test_migrate_is_idempotent(tmp_path: Path) -> None:
     store = SqliteStore(path=tmp_path / "qiuqiu.db")
 
@@ -30,10 +34,12 @@ def test_migrate_is_idempotent(tmp_path: Path) -> None:
     second = store.migrate()
     third = store.migrate()
 
-    assert first == ["001_init"]
+    # 第一次把目录里所有脚本都跑掉，之后一条都不再跑。硬写成 ["001_init"] 的话
+    # 每加一个迁移都要来改一次测试，改的还只是列表本身，测不出别的
+    assert first == ALL_MIGRATIONS
     assert second == []
     assert third == []
-    assert store.applied_migrations() == ["001_init"]
+    assert store.applied_migrations() == ALL_MIGRATIONS
     store.close()
 
 
@@ -43,7 +49,7 @@ def test_migrate_survives_a_lost_ledger(store: SqliteStore) -> None:
     store.conn.execute("DROP TABLE schema_migrations")
     store.conn.commit()
 
-    assert store.migrate() == ["001_init"]
+    assert store.migrate() == ALL_MIGRATIONS
     assert store.get_session("s1") is not None
 
 

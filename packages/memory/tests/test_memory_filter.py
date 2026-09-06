@@ -160,3 +160,41 @@ class TestDecisionShape:
     def test_to_dict_matches_contract_fields(self, runtime: MemoryRuntime) -> None:
         body = Filter(runtime).evaluate(SPEECH, source=Source.AMBIENT_AUDIO).to_dict()
         assert set(body) == {"decision", "score", "reason"}
+
+
+class TestFillersAndQuestions:
+    """低信息量那条规则原来形同虚设。
+
+    它数的是二元组（`len(t) >= 2`），而停用词表全是单字——那份表对中文一个都拦不住。
+    实测「99% 是废话」那个演示场景里，八句废话记了五句：
+    「嗯……那个……我看看啊」拿到 0.75 分，直接 accept。
+    """
+
+    def test_pure_filler_scores_zero(self, runtime: MemoryRuntime) -> None:
+        for noise in ["嗯嗯嗯，好的好的", "唉，行吧", "呃……那个……"]:
+            d = Filter(runtime).evaluate(noise, source=Source.AMBIENT_AUDIO)
+            assert d.decision == "reject", noise
+
+    def test_filler_wrapped_utterance_is_not_informative(self, runtime: MemoryRuntime) -> None:
+        d = Filter(runtime).evaluate("嗯……那个……我看看啊", source=Source.AMBIENT_AUDIO)
+        assert d.decision == "reject"
+
+    def test_a_real_commitment_still_gets_through(self, runtime: MemoryRuntime) -> None:
+        d = Filter(runtime).evaluate("下周三下午三点体检，别忘了空腹", source=Source.AMBIENT_AUDIO)
+        assert d.decision == "accept"
+
+    def test_questions_are_dropped_before_the_model_is_called(self, runtime: MemoryRuntime) -> None:
+        """压缩器本来就不记问句，在筛选这一层拦住能省一次模型调用。"""
+        for q in ["外卖到了吗？", "外卖到了吗", "你在干嘛呢", "现在几点？"]:
+            d = Filter(runtime).evaluate(q, source=Source.AMBIENT_AUDIO)
+            assert d.decision == "reject", q
+            assert d.reason == "Question, not a statement"
+
+    def test_a_statement_with_a_question_mark_inside_still_counts(
+        self, runtime: MemoryRuntime
+    ) -> None:
+        """只看句尾：中间带问号的陈述句不该被误伤。"""
+        d = Filter(runtime).evaluate(
+            "他问我周三体检的事，我说定在下午三点", source=Source.AMBIENT_AUDIO
+        )
+        assert d.decision == "accept"

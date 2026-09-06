@@ -139,6 +139,8 @@ export function MemorySidebar({
 
   return (
     <aside className={'qq-right' + (open ? ' qq-right--open' : '')} aria-label="记忆过程">
+      {/* 抬头拆两行。六件东西挤在 340 px 一行里，标题会被断成「记忆过 程」，
+          「筛选」也断成两行——这不是字号问题，是塞不下 */}
       <div className="qq-header">
         <h2 className="qq-header__title">记忆过程</h2>
         <span
@@ -147,42 +149,37 @@ export function MemorySidebar({
           aria-label={STATUS_TEXT[state.status]}
           title={STATUS_TEXT[state.status]}
         />
+        <span className="qq-spacer" />
         {state.status === 'closed' || state.status === 'reconnecting' ? (
-          <button
-            type="button"
-            className="qq-btn qq-btn--ghost qq-focusable"
-            onClick={() => store.retry()}
-          >
+          <button type="button" className="qq-btn qq-focusable" onClick={() => store.retry()}>
             重试
           </button>
         ) : null}
+      </div>
+
+      <div className="qq-toolbar">
+        <select
+          className="qq-select qq-focusable"
+          aria-label="事件筛选"
+          value={state.filter}
+          onChange={(e) => store.setFilter(e.target.value as EventFilter)}
+        >
+          {FILTERS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
         <span className="qq-spacer" />
-        <label style={{ display: 'contents' }}>
-          <span className="qq-muted" style={{ fontSize: 'var(--qq-text-2xs)' }}>
-            筛选
-          </span>
-          <select
-            className="qq-focusable"
-            aria-label="事件筛选"
-            value={state.filter}
-            onChange={(e) => store.setFilter(e.target.value as EventFilter)}
-          >
-            {FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <ThresholdBadge value={preview ?? thresholds} />
+        {/* 数字并进按钮：两个光秃秃的小数摆在抬头上，没人知道那是采集阈值 */}
         <button
           type="button"
-          className="qq-btn qq-btn--ghost qq-focusable"
-          aria-label="阈值"
+          className="qq-btn qq-focusable"
           aria-expanded={showThresholds}
           onClick={() => setShowThresholds((v) => !v)}
         >
-          ⚙
+          采集阈值
+          <ThresholdBadge value={preview ?? thresholds} />
         </button>
       </div>
 
@@ -195,16 +192,12 @@ export function MemorySidebar({
       />
 
       {state.lastError ? (
-        <div className="qq-error" style={{ margin: 'var(--qq-space-4)' }}>
+        <div className="qq-error qq-error--inset">
           {state.lastError.message}
           <span className="qq-error__hint">{state.lastError.hint}</span>
         </div>
       ) : null}
-      {uncertainNote ? (
-        <div className="qq-note" style={{ padding: '0 var(--qq-space-5)' }}>
-          {uncertainNote}
-        </div>
-      ) : null}
+      {uncertainNote ? <div className="qq-note qq-note--inset">{uncertainNote}</div> : null}
 
       <MemoryFlow events={state.events} />
 

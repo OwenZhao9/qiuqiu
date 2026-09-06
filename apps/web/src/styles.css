@@ -41,22 +41,105 @@ select {
 
 /* ============================================================
  * 通用基元
- * ============================================================ */
+ * ============================================================
+ *
+ * **控件只有一套外形。** 按钮、下拉、通话钮共用同一行声明：一样的高度、
+ * 圆角、描边、底色、字号。之前每个控件各写各的——按钮是小圆角方钮，通话钮是
+ * 实心胶囊，下拉干脆用系统原生样式，三个并排站在一起怎么调都不协调。
+ * 要改外形就改这一处，别在单个组件里另写一套。
+ */
 
-.qq-btn {
+.qq-btn,
+.qq-select {
   display: inline-flex;
   align-items: center;
   gap: var(--qq-space-3);
-  padding: var(--qq-space-3) var(--qq-space-5);
+  height: var(--qq-control-h);
+  padding: 0 var(--qq-space-4);
   border: var(--qq-border-thin) solid var(--qq-color-border);
   border-radius: var(--qq-radius-sm);
   background: var(--qq-color-surface);
+  color: var(--qq-color-text);
   font-size: var(--qq-text-sm);
-  transition: background var(--qq-duration-fast) var(--qq-ease-out);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--qq-duration-fast) var(--qq-ease-out),
+    border-color var(--qq-duration-fast) var(--qq-ease-out);
 }
 
-.qq-btn:hover {
+.qq-btn:hover:not(:disabled),
+.qq-select:hover {
   background: var(--qq-color-surface-hover);
+}
+
+/* 原生下拉在 macOS 上是系统外观，跟旁边的按钮永远对不上，只能自己画 */
+.qq-select {
+  appearance: none;
+  padding-right: var(--qq-space-8);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right 14px center,
+    right 9px center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+/**
+ * 图标钮：输入区里的次要动作（发图片、通话）。
+ *
+ * 原来它们和「发送」一样是带描边的方钮，三个同样分量的按钮并排，谁是主操作
+ * 看不出来；通话那个还带一抹绿，是整个界面里唯一的绿色，格外扎眼。
+ * 现在退成无边无底的图标，颜色跟正文一样弱；主操作只剩「发送」一个实心的。
+ */
+.qq-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--qq-control-h);
+  height: var(--qq-control-h);
+  padding: 0;
+  border: none;
+  border-radius: var(--qq-radius-sm);
+  background: none;
+  color: var(--qq-color-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--qq-duration-fast) var(--qq-ease-out),
+    color var(--qq-duration-fast) var(--qq-ease-out);
+}
+
+/* 界面里全部线稿图标共用一套画法：24 的格子、18 的显示尺寸、1.5 的描边。
+   这三个数配起来落到屏幕上是 1.1px 上下，跟界面其余的 1px 细线是同一档粗细。
+
+   原来两个图标是两只手画的：图片是 20 的格子、描边 1.6、还掺了个实心圆点，
+   电话是 24 的格子、纯实心；一个线稿一个色块，摆在一起像从两个地方抠来的。
+   画法写在这里而不是各自的 svg 上，是因为下一个图标不该有第二种选择——
+   每个 svg 只管形状。 */
+.qq-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.qq-icon-btn:hover {
+  background: var(--qq-color-surface-hover);
+  color: var(--qq-color-text);
+}
+
+/* 按钮上挂的次要信息（数值、计数），比正文小一号、弱一档 */
+.qq-btn__meta {
+  font-size: var(--qq-text-2xs);
+  color: var(--qq-color-text-muted);
 }
 
 .qq-btn[aria-pressed='true'],
@@ -174,6 +257,34 @@ select {
   padding: 0 var(--qq-space-5);
   border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
   background: var(--qq-color-bg);
+}
+
+/* 抬头下面的一行工具：跟抬头同样的左右内边距，控件靠这一行排开，
+   不再往标题那一行里硬塞 */
+.qq-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--qq-space-3);
+  padding: var(--qq-space-3) var(--qq-space-5);
+  border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
+  background: var(--qq-color-bg);
+}
+
+.qq-header__state {
+  font-size: var(--qq-text-sm);
+  color: var(--qq-color-text-muted);
+}
+
+.qq-error--inset {
+  margin: var(--qq-space-4);
+}
+
+.qq-note--inset {
+  padding: 0 var(--qq-space-5);
+}
+
+.qq-slider-row__name {
+  min-width: 4em;
 }
 
 .qq-header__title {
@@ -351,27 +462,49 @@ select {
   position: relative;
 }
 
-/* 允许换行：通话状态是 flex-basis: 100% 的整行元素，不换行的话它会跟输入框、
-   发送按钮挤在同一行，把输入框压成一条缝——那就是「通话时 UI 乱了」。 */
-.qq-composer__row {
+/* 输入区是一个整框：字在上、工具在下（微信那个样子）。
+   原来是「输入框 + 右边并排三颗按钮」，输入框被挤窄，三颗按钮抢主次，
+   通话状态那一行还得靠 flex-wrap 兜着，一开通话整排就乱。 */
+.qq-composer__box {
+  display: flex;
+  flex-direction: column;
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-md);
+  background: var(--qq-color-surface);
+  transition: border-color var(--qq-duration-fast) var(--qq-ease-out);
+}
+
+/* 焦点圈画在整个框上，不是那块 textarea 上 */
+.qq-composer__box:focus-within {
+  border-color: var(--qq-color-brand);
+}
+
+/* 工具条：图标钮靠左，发送靠右。
+   通话状态是 `flex-basis: 100%` 的整行元素，要能换行落到工具条上面那一行，
+   不然它会跟按钮挤在一起把整排压扁——那就是「通话时 UI 乱了」。 */
+.qq-composer__bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--qq-space-4);
+  align-items: center;
+  gap: var(--qq-space-2);
+  padding: 0 var(--qq-space-3) var(--qq-space-3);
 }
 
 .qq-composer__input {
-  flex: 1;
   min-height: var(--qq-composer-min-h);
   max-height: var(--qq-composer-max-h);
   overflow-y: auto;
   resize: none;
-  padding: var(--qq-space-4) var(--qq-space-5);
-  border: var(--qq-border-thin) solid var(--qq-color-border);
-  border-radius: var(--qq-radius-md);
-  background: var(--qq-color-surface);
+  padding: var(--qq-space-4) var(--qq-space-5) var(--qq-space-2);
+  /* 边框归外面那个框，这里不再画一遍——两层框套着最难看 */
+  border: none;
+  background: none;
   font-size: var(--qq-text-lg);
   line-height: var(--qq-leading-snug);
+}
+
+.qq-composer__input:focus {
+  outline: none;
 }
 
 .qq-attachments {
@@ -872,6 +1005,21 @@ select {
   font-size: var(--qq-text-sm);
 }
 
+/* 段落去掉默认外边距，用在卡片内部 */
+.qq-plain {
+  margin: 0;
+}
+
+/* 开关：一个原生复选框加一行字，跟别的控件同高 */
+.qq-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--qq-space-3);
+  height: var(--qq-control-h);
+  font-size: var(--qq-text-sm);
+  cursor: pointer;
+}
+
 /* 音色选择：网格铺开，一眼看完十个 */
 .qq-voices {
   display: grid;
@@ -1043,6 +1191,115 @@ select {
   cursor: grab;
 }
 
+/* ── 体态：在听 / 在想 / 在说各有一套身体动作 ─────────────────────
+   表情引擎只换脸。语音通话时有真实音量驱动 `--qq-voice` 脉动，但打字回复
+   没有音频，只靠换表情的话「正在说」和「待机」看着一模一样。
+   动作挂在引擎内层的 `.qq-ball` 上：`.qq-stage` 的 transform 归引擎（音量脉动），
+   桌宠外层的 transform 归拖拽倾斜，三层各管各的，不打架。 */
+
+.qq-ball-host[data-state='speaking'] .qq-ball {
+  animation: qq-say 0.44s var(--qq-ease-standard) infinite;
+}
+
+.qq-ball-host[data-state='thinking'] .qq-ball {
+  animation: qq-ponder 2.4s var(--qq-ease-standard) infinite;
+}
+
+.qq-ball-host[data-state='listening'] .qq-ball {
+  animation: qq-hear 2s var(--qq-ease-standard) infinite;
+}
+
+/* 说话：一下一下点头，像嘴在动。幅度只有 2 px，快而小 */
+@keyframes qq-say {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  45% {
+    transform: translateY(2px) scaleY(0.975);
+  }
+}
+
+/* 想：慢慢左右晃，像在斟酌 */
+@keyframes qq-ponder {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.6deg);
+  }
+}
+
+/* 听：轻轻起伏的呼吸，比待机明显一点，表示在等你说 */
+@keyframes qq-hear {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.022);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-ball-host[data-state] .qq-ball {
+    animation: none;
+  }
+}
+
+/* 蝴蝶结是布做的，不是贴纸：平时自己轻轻摇，身体动的时候它慢半拍跟上。
+   动画绕结心转，比身体的周期稍长一点点，看着才像被带动的，不像跟身体焊死。 */
+.qq-costume__bow {
+  animation: qq-bow-idle 3.4s var(--qq-ease-standard) infinite;
+}
+
+.qq-ball-host[data-state='speaking'] .qq-costume__bow {
+  animation: qq-bow-say 0.52s var(--qq-ease-standard) infinite;
+}
+
+.qq-ball-host[data-state='thinking'] .qq-costume__bow {
+  animation: qq-bow-ponder 2.6s var(--qq-ease-standard) infinite;
+}
+
+@keyframes qq-bow-idle {
+  0%,
+  100% {
+    transform: rotate(-3.5deg);
+  }
+  50% {
+    transform: rotate(3.5deg);
+  }
+}
+
+/* 说话时点头带起来的甩动：幅度小、频率跟身体一致，相位错开一点 */
+@keyframes qq-bow-say {
+  0%,
+  100% {
+    transform: rotate(-5deg) scale(1);
+  }
+  55% {
+    transform: rotate(6deg) scale(1.05);
+  }
+}
+
+/* 想的时候身体左右晃，结跟着甩得更开一点 */
+@keyframes qq-bow-ponder {
+  0%,
+  100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-costume__bow {
+    animation: none;
+  }
+}
+
 /* 悬浮微动：4.5 s 一个来回，上下 4 px。幅度做小，看得出在飘又不晃眼。
    挂在外层，跟拖动的倾斜分两层，免得两个 transform 打架。 */
 @keyframes qq-pet-float {
@@ -1102,9 +1359,9 @@ select {
   align-self: flex-end;
   max-width: 88%;
   padding: var(--qq-space-4) var(--qq-space-5);
-  border: var(--qq-border-thin) solid var(--qq-color-border-strong);
+  border: var(--qq-border-thin) solid var(--qq-pet-balloon-line);
   border-radius: var(--qq-radius-2xl);
-  background: var(--qq-color-surface);
+  background: var(--qq-pet-balloon-bg);
   box-shadow: var(--qq-shadow-3);
   transition: opacity var(--qq-duration-slow) var(--qq-ease-out);
 }
@@ -1139,13 +1396,13 @@ select {
 .qq-pet__balloon::before {
   margin-left: -11px;
   border-width: 15px 11px 0;
-  border-color: var(--qq-color-border-strong) transparent transparent;
+  border-color: var(--qq-pet-balloon-line) transparent transparent;
 }
 
 .qq-pet__balloon::after {
   margin-left: -9px;
   border-width: 13px 9px 0;
-  border-color: var(--qq-color-surface) transparent transparent;
+  border-color: var(--qq-pet-balloon-bg) transparent transparent;
 }
 
 .qq-pet__balloon--fading {
@@ -1400,11 +1657,11 @@ select {
   color: var(--qq-color-recall);
 }
 
-/* 排到输入框那一行**上面**去（order: -1），不然换行之后「发送」会被挤到第三行 */
+/* 排到工具条**上面**那一行（order: -1），不然换行之后「发送」会被挤到第三行 */
 .qq-voice-status {
   order: -1;
   flex-basis: 100%;
-  margin-bottom: var(--qq-space-1);
+  padding: 0 var(--qq-space-2) var(--qq-space-2);
   font-size: var(--qq-text-sm);
   line-height: 1.4;
 }
@@ -1463,32 +1720,19 @@ select {
    做成打电话的样子：待机绿色（接听），通话中红色（挂断），听筒转 135 度。
    各家电话应用都是这个约定，用户不用另学。 */
 
-.qq-call {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: var(--qq-space-3) var(--qq-space-4);
-  border-radius: var(--qq-radius-pill);
-  border: var(--qq-border-thin) solid var(--qq-color-call);
-  background: var(--qq-color-call);
-  color: #fff;
-  font-size: var(--qq-text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background var(--qq-duration-fast) var(--qq-ease-standard),
-    border-color var(--qq-duration-fast) var(--qq-ease-standard);
-}
-
-.qq-call:hover {
-  filter: brightness(1.06);
-}
-
+/* 通话按钮。平时就是一个安静的图标钮（见 `.qq-icon-btn`），
+   接通之后才铺色并轻微呼吸——那时候麦克风开着，值得显眼。
+   没接通时不给它上绿：那是整个界面里唯一的绿，只会扎眼。 */
 .qq-call--on {
   background: var(--qq-color-hangup);
-  border-color: var(--qq-color-hangup);
-  /* 通话中轻微呼吸，让人知道麦克风还开着 */
+  color: #fff;
   animation: qq-call-breathe 2s var(--qq-ease-standard) infinite;
+}
+
+.qq-call--on:hover {
+  background: var(--qq-color-hangup);
+  color: #fff;
+  filter: brightness(1.06);
 }
 
 @keyframes qq-call-breathe {
@@ -1511,10 +1755,6 @@ select {
   transform: rotate(135deg);
 }
 
-.qq-call__text {
-  line-height: 1;
-}
-
 /* ── 记忆框图（论文骨架）─────────────────────────────────────────
    三段横排，亮起来的是这一轮真的走过的路。三段各一个色调，
    沿用产品图里的分区做法。 */
@@ -1526,34 +1766,43 @@ select {
   padding: var(--qq-space-5);
 }
 
+/* 底下留一条道给回环那根线走。没有它线会压在最后一排方块上 */
 .qq-map__zones {
+  position: relative;
+  padding-bottom: var(--qq-space-6);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--qq-space-6);
-  align-items: start;
+  /* 三段等高。删掉没实现的那几块之后 ② 比另外两段矮一大截，
+     参差不齐反而像没排好 */
+  align-items: stretch;
 }
 
+/* 分区底色原来是三块饱和的黄 / 绿 / 蓝，方块、卡片、注释又各有各的颜色，
+   一屏里六七种色互相抢，真正该跳出来的「这一轮走过的路」反而看不见。
+   现在分区退成近白，身份只留在标题和顶上那道细线，颜色预算全留给高亮。 */
 .qq-map__zone {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--qq-space-2);
   padding: var(--qq-space-5);
-  border: var(--qq-border-thin) solid var(--qq-color-border-strong);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-top: 3px solid var(--qq-color-border-strong);
   border-radius: var(--qq-radius-lg);
-  background: var(--qq-color-bg-subtle);
+  background: var(--qq-color-surface);
 }
 
 .qq-map__zone[data-tone='1'] {
-  background: var(--qq-color-uncertain-bg);
+  border-top-color: var(--qq-color-uncertain);
 }
 
 .qq-map__zone[data-tone='2'] {
-  background: var(--qq-color-write-bg);
+  border-top-color: var(--qq-color-write);
 }
 
 .qq-map__zone[data-tone='3'] {
-  background: var(--qq-color-recall-bg);
+  border-top-color: var(--qq-color-recall);
 }
 
 .qq-map__zone-h {
@@ -1616,34 +1865,22 @@ select {
   color: var(--qq-color-text-secondary);
 }
 
-/* 跟图上不一样的地方，用强调色标出来 */
-.qq-map__box-note,
-.qq-map__graph-h {
+/* 跟图上不一样的地方 */
+.qq-map__box-note {
   font-size: var(--qq-text-xs);
-  color: var(--qq-color-uncertain);
+  color: var(--qq-color-text-muted);
 }
 
+/* 走过的块：底色 + 一圈光晕。周围全是中性色，这一下才跳得出来 */
 .qq-map__box.qq-map--on {
   background: var(--qq-color-write-bg);
   border-color: var(--qq-color-write);
+  box-shadow: 0 0 0 2px rgb(from var(--qq-color-write) r g b / 0.16);
   animation: qq-map-pulse 2.2s var(--qq-ease-standard) infinite;
 }
 
 .qq-map__box.qq-map--on .qq-map__box-t {
   color: var(--qq-color-write);
-}
-
-/* 尚未实现的块：虚边、灰字 */
-.qq-map__box.qq-map--none,
-.qq-map__graph.qq-map--none {
-  background: none;
-  border-style: dashed;
-  border-color: var(--qq-color-border);
-}
-
-.qq-map__box.qq-map--none .qq-map__box-t,
-.qq-map__graph.qq-map--none b {
-  color: var(--qq-color-text-muted);
 }
 
 /* 四条模态：一行一条，窄了各自换行 */
@@ -1660,81 +1897,155 @@ select {
   gap: var(--qq-space-2);
 }
 
-.qq-map__lane-arrow {
-  width: 14px;
-  height: 2px;
-  background: var(--qq-color-border-strong);
-  position: relative;
-}
+/* ── 连接层 ─────────────────────────────────────────────────────
+   线画在一张覆盖全图的透明 SVG 上（见 MapWires.tsx），这里只负责两件事：
+   在流式布局里给线留出位置（空档），以及给线上色。 */
 
-.qq-map__lane-arrow::after {
-  content: '';
-  position: absolute;
-  right: -1px;
-  top: -3px;
-  border: 4px solid transparent;
-  border-left-color: var(--qq-color-border-strong);
-}
-
-.qq-map__lane-arrow.qq-map--on,
-.qq-map__lane-arrow.qq-map--on::after {
-  background: var(--qq-color-write);
-  border-left-color: var(--qq-color-write);
-}
-
-/* 竖向连接：一条线加一个朝下的箭头，亮起来时流光往下跑 */
-.qq-map__link {
+/* 空档：本身不画东西，只占位置，线由连接层画进它的矩形里 */
+.qq-map__gap {
   position: relative;
   align-self: center;
-  width: 2px;
+  width: 12px;
   height: 26px;
-  background: var(--qq-color-border-strong);
 }
 
-.qq-map__link--dashed {
-  background: repeating-linear-gradient(var(--qq-color-border-strong) 0 4px, transparent 4px 8px);
+.qq-map__gap--h {
+  width: 24px;
+  height: 12px;
+  align-self: center;
 }
 
-.qq-map__link::after {
-  content: '';
+.qq-map__gap-label {
   position: absolute;
-  bottom: -1px;
-  left: -3px;
-  border: 4px solid transparent;
-  border-top-color: var(--qq-color-border-strong);
-}
-
-.qq-map__link.qq-map--on {
-  background: var(--qq-color-write);
-}
-
-.qq-map__link.qq-map--on::after {
-  border-top-color: var(--qq-color-write);
-}
-
-.qq-map__link.qq-map--on::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(var(--qq-color-write) 0 40%, transparent 40%);
-  animation: qq-map-flow 1s linear infinite;
-}
-
-.qq-map__link-label {
-  position: absolute;
-  left: 10px;
-  top: 4px;
+  left: 12px;
+  top: 3px;
   white-space: nowrap;
   font-size: var(--qq-text-xs);
   color: var(--qq-color-text-muted);
 }
 
-@keyframes qq-map-flow {
-  from {
-    transform: translateY(-100%);
-  }
+/* 线层盖在方块上面：分区有底色，压在下面的线会被整片盖住看不见。
+   跨区那几根走在两列之间的空档里，压不到内容 */
+.qq-map__wires {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* 不走的路一律中性灰。线也按分区上三种颜色的话，一屏里颜色太多，
+   真正该跳出来的那条反而混在里面 */
+.qq-map__wire-line {
+  fill: none;
+  stroke: var(--qq-color-border-strong);
+  stroke-width: 2;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+}
+
+/* 没走到的路淡一点，走到的实打实。差得太多的话没走的那些就看不见了，
+   整张图只剩零星几段，看不出是一条完整的通路 */
+.qq-map__wire {
+  opacity: 0.75;
+}
+
+.qq-map__wire.qq-map--on {
+  opacity: 1;
+}
+
+.qq-map__wire[data-tone='1'] {
+  color: var(--qq-color-uncertain);
+}
+
+.qq-map__wire[data-tone='2'] {
+  color: var(--qq-color-write);
+}
+
+.qq-map__wire[data-tone='3'] {
+  color: var(--qq-color-recall);
+}
+
+.qq-map__wire.qq-map--on .qq-map__wire-line {
+  stroke: var(--qq-color-write);
+  stroke-width: 2.4;
+}
+
+.qq-map__wire-tip--1,
+.qq-map__wire-tip--2,
+.qq-map__wire-tip--3 {
+  fill: var(--qq-color-border-strong);
+}
+
+.qq-map__wire-tip--on {
+  fill: var(--qq-color-write);
+}
+
+/* 线上那句话。底道正好从字中间穿过去，所以先描一圈底色再填字
+   （`paint-order: stroke` 让描边画在字下面），等于给字挖了个洞 */
+.qq-map__wire-label {
+  fill: var(--qq-color-text-muted);
+  stroke: var(--qq-color-bg-subtle);
+  stroke-width: 6;
+  paint-order: stroke;
+  font-size: var(--qq-text-xs);
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+/* 走过的那条路上一串跑动的点：静态箭头只说明连通，跑起来才说明此刻数据正在这里过。
+   跟待机那颗光点同一套画法（零长度虚线段 + 圆头笔帽），只是排成一串。 */
+.qq-map__wire-flow {
+  fill: none;
+  stroke: var(--qq-color-write);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 0.01 14;
+  animation: qq-map-dash 1s linear infinite;
+}
+
+@keyframes qq-map-dash {
   to {
-    transform: translateY(100%);
+    stroke-dashoffset: -14;
+  }
+}
+
+/* 主干上依次走一道很淡的光。没有它整张图平时是死的，只有真发生一轮对话的
+   那一两秒才动一下，看不出这是一条通路。走过的那几段换成实打实的快虚线，
+   两种动画永远不会落在同一根线上，不会互相盖 */
+/* 用所在分区的颜色，不用灰：灰的那道光压在同样是灰的线上，等于没有 */
+.qq-map__wire-idle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5;
+  stroke-linecap: round;
+  /* **一个点，不是一小截线。** 虚线段长取接近 0，圆头笔帽就把它画成一个圆点，
+     直径等于线宽；空档留满整条路径。配合 `pathLength={100}` 这里是百分比，
+     dashoffset 从 100 走到 0，那个点就从线头滑到线尾。 */
+  stroke-dasharray: 0.01 99.99;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  animation: qq-map-idle 3.2s linear infinite;
+}
+
+@keyframes qq-map-idle {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  42% {
+    opacity: 0.9;
+  }
+  50% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
   }
 }
 
@@ -1748,13 +2059,24 @@ select {
   }
 }
 
+/* 分区里的一块。三处（漏斗 / 存储架子 / 预算）用同一套外壳：
+   同样的描边、圆角、内边距。原来漏斗和预算是没有边的散排文字，架子有边，
+   同一栏里三种不同的「块」长得不一样，看着就散 */
+.qq-map__filter,
+.qq-map__shelf,
+.qq-map__budget {
+  padding: var(--qq-space-3);
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  border-radius: var(--qq-radius-md);
+  background: var(--qq-color-surface);
+}
+
 /* 漏斗那一块 */
 .qq-map__filter {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
   gap: var(--qq-space-3);
-  padding: var(--qq-space-3);
 }
 
 .qq-map__funnel {
@@ -1772,6 +2094,13 @@ select {
   opacity: 0.4;
 }
 
+.qq-map__filter.qq-map--on,
+.qq-map__shelf.qq-map--on {
+  border-color: var(--qq-color-write);
+  background: var(--qq-color-write-bg);
+  box-shadow: 0 0 0 2px rgb(from var(--qq-color-write) r g b / 0.16);
+}
+
 .qq-map__filter.qq-map--on .qq-map__funnel {
   stroke: var(--qq-color-write);
 }
@@ -1781,7 +2110,7 @@ select {
   flex-direction: column;
   gap: 1px;
   font-size: var(--qq-text-xs);
-  color: var(--qq-color-text-secondary);
+  color: var(--qq-color-text-muted);
 }
 
 .qq-map__filter-t b {
@@ -1791,6 +2120,7 @@ select {
 .qq-map__drop {
   grid-column: 1 / -1;
   justify-self: start;
+  margin-top: var(--qq-space-2);
   font-size: var(--qq-text-xs);
   color: var(--qq-color-text-muted);
 }
@@ -1864,31 +2194,6 @@ select {
   border-color: var(--qq-color-write);
 }
 
-/* 知识图谱：尚未实现，画成灰的 */
-.qq-map__graph {
-  padding: var(--qq-space-3);
-  border: var(--qq-border-thin) dashed var(--qq-color-border);
-  border-radius: var(--qq-radius-md);
-}
-
-.qq-map__nodes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
-  gap: var(--qq-space-2);
-  margin-top: var(--qq-space-2);
-}
-
-.qq-map__node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: var(--qq-space-2);
-  border: var(--qq-border-thin) dashed var(--qq-color-border);
-  border-radius: var(--qq-radius-full);
-  font-size: var(--qq-text-xs);
-  color: var(--qq-color-text-muted);
-}
-
 /* 三路检索 */
 .qq-map__paths {
   display: grid;
@@ -1926,13 +2231,13 @@ select {
   display: flex;
   flex-direction: column;
   gap: var(--qq-space-2);
-  padding: var(--qq-space-3);
 }
 
 .qq-map__budget-h {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  margin-bottom: var(--qq-space-1);
   font-size: var(--qq-text-xs);
   color: var(--qq-color-text-muted);
 }
@@ -1977,18 +2282,30 @@ select {
 
 @media (prefers-reduced-motion: reduce) {
   .qq-map__box.qq-map--on,
-  .qq-map__link.qq-map--on::before {
+  .qq-map__wire-flow {
     animation: none;
+  }
+
+  .qq-map__wire-idle {
+    display: none;
   }
 }
 
 /* ── 主页上那条记忆结构 ───────────────────────────────────────────
    默认展开，限高，可以点标题收起。 */
 
+/* 底部一道渐隐：条带是限高滚动的，图放不下时正好会把某个方块切成半截，
+   看着像画坏了。压一道向下淡出的遮罩，读起来就是「下面还有」 */
 .qq-mapstrip {
+  position: relative;
   flex: none;
   border-bottom: var(--qq-border-thin) solid var(--qq-color-border);
   background: var(--qq-color-bg-subtle);
+  /* 紧凑档按**这一条的宽度**决定排几列，不是按窗口宽度。中栏宽度 =
+     窗口宽 − 两侧栏，而侧栏在窄窗口下会变成抽屉，两者不是一个线性关系，
+     媒体查询算不准；容器查询直接量自己 */
+  container-type: inline-size;
+  container-name: mapstrip;
 }
 
 .qq-mapstrip__head {
@@ -2018,13 +2335,216 @@ select {
   color: var(--qq-color-text-muted);
 }
 
-/* 紧凑模式：主页那条限高，图整体缩放，不挤掉对话 */
-/* 论文那张图比原来自己画的那张密得多，压到 344 px 高就只剩色块看不清字了。
-   放到窗口高的 46%（上限 460）：既读得出块名，收起来也只要点一下标题。 */
-/* 主页那一条：限高，超了竖着滚。**不需要横向滚**——三段是自适应网格，
-   栏窄了自己换行往下排，字号不变。 */
+.qq-mapstrip[open]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;
+  pointer-events: none;
+  background: linear-gradient(transparent, var(--qq-color-bg-subtle));
+}
+
+/* ── 紧凑档：主页那一条 ─────────────────────────────────────────
+   主栏在 1200 px 窗口里只有 600 px 宽。`auto-fit + minmax(300px)` 在这个宽度下
+   只排得下一列，于是三段竖着叠成一条长卷，屏幕里只看得见 ①。
+   紧凑档改成硬排三列（`repeat(3, minmax(0, 1fr))`），一列约 184 px，
+   横向就占满了；纵向靠三件事压下来，而不是缩字号：
+     · 连接线 26 → 14 px，分区/卡片的内边距各降一档；
+     · 原子单元卡从四行竖排改成一行（只留摘要，向量与时间在完整档看）；
+     · 知识图谱的四个节点是示意图，紧凑档收掉，只留那行说明。
+   字号不动——上一版缩字号的结果是糊成一片。真放不下时还有竖向滚动兜底。 */
 .qq-map--compact {
   padding: 0 var(--qq-space-4) var(--qq-space-4);
-  max-height: min(600px, 58vh);
+  /* 行距收到 1.25：图上都是三五个字的标签，不是正文，1.5 的行距全是空白。
+     整张图二十多行，一行省 4 px 就是五六十 px */
+  line-height: var(--qq-leading-tight);
+  /* 主页这一条是**预览**，不是那张图本身：完整的在左栏「记忆结构」页，一键就到。
+     上限一路调到 63vh 是错的——800 px 高的窗口里，抬头 48 + 条带标题 34 + 图 504
+     之后只剩两百来像素给对话，输入框占掉一大半，聊天区就剩两条消息的位置。
+     压到 46vh：图放不下的部分竖着滚，对话区拿回三百多像素。 */
+  max-height: min(420px, 46vh);
   overflow-y: auto;
+}
+
+/* 三列不等宽：① 里是「模态 → 判据」两个方块并排，最吃宽度，多分一点给它，
+   「画面相似度比对 CLIP」就能一行放下，四条模态各省一行。
+   栏间距要留得下跨区那两根线拐弯，太窄了线会贴着分区边框走 */
+.qq-map--compact .qq-map__zones {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.9fr);
+  gap: var(--qq-space-7);
+  /* 底下留一条道给「回复也记一遍」那根回环线走。要够 LOOP_DROP 加一个
+     朝上的箭头，短了箭头就贴在横线上，看不出方向 */
+  padding-bottom: var(--qq-space-9);
+}
+
+.qq-map--compact .qq-map__zone {
+  gap: var(--qq-space-1);
+  padding: var(--qq-space-4) var(--qq-space-4) var(--qq-space-3);
+}
+
+.qq-map--compact .qq-map__zone-h {
+  flex-flow: row wrap;
+  justify-content: center;
+  gap: 0 var(--qq-space-3);
+  margin-bottom: var(--qq-space-2);
+}
+
+.qq-map--compact .qq-map__zone-h b {
+  font-size: var(--qq-text-base);
+}
+
+.qq-map--compact .qq-map__box {
+  flex-flow: row wrap;
+  justify-content: center;
+  gap: 0 var(--qq-space-3);
+  padding: var(--qq-space-2) var(--qq-space-3);
+}
+
+.qq-map--compact .qq-map__box--lg {
+  padding: var(--qq-space-3) var(--qq-space-4);
+}
+
+/* 紧凑档只把空档缩短，箭头按像素定尺寸，形状不跟着变小 */
+.qq-map--compact .qq-map__gap {
+  height: 16px;
+}
+
+/* 三块外壳加了描边之后高度紧了，紧凑档把块内那两处外边距收掉 */
+.qq-map--compact .qq-map__budget-h {
+  margin-bottom: 0;
+}
+
+.qq-map--compact .qq-map__drop {
+  margin-top: 0;
+}
+
+.qq-map--compact .qq-map__gap--h {
+  width: 20px;
+}
+
+.qq-map--compact .qq-map__gap-label {
+  left: 10px;
+  top: 0;
+  font-size: var(--qq-text-2xs);
+}
+
+/* 模态那一列按内容收窄，把宽度让给右边的判据，「词汇重合度去重」才不折行 */
+.qq-map--compact .qq-map__lane {
+  grid-template-columns: auto auto 1fr;
+}
+
+.qq-map--compact .qq-map__funnel {
+  width: 52px;
+  height: 40px;
+}
+
+.qq-map--compact .qq-map__filter,
+.qq-map--compact .qq-map__shelf,
+.qq-map--compact .qq-map__budget {
+  gap: var(--qq-space-1);
+  padding: var(--qq-space-2);
+}
+
+.qq-map--compact .qq-map__shelf-h {
+  margin-bottom: var(--qq-space-1);
+}
+
+/* 原子单元卡：紧凑档一行一条，只留摘要 */
+.qq-map--compact .qq-map__maus {
+  /* minmax(0, …) 而不是 1fr：`1fr` 的下限是 auto，一条摘要长了轨道就跟着撑宽，
+     卡片顶出架子右边 */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--qq-space-1);
+}
+
+.qq-map--compact .qq-map__mau {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--qq-space-2);
+  padding: var(--qq-space-1) var(--qq-space-2);
+}
+
+.qq-map--compact .qq-map__mau b,
+.qq-map--compact .qq-map__mau span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* flex 子项默认不肯缩到 min-content 以下，摘要长一点就把卡片顶出架子 */
+  min-width: 0;
+}
+
+.qq-map--compact .qq-map__mau span:nth-of-type(n + 2) {
+  display: none;
+}
+
+/* 三路检索的方块：紧凑档只留「稠密检索 FAISS 向量」这一行。
+   「按意思 / 按字面 / 按标签」是同一件事的白话说法，完整档里看 */
+.qq-map--compact .qq-map__paths .qq-map__box-sub {
+  display: none;
+}
+
+/* 并集、预算抬头同理：横着排，一行放得下就不折 */
+.qq-map--compact .qq-map__union {
+  flex-flow: row wrap;
+  justify-content: center;
+  gap: 0 var(--qq-space-3);
+  padding: var(--qq-space-2) var(--qq-space-4);
+}
+
+.qq-map--compact .qq-map__budget-h {
+  flex-flow: row wrap;
+  align-items: baseline;
+  gap: 0 var(--qq-space-3);
+}
+
+.qq-map--compact .qq-map__budget-detail,
+.qq-map--compact .qq-map__budget-h span,
+.qq-map--compact .qq-map__shelf-h span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 架子上摆两条就够看出「一条条码着」的意思，第三条留给完整档 */
+.qq-map--compact .qq-map__mau:nth-child(n + 3) {
+  display: none;
+}
+
+.qq-map--compact .qq-map__tier {
+  padding: 1px var(--qq-space-2);
+  line-height: var(--qq-leading-tight);
+}
+
+/* 中栏再窄就少排几列。硬排三列不设下限的话，一列只剩百来像素，
+   「画面相似度比对」这种七个字的判据要折成三行，整条反而更高 */
+@container mapstrip (max-width: 560px) {
+  .qq-map--compact .qq-map__zones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container mapstrip (max-width: 380px) {
+  .qq-map--compact .qq-map__zones {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 消息里带的图。多张时横着排，窄栏下自己换行 */
+.qq-msg__shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--qq-space-2);
+  margin-top: var(--qq-space-2);
+}
+
+.qq-msg__shot {
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: var(--qq-radius-sm);
+  /* 图自带颜色，边框只是把它跟气泡底色分开，别抢眼 */
+  border: var(--qq-border-thin) solid var(--qq-color-border);
+  object-fit: cover;
+  display: block;
 }

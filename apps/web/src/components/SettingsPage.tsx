@@ -28,7 +28,19 @@ const CAPABILITY_CN: Record<string, string> = {
   realtime: '实时语音'
 };
 
-export function SettingsPage(): React.JSX.Element {
+export interface SettingsPageProps {
+  /** 被动采集开着没有。默认关，开摄像头必须是用户自己按的。 */
+  ambientOn: boolean;
+  /** 当前状态或上一次失败的原因。 */
+  ambientNote: string;
+  onAmbientChange(on: boolean): void;
+}
+
+export function SettingsPage({
+  ambientOn,
+  ambientNote,
+  onAmbientChange
+}: SettingsPageProps): React.JSX.Element {
   const [providers, setProviders] = useState<ProviderInfo[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,6 +78,25 @@ export function SettingsPage(): React.JSX.Element {
   return (
     <div className="qq-page">
       <h1 className="qq-page__title">设置</h1>
+
+      <section>
+        <h2 className="qq-section__title">被动采集</h2>
+        <p className="qq-note">
+          开着的时候，丘丘每 45 秒看一眼摄像头，画面交给后端转成一句描述，
+          再过一遍新颖度过滤器——够新的才记下来，重复的当场丢掉。托盘菜单里也能开关。
+          声音那一路还没接（缺语音识别），现在只看画面。
+        </p>
+        <label className="qq-switch">
+          <input
+            type="checkbox"
+            className="qq-focusable"
+            checked={ambientOn}
+            onChange={(e) => onAmbientChange(e.target.checked)}
+          />
+          <span>{ambientOn ? '开着' : '关着'}</span>
+        </label>
+        {ambientNote ? <p className="qq-note">{ambientNote}</p> : null}
+      </section>
 
       <section>
         <h2 className="qq-section__title">场景控制台</h2>
@@ -131,9 +162,7 @@ export function SettingsPage(): React.JSX.Element {
 
       <section>
         <h2 className="qq-section__title">音色</h2>
-        <p className="qq-note">
-          丘丘的声音。选中即生效。通话时用它；文字对话的朗读还没接上，选了听不出区别。
-        </p>
+        <p className="qq-note">丘丘的声音。选中即生效，文字对话的朗读和实时通话共用这一个选择。</p>
         <VoicePicker />
       </section>
 

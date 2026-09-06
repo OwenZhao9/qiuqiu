@@ -40,16 +40,20 @@ def test_play_runs_every_step(
     assert len(ingest_spy) == 2
 
 
-def test_clock_offset_reaches_ingest_ts(
+def test_writes_happen_now_not_in_the_future(
     client: TestClient, scenarios_dir: Path, ingest_spy: list[dict]
 ) -> None:
-    """偏移经 `ingest()` 的 `ts` 传进去，系统时钟不动。"""
+    """写入按**此刻**记，偏移只作用在提问那一边。
+
+    原来两边都加偏移，等于「三个月后说、三个月后问」——中间没有时间差，
+    事实还热着，「过了三个月」演出来就只是一次普通召回。
+    """
     write_script(scenarios_dir, "time-jump", SCRIPT)
     before = dt.datetime.now(dt.UTC)
     client.post("/scenario/time-jump/play", json={"speed": 0})
     after = dt.datetime.now(dt.UTC)
 
-    assert all(call["ts"] - before > dt.timedelta(days=91) for call in ingest_spy)
+    assert all(abs(call["ts"] - before) < dt.timedelta(seconds=30) for call in ingest_spy)
     assert after - before < dt.timedelta(seconds=30)  # 真实时钟没被改
 
 
@@ -119,3 +123,41 @@ def test_scenarios_listing_exists(client: TestClient) -> None:
     for row in rows:
         assert set(row) == {"name", "title"}
         assert row["name"] and row["title"]
+
+
+def test_time_jump_ages_the_store_before_asking(
+    client: TestClient, scenarios_dir: Path, state: AppState, monkeypatch: Any
+) -> None:
+    """提问之前跑一遍降冷，站在偏移那一天的时钟上。
+
+    少了这一步，「过了三个月」演的只是普通召回：写和问是同一时刻，事实还热着，
+    看不到「热表没有 → 下探冷表 → 命中回热」这条链路。
+    """
+    write_script(scenarios_dir, "time-jump", SCRIPT)
+    seen: list[Any] = []
+    original = state.facade.demote_stale
+
+    def spy(**kwargs: Any) -> Any:
+        seen.append(kwargs.get("at"))
+        return original(**kwargs)
+
+    monkeypatch.setattr(state.facade, "demote_stale", spy)
+    body = client.post("/scenario/time-jump/play", json={"speed": 0}).json()
+
+    assert len(seen) == 1, "只跑一次，不是每个提问都跑一遍"
+    assert seen[0] - dt.datetime.now(dt.UTC) > dt.timedelta(days=91)
+    assert "demoted" in body
+    assert body["asked_from"] > body["played_from"], "问的时刻要在说的时刻之后"
+
+
+def test_no_offset_means_no_aging(
+    client: TestClient, scenarios_dir: Path, state: AppState, monkeypatch: Any
+) -> None:
+    """没有偏移的场景不该动冷热表——它们演的不是这件事。"""
+    write_script(scenarios_dir, "plain", SCRIPT | {"name": "plain", "clock_offset_days": 0})
+    calls: list[Any] = []
+    monkeypatch.setattr(
+        state.facade, "demote_stale", lambda **kw: calls.append(kw) or {"demoted": 0}
+    )
+    client.post("/scenario/plain/play", json={"speed": 0})
+    assert calls == []

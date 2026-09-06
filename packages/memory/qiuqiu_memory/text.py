@@ -73,6 +73,54 @@ STOPWORDS: frozenset[str] = frozenset(
 )
 """只用于实体抽取与低信息量判断，**不用于** token 化（FTS 那边关了停用词）。"""
 
+FILLERS: tuple[str, ...] = (
+    "那个",
+    "这个",
+    "就是说",
+    "就是",
+    "然后",
+    "反正",
+    "好的",
+    "好吧",
+    "行吧",
+    "算了",
+    "怎么说",
+    "什么来着",
+    "咳咳",
+    "哎呀",
+    "唉",
+    "哎",
+    "咳",
+    "呃",
+    "嗯",
+    "啊",
+    "哦",
+    "噢",
+    "喔",
+)
+"""口头填充词。**多字的必须列进来。**
+
+`STOPWORDS` 全是单字，而低信息量那条规则原来只数长度 ≥2 的 token（中文里全是
+二元组），于是那份表对中文一个都拦不住——「嗯……那个……我看看啊」能拿 0.75 分
+被记下来，「99% 是废话」那个演示里八句记了五句。
+
+按长度倒序匹配，先吃掉「就是说」再轮到「就是」。
+"""
+
+_FILLER_RE = re.compile("|".join(sorted((re.escape(f) for f in FILLERS), key=len, reverse=True)))
+
+
+def content_units(text: str) -> list[str]:
+    """一句话里剩下的信息单元：去掉填充词与停用词之后的**字**与西文词。
+
+    数字而不是二元组：二元组会把「我看看」这种也数成两三个单元，
+    任何一句话都轻松满分，低信息量那条规则等于没有。
+    """
+
+    stripped = _FILLER_RE.sub(" ", text or "")
+    units = [u.lower() for u in _WORD_RE.findall(stripped)]
+    return [u for u in units if u not in STOPWORDS]
+
 
 def tokenize(text: str) -> list[str]:
     """切成字面路的检索单元。顺序稳定、去重后返回。"""

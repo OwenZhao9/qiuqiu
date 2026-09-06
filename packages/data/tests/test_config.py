@@ -24,6 +24,9 @@ def test_data_dir_reads_dotenv_when_env_var_absent(tmp_path: Path, monkeypatch) 
     target = tmp_path / "from-dotenv"
     (tmp_path / ".env").write_text(f"DATA_DIR={target}\n", encoding="utf-8")
     monkeypatch.delenv("DATA_DIR", raising=False)
+    # 这一条测的就是「会去读 .env」，所以那个关掉 dotenv 的开关必须先摘掉——
+    # 别的测试与 CI 都开着它，不摘的话这条永远测不到自己要测的东西
+    monkeypatch.delenv("QIUQIU_NO_DOTENV", raising=False)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(config, "_env_loaded", False)
 

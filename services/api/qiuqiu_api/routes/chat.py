@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from contextlib import aclosing
 from typing import Literal
 
 import structlog
@@ -50,8 +51,12 @@ async def chat(body: ChatIn, state: StateDep) -> StreamingResponse:
     )
 
     async def sse():
-        async for name, data in stream_chat(state, request, trace_id=trace_id):
-            yield frame(data, event=name)
+        # `aclosing` 不能省：用户按停止 → 前端 abort → 这个包装生成器被掐掉，
+        # 而 `async for` 出异常时**不会**去关里面那个生成器，`stream_chat` 的收尾
+        # 就只能等垃圾回收，半句回复什么时候落库全看运气
+        async with aclosing(stream_chat(state, request, trace_id=trace_id)) as turn:
+            async for name, data in turn:
+                yield frame(data, event=name)
 
     return StreamingResponse(
         sse(),

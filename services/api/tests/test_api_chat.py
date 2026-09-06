@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
@@ -155,3 +156,84 @@ async def test_chat_streams_without_buffering(app: Any) -> None:
         frames = await probe.read_frames(2)
     assert frames[0][0] == "meta"
     assert frames[1][0] == "delta"
+
+
+def test_stage_directions_never_reach_the_client(client: TestClient) -> None:
+    """括号旁白在流上就滤掉，delta、落库、TTS 拿到的是同一份文本。
+
+    前端曾经只在显示层擦过一遍：屏幕干净，可语音合成用的是原文——
+    丘丘念出来的比屏幕上写的多。
+    """
+    from qiuqiu_api import orchestrator
+
+    async def fake_deltas(_state, _chat, _messages):
+        for piece in ["（愣了一下，随即", "叉腰）", "哼！我", "生气了。", "（别过头去）"]:
+            yield piece
+
+    orig = orchestrator._stream_deltas
+    orchestrator._stream_deltas = fake_deltas
+    try:
+        with client.stream("POST", "/chat", json={"session_id": "s1", "content": "生气"}) as res:
+            body = res.read().decode()
+    finally:
+        orchestrator._stream_deltas = orig
+
+    # delta 是一帧一帧发的，拼起来才是这一轮的全文
+    spoken = "".join(
+        json.loads(line[len("data: ") :])["text"]
+        for line in body.splitlines()
+        if line.startswith("data: ") and '"text"' in line
+    )
+    assert spoken == "哼！我生气了。"
+    assert "叉腰" not in body, "开头的动作描写不该发给前端"
+    assert "别过头去" not in body, "结尾的动作描写也不该发"
+
+
+async def test_stop_keeps_the_half_sentence_out_of_memory(
+    state: AppState, ingest_spy: list[dict[str, Any]]
+) -> None:
+    """用户按停止：屏幕上留着的半句要在库里，但不进记忆。
+
+    停止走的是前端 `AbortController` → 服务端把这个生成器 `aclose()` 掉，
+    `done` 之后的收尾一行都不会执行。半句不落库的话，重开窗口历史里就是
+    一句用户的话没有下文。
+    """
+    from qiuqiu_api.orchestrator import ChatRequest, stream_chat
+
+    stream = stream_chat(
+        state, ChatRequest(session_id="s-stop", content="讲个长故事"), trace_id="trc_stop"
+    )
+    seen: list[str] = []
+    async for name, data in stream:
+        if name == "delta":
+            seen.append(data["text"])
+            break  # 相当于用户在第一段就按了停止
+    await stream.aclose()
+
+    assert seen, "至少得先收到一段才谈得上停止"
+    rows = state.sqlite.list_messages("s-stop")
+    assert [r["role"] for r in rows] == ["user", "assistant"]
+    assert rows[1]["content"] == "".join(seen).strip()
+    # 只有用户那句进了记忆，被掐断的半句没有
+    assert [call["speaker"] for call in ingest_spy] == []
+
+
+def test_nothing_about_expressions_is_sent_to_the_model(state: AppState) -> None:
+    """契约 § 9「不往上送」：发给模型的 prompt 里没有任何表情信息。
+
+    模型不知道丘丘脸上在演什么，也就无从配合着演。32 个表情的调度权在前端的
+    规则表里（`emotion.ts::RULES` / `event-map.ts::EVENT_EMOTION_TABLE`），
+    这一条是那半边的地基——一旦哪天把「当前表情」塞进 prompt，这里就红。
+    """
+    from qiuqiu_api.orchestrator import build_messages
+
+    messages = build_messages(
+        state,
+        persona_text="【身份】你叫丘丘。",
+        hits=[],
+        history=[{"role": "user", "content": "在吗"}],
+        user_text="你现在什么心情",
+    )
+    blob = "\n".join(str(getattr(m, "content", "")) for m in messages)
+    for forbidden in ("emotionId", "当前表情", "你现在的表情", "emotion_id"):
+        assert forbidden not in blob

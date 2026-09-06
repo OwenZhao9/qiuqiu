@@ -30,6 +30,7 @@ __all__ = [
     "MethodSpec",
     "Node",
     "contracts_text",
+    "factory_defaults",
     "dataclass_defaults",
     "dataclass_fields",
     "declared_version",
@@ -379,3 +380,17 @@ def persona_composition_order() -> list[str]:
     """§ 7 合成公式里三段的顺序。"""
     block = _fence_after("## 7 · 人格合成规则")
     return [name for name in re.findall(r"(\w+_block)", block)]
+
+
+def factory_defaults() -> dict[str, str]:
+    """§ 9 那张出厂表：项 → 出厂值。`|` 表格逐行读，反引号剥掉。"""
+    rows: dict[str, str] = {}
+    for line in section(9).splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 2 or cells[0] in {"项", "---"} or set(cells[0]) <= {"-"}:
+            continue
+        rows[cells[0]] = cells[1].strip("`")
+    assert rows, "CONTRACTS.md § 9 里没解析到出厂表"
+    return rows

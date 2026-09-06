@@ -50,14 +50,19 @@ def promote(runtime: Any, fact_ids: Sequence[str], *, at: dt.datetime | None = N
     return list(moved)
 
 
-def nightly(runtime: Any, *, days: int = STALE_DAYS) -> dict[str, Any]:
+def nightly(
+    runtime: Any, *, days: int = STALE_DAYS, at: dt.datetime | None = None
+) -> dict[str, Any]:
     """定时入口：降冷一轮 + 合并索引碎片，返回可写日志的摘要。
 
     契约 § 3 点名的降冷入口就是 `qiuqiu_memory.pipeline.tiering.nightly(runtime)`
     （v0.1.7 收编）。后端的定时任务调这个，**不**调 `qiuqiu_data.tiering.nightly`——
     阈值属于记忆层的判断，搬运才是 data 的活（AD-10）。`days` 不在契约里，留给测试与
     场景回放覆盖，缺省就是 `STALE_DAYS`。
+
+    `at` 同样不在契约里：场景回放要「站在三个月后」跑一次降冷，才演得出
+    「热表没有、下探冷表、命中回热」这条链路。不给就用 `runtime.now()`。
     """
-    summary = make_tiering(runtime).nightly(days)
+    summary = make_tiering(runtime, at=at).nightly(days)
     log.info("tiering.nightly", days=days, demoted=summary.get("demoted"))
     return summary

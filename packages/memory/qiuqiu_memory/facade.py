@@ -352,6 +352,18 @@ class MemoryFacade:
         sub = self.runtime.bus.open()
         return self.runtime.bus.drain(sub)
 
+    def demote_stale(self, *, days: int | None = None, at: Any = None) -> dict[str, Any]:
+        """跑一轮降冷。场景回放「过了三个月」要用，见 `pipeline.tiering.nightly`。"""
+        from .pipeline import tiering
+
+        return tiering.nightly(
+            self.runtime, days=tiering.STALE_DAYS if days is None else days, at=at
+        )
+
+    def forget_recent_inputs(self) -> None:
+        """清空筛选器的去重窗口。演示场景回放前调，见 `Filter.forget_recent`。"""
+        self._filter.forget_recent()
+
     def note_filter(
         self,
         *,

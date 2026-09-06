@@ -24,6 +24,17 @@
         }
       })();
     </script>
+    <script>
+      // 皮肤同理，见 index.html 里同一段注释。桌宠窗口是透明的，闪一下更明显
+      (function () {
+        try {
+          var skin = localStorage.getItem('qiuqiu.skin') || 'kawaii';
+          if (skin !== 'default') document.documentElement.dataset.skin = skin;
+        } catch (e) {
+          document.documentElement.dataset.skin = 'kawaii';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

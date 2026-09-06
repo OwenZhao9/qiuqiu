@@ -37,6 +37,7 @@ def _message(row: dict[str, Any]) -> dict[str, Any]:
         "content": row.get("content") or "",
         "model": row.get("model"),
         "favorite": bool(row.get("favorite")),
+        "attachments": list(row.get("attachments_json") or []),
         "created_at": row.get("created_at"),
     }
 

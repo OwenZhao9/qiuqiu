@@ -12,7 +12,9 @@
 import {
   applyEvent as applyEventTo,
   applyError as applyErrorTo,
-  applyReply as applyReplyTo
+  applyReply as applyReplyTo,
+  applyStop as applyStopTo,
+  applySubmit as applySubmitTo
 } from './event-map.js';
 import {
   CharacterMachine,
@@ -397,11 +399,17 @@ export function createQiuqiu(container: HTMLElement, opts: QiuqiuOptions = {}): 
       ball.handleAIMessage({ emotionId: normalizeEmotionId(id) });
     },
     setState: (next: CharacterState, o?: SetStateOptions) => machine.setState(next, o ?? {}),
-    applyEventEmotion: (emotionId: EmotionId, priority: number) =>
-      machine.applyEventEmotion(emotionId, priority),
+    applyEventEmotion: (emotionId: EmotionId, priority: number, holdMs?: number) =>
+      machine.applyEventEmotion(emotionId, priority, holdMs),
     feedEnvelope: (rms: number) => machine.feedEnvelope(rms),
     applyEvent(event: MemoryEvent) {
       applyEventTo(machine, event);
+    },
+    applySubmit(hasImages?: boolean) {
+      applySubmitTo(machine, hasImages);
+    },
+    applyStop() {
+      applyStopTo(machine);
     },
     applyError() {
       applyErrorTo(machine);

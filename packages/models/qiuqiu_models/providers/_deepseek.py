@@ -48,7 +48,8 @@ class DeepSeekBase:
         self._timeout = timeout if timeout is not None else DEFAULT_TIMEOUT
         self._transport = transport
         self._sleep = sleep or asyncio.sleep
-        self._client: httpx.AsyncClient | None = None
+        #: 一个事件循环一个 client，见 `client()`
+        self._clients: dict[asyncio.AbstractEventLoop, httpx.AsyncClient] = {}
 
     # ---------------------------------------------------------------- 基础设施
 
@@ -63,18 +64,40 @@ class DeepSeekBase:
         }
 
     def client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(
+        """按事件循环各给一个 client。
+
+        **同一个供应商实例会被两个事件循环用**：接口主循环跑对话，记忆层自己那条
+        后台线程上的循环（`qiuqiu_memory.runtime._LoopThread`）跑抽取与压缩。
+        httpx 的连接池里有一把 `anyio` 的锁，锁绑在**建池子的那个循环**上；
+        换一个循环接着用，第一次请求发出去、拿到 200、然后在读流的时候抛
+        「Event object is bound to a different event loop」。
+
+        实测后果是**每一轮对话都白花一次完整的补全**：第一次这么炸掉，
+        `_stream_deltas` 判定还没吐过 delta，退避一秒重试，第二次才成。
+        钱花两份，首字延迟也多一秒。所以按循环分池，谁的锁归谁。
+        """
+        loop = asyncio.get_running_loop()
+        client = self._clients.get(loop)
+        if client is None:
+            client = httpx.AsyncClient(
                 base_url=self.base_url,
                 timeout=self._timeout,
                 transport=self._transport,
             )
-        return self._client
+            self._clients[loop] = client
+        return client
 
     async def aclose(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        """关掉当前循环这一个。别的循环的池子只能在它自己那边关，这里丢掉引用。
+
+        跨循环 `aclose()` 会踩同一把锁，比不关更糟。这些池子的生命周期跟着
+        进程走，退出时连接自然断。
+        """
+        loop = asyncio.get_running_loop()
+        mine = self._clients.pop(loop, None)
+        if mine is not None:
+            await mine.aclose()
+        self._clients.clear()
 
     def _redact(self, text: str) -> str:
         """兜底：任何要外发的字符串里都不能出现 key。"""

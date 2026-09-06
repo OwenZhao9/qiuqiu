@@ -333,7 +333,12 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
     { name: 'cost-compare', title: '成本对照' }
   ];
 
-  function remember(sessionId: string, role: 'user' | 'assistant', content: string): void {
+  function remember(
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string,
+    attachments: string[] = []
+  ): void {
     const at = nowIso();
     if (!sessions.some((x) => x.id === sessionId)) {
       sessions.unshift({
@@ -354,6 +359,7 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
       content,
       model: role === 'assistant' ? 'mock-chat' : null,
       favorite: false,
+      attachments,
       created_at: at
     });
   }
@@ -412,9 +418,11 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
       const body = JSON.parse(String(init?.body ?? '{}')) as {
         content?: string;
         session_id?: string;
+        attachments?: { blob_id: string }[];
       };
       const query = body.content ?? '';
       const sessionId = body.session_id || 'default';
+      const shots = (body.attachments ?? []).map((a) => a.blob_id);
       const reply = opts.reply ?? REPLY_POOL[Math.floor(Math.random() * REPLY_POOL.length)];
       const trace = traceId();
       const { response, handle: h } = sseResponse(signal);
@@ -438,7 +446,7 @@ export function installMockServer(opts: MockOptions = {}): MockServer {
           latency_ms: 420
         });
         // AD-6：用户那句和 AI 那句都要落库，`GET /sessions/{id}/messages` 才读得回两条
-        remember(sessionId, 'user', query);
+        remember(sessionId, 'user', query, shots);
         remember(sessionId, 'assistant', reply);
         h.close();
         broadcast(events[1]);

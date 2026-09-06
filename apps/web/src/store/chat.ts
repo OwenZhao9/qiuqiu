@@ -15,9 +15,11 @@
  * 转发的是**这一轮到此为止的全文**，不是增量：桌宠只负责显示，不自己拼字，
  * 拼字就等于第二套消息处理，漏一条两个窗口就不一样了。
  *
- * T2 / T3 / T4 / T9 属于语音链路，M5 接入；T10 断连由 `useEventStream` 那边触发。
+ * T2 / T3 / T4 / T9 属于语音链路（`voice.ts` 的端到端实时通话）；
+ * T10 断连由 `useEventStream` 那边触发。
  */
 
+import type { StoredMessage } from '../api.js';
 import {
   postChat,
   type Attachment,
@@ -72,6 +74,18 @@ export interface ChatStoreDeps {
   onReplyPartial?(textSoFar: string): void;
   /** SSE / WS 出错 → 表情 `34`。 */
   onStreamError?(err: ErrorPayload): void;
+  /** 用户按下发送。带图片时表情不一样（好奇，而不是点头收到）。 */
+  onSubmit?(hasImages: boolean): void;
+  /** 用户点停止中止本轮。 */
+  onStopped?(): void;
+  /**
+   * 收到一帧 TTS 音频。
+   *
+   * 原来这里是空的，收到就丢弃——后端每轮都在合成，钱照花，声音一次没响过。
+   */
+  onAudio?(pcmB64: string, sampleRate: number): void;
+  /** 本轮结束或被打断：该闭嘴了。 */
+  onSpeechEnd?(): void;
   /** 注入 `postChat`，测试与 mock 用。 */
   chat?: typeof postChat;
   now?(): number;
@@ -84,6 +98,16 @@ export interface ChatStore extends Store<ChatState> {
   stop(): void;
   /** 只切状态（语音链路的 T2 / T4 用）。 */
   setCharacterState(next: CharacterState): void;
+  /**
+   * 把这个会话的历史消息铺进来（进程起来时调一次）。
+   *
+   * 后端一直把消息存在 SQLite 里，下一轮也会把历史喂给模型——所以丘丘记得。
+   * 但界面从不去读，重启之后聊天区一片空白：你问「刚才我说啥」它答得出来，
+   * 屏幕上却什么都没有，两边对不上。
+   *
+   * 已经聊上了就不铺（`messages` 非空时直接返回），免得把当前这一轮冲掉。
+   */
+  hydrate(rows: readonly StoredMessage[]): void;
   /**
    * 把一句已经定稿的话记进对话记录，**不发请求**。
    *
@@ -133,6 +157,7 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
 
   function sendReply(): void {
     replyRaf = 0;
+    // 括号里的动作描写后端就滤掉了（`stagecut.py`），这里拿到的已经是干净的
     const text = store.get().messages.find((m) => m.id === replyId)?.content ?? '';
     if (text === replySent) return;
     replySent = text;
@@ -182,12 +207,17 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
     const content = text.trim();
     if (content === '') return; // 空内容不发，也不报错（design/interaction.md § 2）
 
-    // T8：回复途中再次提交，先中止当前流
+    // T8：回复途中再次提交，先中止当前流。上一轮的声音也一起掐掉
+    deps.onSpeechEnd?.();
     if (stream) {
       stream.abort();
       patchReply((m) => ({ ...m, streaming: false }));
       stream = null;
     }
+
+    // 提交先点个头「收到了」，再进思考。跳过这一下的话，从待机直接变思考，
+    // 用户按完发送那一刻没有任何回应
+    deps.onSubmit?.(attachments.length > 0);
 
     const userMsg: ChatMessage = {
       id: newId(),
@@ -267,8 +297,8 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
           if (full.length > 0) deps.onReplyComplete?.(full, userText);
           endTurn(); // T6（done 先于 delta）或 T7
         },
-        onAudio() {
-          // TTS 播放推迟到 M5：类型定好了，收到就丢弃
+        onAudio(a) {
+          deps.onAudio?.(a.pcm_b64, Number(a.sample_rate) || 16000);
         },
         onError(err) {
           patchReply((m) => ({ ...m, streaming: false, error: err }));
@@ -307,9 +337,32 @@ export function createChatStore(sessionId: string, deps: ChatStoreDeps): ChatSto
       if (!stream) return;
       stream.abort();
       patchReply((m) => ({ ...m, streaming: false }));
+      deps.onStopped?.();
+      deps.onSpeechEnd?.();
       endTurn();
     },
     setCharacterState: toState,
+    hydrate(rows) {
+      if (rows.length === 0 || store.get().messages.length > 0) return;
+      store.set((st) => ({
+        ...st,
+        messages: rows.map((r) => ({
+          id: r.id,
+          role: r.role,
+          content: r.content,
+          streaming: false,
+          recallIds: [],
+          memoryUsed: false,
+          model: r.model,
+          attachments: (r.attachments ?? []).map((blob_id) => ({
+            type: 'image' as const,
+            blob_id
+          })),
+          error: null,
+          at: Date.parse(r.created_at) || now()
+        }))
+      }));
+    },
     addTranscript(role, text) {
       const content = text.trim();
       if (content === '') return;

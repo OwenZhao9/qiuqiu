@@ -20,7 +20,9 @@ import { FALLBACK_EMOTION, inferEmotion, RULES } from '../src/emotion.js';
 import {
   decideEventEmotion,
   decideReplyEmotion,
+  decideSubmitEmotion,
   ERROR_DECISION,
+  STOP_DECISION,
   EVENT_EMOTION_TABLE,
   type EventEmotionDecision,
   type EventRuleKey
@@ -52,7 +54,7 @@ const CONTRACTS = readFileSync(fromRepo('docs', 'CONTRACTS.md'), 'utf8');
  * v0.1.7（收编 memory 报的十一条缺口）改的是 § 1 / § 3 / § 5，
  * § 6 六个小节与 v0.1.6 逐字一致，本文件的断言无需改动。
  */
-const CONTRACT_VERSION = 'v0.1.15';
+const CONTRACT_VERSION = 'v0.1.17';
 
 /* ------------------------------------------------------------------ *
  * 解析
@@ -187,6 +189,11 @@ const NEUTRAL_TEXT = '以下是三种可选方案。第一种是把两份笔记�
 
 /** 契约「触发」列（去掉反引号后）→ 怎么跑实现。 */
 const EVENT_CASES: Record<string, EventCase> = {
+  用户点停止: {
+    rule: 'stop',
+    judge: ['中止本轮'],
+    run: () => STOP_DECISION
+  },
   请求出错: {
     rule: 'error',
     judge: ['error'],
@@ -245,6 +252,16 @@ const EVENT_CASES: Record<string, EventCase> = {
     rule: 'recall.empty',
     judge: ['hits', 'cold_promoted', '都为空'],
     run: () => decideEventEmotion(recallEvent(0, 0))
+  },
+  用户按下发送: {
+    rule: 'submit',
+    judge: ['无附件'],
+    run: () => decideSubmitEmotion(false)
+  },
+  '用户按下发送（带图片）': {
+    rule: 'submit.images',
+    judge: ['attachments.length > 0'],
+    run: () => decideSubmitEmotion(true)
   }
 };
 
@@ -261,8 +278,8 @@ describe('CONTRACTS § 6 · 事件表情', () => {
     expect(header).toEqual(['触发', '判定', 'emotionId', 'Emotion Ball 名', '优先级']);
   });
 
-  it('11 行，且每一行代码里都认识', () => {
-    expect(rows).toHaveLength(11);
+  it('14 行，且每一行代码里都认识', () => {
+    expect(rows).toHaveLength(14);
     for (const row of rows) {
       const trigger = plain(row[0]!);
       expect(EVENT_CASES[trigger], `契约里出现了代码没实现的触发：${trigger}`).toBeTruthy();

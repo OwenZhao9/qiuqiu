@@ -5,7 +5,6 @@ from __future__ import annotations
 import datetime as dt
 
 import pytest
-
 from qiuqiu_api.state import AppState
 from starlette.testclient import TestClient
 
@@ -68,7 +67,6 @@ def test_empty_query_is_422(client: TestClient) -> None:
     assert client.post("/compare", json={"query": ""}).status_code == 422
 
 
-
 def test_persona_survives_use_memory_false(
     state: AppState, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -79,7 +77,6 @@ def test_persona_survives_use_memory_false(
     连身份都不一样，量出来的差距里混进了「换了个助手」，不再只是记忆的功劳。
     """
     import anyio
-
     from qiuqiu_api import orchestrator
 
     seen: list[str] = []

@@ -5,13 +5,14 @@ from __future__ import annotations
 import pytest
 from qiuqiu_api.main import check, main
 from qiuqiu_api.routes import API_PATHS
+from test_api_health import declared_contract_version
 
 
 def test_check_passes_offline(capsys: pytest.CaptureFixture[str]) -> None:
     assert check() == 0
     report = capsys.readouterr().out.strip().splitlines()[-1]
     assert '"ok": true' in report
-    assert "v0.1.11" in report
+    assert declared_contract_version() in report
 
 
 def test_main_routes_check_flag() -> None:

@@ -31,6 +31,7 @@ from typing import Any
 import structlog
 
 from .errors import from_exception
+from .stagecut import StageCut
 from .state import AppState, new_id
 
 __all__ = [
@@ -298,7 +299,12 @@ async def stream_chat(
         # 用户这句先落库：模型挂了原话也不能丢（ARCHITECTURE § 3）
         user_message_id = new_id("msg")
         state.sqlite.add_message(
-            user_message_id, req.session_id, "user", user_text, created_at=moment
+            user_message_id,
+            req.session_id,
+            "user",
+            user_text,
+            attachments=[a.blob_id for a in req.attachments],
+            created_at=moment,
         )
 
         yield (
@@ -310,49 +316,104 @@ async def stream_chat(
             },
         )
 
+        # 括号形式的动作描写在这里就滤掉，**只此一处**：delta、TTS、落库、
+        # 下一轮喂给模型的历史拿到的是同一份文本。原来只在前端显示层擦了一遍，
+        # 结果语音合成用的是原文——丘丘念出来的比屏幕上写的多
+        cut = StageCut()
         reply_parts: list[str] = []
+        # 这一轮的回复有没有落库。没落就走 finally 补半句——用户按停止时，
+        # 这个生成器是被 `aclose()` 掐掉的，下面的收尾一行都不会执行
+        settled = False
         try:
-            async for piece in _stream_deltas(state, chat, messages):
-                if not piece:
-                    continue
-                reply_parts.append(piece)
-                yield "delta", {"text": piece}
-        except Exception as exc:  # noqa: BLE001 - 出网失败统一成带 hint 的 error 事件
-            _status, payload = from_exception(exc)
-            log.warning("chat.stream_failed", trace_id=trace_id, **payload)
-            _record_orchestrate(state, trace_id, chat, started)
-            yield "error", payload
-            return
+            try:
+                async for piece in _stream_deltas(state, chat, messages):
+                    if not piece:
+                        continue
+                    shown = cut.feed(piece)
+                    if not shown:
+                        continue
+                    reply_parts.append(shown)
+                    yield "delta", {"text": shown}
+            except Exception as exc:  # noqa: BLE001 - 出网失败统一成带 hint 的 error 事件
+                _status, payload = from_exception(exc)
+                log.warning("chat.stream_failed", trace_id=trace_id, **payload)
+                _record_orchestrate(state, trace_id, chat, started)
+                settled = True
+                _save_partial(state, req, reply_parts, moment, started, why="error")
+                yield "error", payload
+                return
 
-        reply = "".join(reply_parts)
+            tail = cut.flush()
+            if tail:
+                reply_parts.append(tail)
+                yield "delta", {"text": tail}
+            reply = "".join(reply_parts)
 
-        async for audio in _stream_audio(state, reply):
-            yield "audio", audio
+            async for audio in _stream_audio(state, reply):
+                yield "audio", audio
 
-        assistant_message_id = new_id("msg")
-        tokens_in, tokens_out = token_totals(state, trace_id)
-        latency_ms = int((time.perf_counter() - started) * 1000)
-        yield (
-            "done",
-            {
-                "message_id": assistant_message_id,
-                "tokens_in": tokens_in,
-                "tokens_out": tokens_out,
-                "latency_ms": latency_ms,
-            },
+            assistant_message_id = new_id("msg")
+            tokens_in, tokens_out = token_totals(state, trace_id)
+            latency_ms = int((time.perf_counter() - started) * 1000)
+            settled = True
+            yield (
+                "done",
+                {
+                    "message_id": assistant_message_id,
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                    "latency_ms": latency_ms,
+                },
+            )
+
+            _record_orchestrate(state, trace_id, chat, started, tokens_in, tokens_out)
+            await _after_turn(
+                state,
+                req=req,
+                trace_id=trace_id,
+                moment=moment,
+                latency_ms=latency_ms,
+                user_text=user_text,
+                reply=reply,
+                assistant_message_id=assistant_message_id,
+            )
+        finally:
+            if not settled:
+                _record_orchestrate(state, trace_id, chat, started)
+                _save_partial(state, req, reply_parts, moment, started, why="stopped")
+
+
+def _save_partial(
+    state: AppState,
+    req: ChatRequest,
+    parts: list[str],
+    moment: dt.datetime,
+    started: float,
+    *,
+    why: str,
+) -> None:
+    """半截回复也落库，**但不进记忆**。
+
+    用户按停止，前端把已经收到的那半句留在屏幕上。这半句要是不落 `messages`，
+    重开窗口历史里就只剩一句用户的话没有下文，下一轮喂给模型的上下文也会出现
+    两句连着的用户发言。屏幕上有什么，库里就得有什么。
+
+    不 `ingest`：这是一句被人为掐断的话，抽出来的"事实"多半是残的，而且
+    用户按停止的意思就是"这段不要了"，再花一次抽取的钱没有道理。
+    """
+    reply = "".join(parts).strip()
+    if not reply:
+        return
+    took_ms = max(1, int((time.perf_counter() - started) * 1000))
+    answered = moment + dt.timedelta(milliseconds=took_ms)
+    try:
+        state.sqlite.add_message(
+            new_id("msg"), req.session_id, "assistant", reply, model=None, created_at=answered
         )
-
-        _record_orchestrate(state, trace_id, chat, started, tokens_in, tokens_out)
-        await _after_turn(
-            state,
-            req=req,
-            trace_id=trace_id,
-            moment=moment,
-            latency_ms=latency_ms,
-            user_text=user_text,
-            reply=reply,
-            assistant_message_id=assistant_message_id,
-        )
+    except Exception as exc:  # noqa: BLE001 - 收尾路径，报错也没人看得见
+        log.warning("chat.partial_save_failed", error=str(exc))
+    else:
+        log.info("chat.partial_saved", why=why, chars=len(reply))
 
 
 async def _stream_audio(state: AppState, reply: str) -> AsyncIterator[dict[str, Any]]:

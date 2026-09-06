@@ -184,6 +184,10 @@
   --qq-z-pet-input: 600;
 
   /* ---------- 布局 ---------- */
+  /* 控件统一高度。按钮、下拉、通话钮都用它——三者并排站时高度差一两像素
+     就看得出来，各写各的必然对不齐 */
+  --qq-control-h: 30px;
+
   --qq-sidebar-left: 260px;
   --qq-sidebar-left-collapsed: 56px;
   /** 通话按钮：绿接听、红挂断，各家电话应用的通用约定。 */
@@ -210,6 +214,10 @@
      浅色壁纸居多，所以默认深字白晕；深色主题反过来。 */
   --qq-pet-ink: #23202a;
   --qq-pet-halo: rgba(255, 255, 255, 0.94);
+  /* 桌宠对话框：跟着品牌色走的淡底，不用纯白——白框贴在桌面上太扎眼，
+     也跟丘丘自己的粉不搭 */
+  --qq-pet-balloon-bg: var(--qq-color-brand-subtle);
+  --qq-pet-balloon-line: var(--qq-color-brand);
 
   /**
    * 丘丘四周留给落地投影的透明余量，与 `geometry.ts` 的 `PET_BLEED` 同值。
@@ -294,6 +302,8 @@
   /* 桌宠的话反过来：浅字深晕。深色主题的人壁纸多半也是深的 */
   --qq-pet-ink: #f4f1f7;
   --qq-pet-halo: rgba(16, 14, 22, 0.92);
+  --qq-pet-balloon-bg: var(--qq-color-surface);
+  --qq-pet-balloon-line: var(--qq-color-brand);
 }
 
 /* ============================================================

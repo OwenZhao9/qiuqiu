@@ -17,13 +17,21 @@ import {
   VoicePulse,
   EVENT_EMOTION_MS,
   MIN_DWELL_MS,
+  REPLY_EMOTION_MS,
   STATE_EMOTION,
   VOICE_FALL_TAU,
   VOICE_RISE_TAU,
   VOICE_SILENCE_MS,
   type EmotionSink
 } from '../src/state-machine.js';
-import { applyEvent, applyError, applyReply } from '../src/event-map.js';
+import {
+  applyEvent,
+  applyError,
+  applyReply,
+  applyStop,
+  applySubmit,
+  SUBMIT_EMOTION_MS
+} from '../src/event-map.js';
 import type { CharacterState, EmotionId } from '../src/types.js';
 import { fromRepo } from './helpers/paths.js';
 
@@ -298,12 +306,29 @@ describe('1600 ms 事件表情', () => {
     expect(sink.current).toBe('38');
   });
 
-  it('done 之后：情绪推断结果作为优先级 30 的事件表情', () => {
+  /**
+   * 回复的情绪停 `REPLY_EMOTION_MS`，比记忆事件的 1600 ms 久。
+   *
+   * 记忆事件是一闪而过的提示，1.6 s 够；「这句回复的情绪」是这句话本身的表情，
+   * 而回复要流十几秒、读还要更久。按 1.6 s 收掉的话，问它「表演个生气的」，
+   * 脸上确实变过，只是没人赶得上看见。
+   */
+  it('done 之后：情绪推断结果作为优先级 30 的事件表情，停得比记忆事件久', () => {
     const { m, sink } = machine('speaking');
     expect(applyReply(m, '太好了，那这周就照这个节奏来。')).toBe('10');
     expect(sink.current).toBe('10');
-    vi.advanceTimersByTime(EVENT_EMOTION_MS);
+    vi.advanceTimersByTime(EVENT_EMOTION_MS + 100);
+    expect(sink.current, '记忆事件那个时长到了还不能收').toBe('10');
+    vi.advanceTimersByTime(REPLY_EMOTION_MS - EVENT_EMOTION_MS);
     expect(sink.current).toBe('39'); // 回到 speaking 的表情
+  });
+
+  it('记忆事件仍然是 1600 ms，没被回复那条带长', () => {
+    const { m, sink } = machine('idle');
+    applyEvent(m, { type: 'write', payload: { facts: [{ id: 'f', text: 'x' }] } });
+    expect(sink.current).toBe('10');
+    vi.advanceTimersByTime(EVENT_EMOTION_MS);
+    expect(sink.current).toBe('02');
   });
 
   it('情绪推断落回 02 时不切表情', () => {
@@ -525,5 +550,47 @@ describe('feedEnvelope 只在 speaking 期间生效', () => {
     expect(sink.current).toBe('10');
     expect(m.getPulse().target).toBe(before);
     expect(sink.voiceOpen).toBe(true);
+  });
+});
+
+describe('用户动作也联动表情', () => {
+  /**
+   * 原来只有「记忆事件」和「回复情绪」两个来源，用户自己的动作一个都不接：
+   * 按下发送直接跳思考，点停止脸上毫无反应。中间件既然坐在模型和用户中间，
+   * 这两头的事都该反映到脸上。
+   */
+  it('按下发送先点头收到（31），600 ms 后让位给思考', () => {
+    vi.useFakeTimers();
+    const { m, sink } = machine('idle');
+    expect(applySubmit(m)).toBe('31');
+    expect(sink.current).toBe('31');
+    vi.advanceTimersByTime(SUBMIT_EMOTION_MS);
+    expect(sink.current, '让位给当前状态的表情').toBe('02');
+    vi.useRealTimers();
+  });
+
+  it('带图片提交是好奇（03），不是点头', () => {
+    const { m, sink } = machine('idle');
+    expect(applySubmit(m, true)).toBe('03');
+    expect(sink.current).toBe('03');
+  });
+
+  it('点停止切 41，优先级压过正在演的召回表情', () => {
+    const { m, sink } = machine('thinking');
+    applyEvent(m, {
+      type: 'recall',
+      payload: { hits: [{ id: 'h', text: 'x' }], cold_promoted: [] }
+    });
+    expect(sink.current).toBe('37');
+    expect(applyStop(m)).toBe('41');
+    expect(sink.current, '用户要的就是「停下」这个反馈').toBe('41');
+  });
+
+  it('反过来：提交那一下压不过任何真事件', () => {
+    const { m, sink } = machine('idle');
+    applyEvent(m, { type: 'write', payload: { facts: [{ id: 'f', text: 'x' }] } });
+    expect(sink.current).toBe('10');
+    applySubmit(m);
+    expect(sink.current, '同一刻到达时按优先级，20 输给 50').toBe('10');
   });
 });

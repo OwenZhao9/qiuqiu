@@ -1,0 +1,22 @@
+{
+  "name": "multi-person",
+  "title": "客厅里有三个人",
+  "steps": [
+    { "at_ms": 0, "source": "ambient_audio", "speaker": "user", "text": "妈说周末回老家吃饭" },
+    { "at_ms": 500, "source": "ambient_audio", "speaker": "user", "text": "我不去，我要加班" },
+    {
+      "at_ms": 1000,
+      "source": "ambient_audio",
+      "speaker": "user",
+      "text": "小李说他后天出差去上海"
+    },
+    {
+      "at_ms": 1500,
+      "source": "ambient_audio",
+      "speaker": "user",
+      "text": "那我把猫粮买了放你那儿"
+    },
+    { "at_ms": 2000, "source": "dialogue", "speaker": "user", "text": "刚才那句加班的是我说的" },
+    { "at_ms": 2600, "source": "dialogue", "speaker": "user", "query": "周末谁回老家" }
+  ]
+}

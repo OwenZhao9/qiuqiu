@@ -17,9 +17,11 @@
 1. **静音 / 空帧**：转写为空、只有空白或只有标点 → score 0，理由 `Silence detected`。
    进到这一层的已经是文本了：环境音由后端 VAD + ASR 转写（ARCHITECTURE § 6），
    图片由后端调 Vision 生成描述（AD-15），中间件不碰音频字节也不碰像素。
-2. **低信息量**：按去掉停用词后的内容 token 数打分，`score = n / LOW_INFO_FULL`。
-   一句话里能拿出的信息越少分越低。
+2. **问句**：以「？」「吗」「呢」收尾的直接丢。压缩器本来就明写不记问句，
+   在这里先拦一道，省掉一次白跑的模型调用。
 3. **Jaccard 去重**：与最近若干条被动输入比 token 重合度，过线判重复。
+4. **低信息量**：去掉填充词与停用词之后，按剩下的**字**数打分，
+   `score = n / LOW_INFO_FULL`。数字不数二元组——二元组会让任何一句话都满分。
 
 推迟到 M5 的部分见 `EXTRA_TRIGGERS`。
 """
@@ -32,7 +34,7 @@ from typing import Any, Protocol
 
 import structlog
 
-from ..text import STOPWORDS, jaccard, preview, tokenize
+from ..text import content_units, jaccard, preview, tokenize
 from ..types import FilterDecision, Source
 
 __all__ = [
@@ -89,9 +91,18 @@ M5 接语音链路时的做法：把那两个 Trigger 的熵计算（纯 numpy�
 """
 
 
+#: 问句的收尾。压缩器本来就明写「任何一方说的问句都不记」，在这里先拦一道，
+#: 省掉一次白跑的模型调用。
+_QUESTION_RE = re.compile(r"[？?]\s*$|吗[。！!.\s]*$|呢[。！!.\s]*$")
+
+
 def _content_tokens(text: str) -> list[str]:
-    """去掉停用词与单字，剩下的当「信息单元」。二元组也算——中文里它更接近词。"""
-    return [t for t in tokenize(text) if len(t) >= 2 and t not in STOPWORDS]
+    """一句话里的信息单元。见 `text.content_units`。
+
+    原来这里数的是二元组（`len(t) >= 2`），而停用词表全是单字——那份表对中文
+    一个都拦不住，「嗯……那个……我看看啊」也能拿 0.75 分被记下来。
+    """
+    return content_units(text)
 
 
 class Filter:
@@ -105,6 +116,15 @@ class Filter:
     def remember(self, text: str) -> None:
         """把一条通过筛选的输入放进去重窗口。"""
         self._recent.append((text, frozenset(tokenize(text))))
+
+    def forget_recent(self) -> None:
+        """清空去重窗口。
+
+        演示场景回放要用：同一个脚本点第二次，上一次的句子还在窗口里，
+        每一句都判成「重复」，那个「99% 是废话，但那 1% 记住了」就演不出来。
+        一次回放是一段独立的模拟会话，不该继承上一次的窗口。
+        """
+        self._recent.clear()
 
     def evaluate(
         self,
@@ -120,9 +140,13 @@ class Filter:
         if _PUNCT_ONLY_RE.match(raw):
             return self._decide(0.0, _SILENCE_REASON.get(source, "Empty input"))
 
+        # 2) 问句不记。压缩器那边本来就不记问句，早点拦住省一次模型调用
+        if _QUESTION_RE.search(raw.strip()):
+            return self._decide(0.0, "Question, not a statement")
+
         tokens = frozenset(tokenize(raw))
 
-        # 2) 与最近输入去重
+        # 3) 与最近输入去重
         best_similarity, best_text = 0.0, ""
         for previous_text, previous_tokens in self._recent:
             similarity = jaccard(tokens, previous_tokens)
@@ -135,7 +159,7 @@ class Filter:
             )
             return self._decide(round(1.0 - best_similarity, 4), reason)
 
-        # 3) 低信息量
+        # 4) 低信息量
         count = len(set(_content_tokens(raw)))
         score = round(min(1.0, count / LOW_INFO_FULL), 4)
         reason = (

@@ -137,8 +137,6 @@ def from_env() -> VolcTTS:
             hint=(
                 "火山引擎「豆包语音」控制台建一个应用，勾上「豆包语音合成模型2.0 字符版」，"
                 "在服务详情页复制 APP ID 填 VOLC_SPEECH_APPID、Access Token 填 VOLC_SPEECH_TOKEN。"
-                "想改用 Azure 就设 TTS_PROVIDER=azure，再填 AZURE_SPEECH_KEY 与 "
-                "AZURE_SPEECH_REGION。"
             ),
             capability="tts",
             provider="volcengine",

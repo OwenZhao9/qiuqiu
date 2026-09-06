@@ -234,6 +234,22 @@ describe('装扮层', () => {
     expect(mount.querySelectorAll('.qq-costume__shine')).toHaveLength(2);
   });
 
+  /**
+   * 蝴蝶结的动作由宿主的样式表给（`.qq-costume__bow` 上挂 animation）。
+   * 这里守的是结构：戴在哪归外层，动作归内层。合成一层的话 CSS 的 transform
+   * 会盖掉外层的 translate/rotate/scale，蝴蝶结直接掉到球心去。
+   */
+  it('蝴蝶结分两层：外层定位，内层留给动作', () => {
+    const { mount } = makeBallDom();
+    mountCostume(mount, 'anime', raf);
+
+    const bow = mount.querySelector('.qq-costume__bow') as SVGElement;
+    expect(bow.getAttribute('transform'), '内层不能自带 transform，那是留给样式的').toBeNull();
+
+    const at = bow.parentNode as SVGElement;
+    expect(at.getAttribute('transform'), '戴在哪写在外层').toContain('translate(70 28)');
+  });
+
   it('高光照抄眼睛的变换，腮红只跟平移', () => {
     const { mount, eyeL } = makeBallDom();
     const t = 'translate(100 60) scale(1.2 0.5) translate(-136.56 -66.76)';
@@ -299,16 +315,13 @@ describe('装扮层', () => {
 });
 
 describe('待机不甩彩带', () => {
-  it('02 / 04 的 antics 关掉，10 / 19 留着', () => {
+  it('四个开了 antics 的表情全部关掉，不再甩彩带', () => {
     const eb = makeStubEmotionBall();
     applyQiuqiuTheme(eb, { look: 'warm' });
-    // 待机与发呆：不再自己转圈撒彩带
+    // 每写入一条记忆就会切到 10 开心，留着它等于聊天全程撒纸屑
+    expect([...IDLE_ANTICS_OFF]).toEqual(['02', '04', '10', '19']);
     for (const id of IDLE_ANTICS_OFF) {
       expect(eb.config.get(id)!.raw.antics, `${id} 的 antics 应该关掉`).toBe(false);
-    }
-    // 开心与满意是反应不是待机，转一圈是在表达情绪，留着
-    for (const id of ['10', '19'] as const) {
-      expect(eb.config.get(id)!.raw.antics, `${id} 的 antics 不该被动`).toBe(true);
     }
   });
 
@@ -319,6 +332,34 @@ describe('待机不甩彩带', () => {
       .map((r) => r.id)
       .sort();
     expect(on).toEqual(['02', '04', '10', '19']);
+  });
+
+  /**
+   * 彩带有三个独立来源，只关 `antics` 只挡住了「待机随机甩」那一种。
+   * `30 思考中` 的 `body.orbit` 是常驻的头顶环带——通话里用户说完到丘丘开口
+   * 之间正是 `30`，于是每轮都要转一遍，关了 antics 照样看得见。
+   */
+  it('常驻环带与一次性甩彩带 / 撒花也一并抹掉', () => {
+    const eb = makeStubEmotionBall();
+    applyQiuqiuTheme(eb, { look: 'warm' });
+    for (const id of ALL_EMOTION_IDS) {
+      const body = eb.config.get(id)!.raw.body as Record<string, unknown> | undefined;
+      expect(body?.orbit, `${id} 不该有常驻环带`).toBeUndefined();
+      expect(body?.ribbons, `${id} 不该甩彩带`).toBeUndefined();
+      expect(body?.confetti, `${id} 不该撒花`).toBeUndefined();
+    }
+  });
+
+  it('上游本来在这三个表情上有彩带（源数据变了这里会红）', () => {
+    const seed = loadEmotionSeed();
+    const withFx = seed
+      .filter((r) => {
+        const b = r.body as Record<string, unknown> | undefined;
+        return Boolean(b && (b.orbit || b.ribbons || b.confetti));
+      })
+      .map((r) => r.id)
+      .sort();
+    expect(withFx).toEqual(['30', '33']);
   });
 });
 

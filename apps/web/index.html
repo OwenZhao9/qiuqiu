@@ -18,6 +18,19 @@
         }
       })();
     </script>
+    <script>
+      // 皮肤同理。出厂是 kawaii（契约 § 9），而 tokens.css 的 :root 是素净——
+      // 不在首帧之前挂上 data-skin，新装的用户会先看见一帧米色再跳成粉色。
+      // 这里的 'kawaii' 与 defaults.ts::FACTORY.skin 必须一致，有测试盯着。
+      (function () {
+        try {
+          var skin = localStorage.getItem('qiuqiu.skin') || 'kawaii';
+          if (skin !== 'default') document.documentElement.dataset.skin = skin;
+        } catch (e) {
+          document.documentElement.dataset.skin = 'kawaii';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

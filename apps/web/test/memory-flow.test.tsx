@@ -195,3 +195,36 @@ describe('MemoryFlow', () => {
     expect(screen.getByLabelText(/压缩：拆出 2 条/)).toBeTruthy();
   });
 });
+
+const RECALL_PAYLOAD = {
+  query: '我住哪儿',
+  plan: { paths: ['semantic'], depth: 1, rewritten: '' },
+  hits: [{ id: 'f1', text: '赵宁住在深圳', path: 'semantic', score: 0.9 }],
+  skipped_paths: [],
+  tokens_injected: 40,
+  cold_promoted: []
+};
+
+describe('derivePipeline · 一轮里两条线的先后', () => {
+  /**
+   * 一句话通常两条线都走：先检索拿旧记忆去答，答完再把这句和回复记下来。
+   * 只看 `lane`（最后一条事件属于哪条线）的话，图上永远只画得出其中一条。
+   */
+  it('两条都走过时按第一次出现的先后记下来', () => {
+    const p = derivePipeline([
+      ev('recall', RECALL_PAYLOAD, 't1'),
+      ev('write', WRITE, 't1'),
+      ev('merge', { absorbed: [], invalidated: [] }, 't1')
+    ]);
+    expect(p.lanes).toEqual(['recall', 'ingest']);
+  });
+
+  it('只走了一条就只有一条', () => {
+    expect(derivePipeline([ev('write', WRITE)]).lanes).toEqual(['ingest']);
+    expect(derivePipeline([ev('recall', RECALL_PAYLOAD)]).lanes).toEqual(['recall']);
+  });
+
+  it('没有事件时是空的', () => {
+    expect(derivePipeline([]).lanes).toEqual([]);
+  });
+});

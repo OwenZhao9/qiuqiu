@@ -4,7 +4,8 @@
 
 1. **不出网**：`MODELS_MOCK=1` + 默认的哈希嵌入。没有任何测试会下权重或调真实供应商。
 2. **不写仓库**：`DATA_DIR` 指向 pytest 的 `tmp_path`，每个用例一套干净的库。
-3. **不写真实 key**：环境变量里跟 key 沾边的一律清掉。
+3. **不写真实 key**：环境变量里跟 key 沾边的一律清掉，并且 `QIUQIU_NO_DOTENV=1`
+   关掉 `.env` 读取——只删环境变量不管用，dotenv 会照 `.env` 把缺的那些再填回来。
 
 `FakeChat` 之类的构件在 `memory_helpers.py`——那边有为什么不放这里的说明。
 """
@@ -42,6 +43,7 @@ def offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """
     from qiuqiu_models import registry
 
+    monkeypatch.setenv("QIUQIU_NO_DOTENV", "1")
     for name in _DIRTY_ENV:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))

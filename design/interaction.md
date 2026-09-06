@@ -93,8 +93,9 @@ Electron `BrowserWindow`：`transparent: true, frame: false, alwaysOnTop: true, 
 
 桌宠不显示完整对话，只显示当前这一轮：
 
-- 收到 `onDelta` 时，在丘丘上方浮出气泡，最大宽度 320 px、最多 6 行、超出部分滚动到底
-- 气泡背景 `--qq-color-surface`、`--qq-radius-lg`、`--qq-shadow-3`、内边距 `--qq-space-5`
+- 收到 `onDelta` 时，在丘丘右上方浮出漫画式对话框，右下角有指回丘丘的尖角；最大宽度为窗口的 88%、最多 6 行、超出部分滚动到底
+- 对话框背景 `--qq-pet-balloon-bg`、描边 `--qq-pet-balloon-line`、`--qq-radius-2xl`、`--qq-shadow-3`。这两个令牌跟着皮肤的品牌色走，不用纯白：白框贴在桌面上太扎眼
+- 尖角是两层三角形叠出来的（外层描边色、内层底色），画在对话框本身上；内层滚动条在子元素上，合成一层的话 `overflow-y: auto` 会把尖角裁掉
 - 收到 `onDone` 后气泡停留 6 s，然后 `--qq-duration-slow` 淡出。期间鼠标悬停在气泡上则不淡出
 - 气泡出现时窗口高度临时增加，球心仍然不动（向上扩）
 - 想看全文点气泡，等于 `openMain()`

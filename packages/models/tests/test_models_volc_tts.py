@@ -241,7 +241,6 @@ class TestConfig:
             volc_tts.from_env()
         hint = excinfo.value.hint
         assert "VOLC_SPEECH_APPID" in hint
-        assert "TTS_PROVIDER=azure" in hint
 
     def test_speaker_is_overridable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("VOLC_SPEECH_APPID", "1")

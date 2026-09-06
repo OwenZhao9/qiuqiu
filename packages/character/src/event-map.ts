@@ -8,7 +8,9 @@
  * `speaking` 期间的发声脉动不受事件表情影响（两条通路写的不是同一个属性）。
  */
 
+import { FACTORY } from './defaults.js';
 import { inferEmotion, isRefusal } from './emotion.js';
+import { REPLY_EMOTION_MS } from './state-machine.js';
 import { FALLBACK_EMOTION, type EmotionId, type MemoryEvent } from './types.js';
 
 /** 一次事件表情的决定。`null` 表示不切换。 */
@@ -20,6 +22,7 @@ export interface EventEmotionDecision {
 }
 
 export type EventRuleKey =
+  | 'stop'
   | 'error'
   | 'refusal'
   | 'recall.cold_promoted'
@@ -30,10 +33,14 @@ export type EventRuleKey =
   | 'filter.reject'
   | 'filter.accept'
   | 'recall.empty'
-  | 'inferred';
+  | 'inferred'
+  | 'submit'
+  | 'submit.images';
 
 /** 事件表情的优先级，数值大的胜出。 */
 export const EVENT_PRIORITY = {
+  /** 用户主动打断，压过一切正在演的东西——他要的就是「停下」这个反馈 */
+  stop: 95,
   error: 90,
   refusal: 80,
   recallCold: 70,
@@ -41,8 +48,18 @@ export const EVENT_PRIORITY = {
   merge: 50,
   write: 50,
   filterUncertain: 40,
-  inferred: 30
+  inferred: 30,
+  /** 提交只是「收到了」的一瞬确认，谁都盖得过它 */
+  submit: 20
 } as const;
+
+/**
+ * 提交那一下停多久。
+ *
+ * `31 接收任务` 的切入过渡是 220 ms，停 600 ms 正好点个头就进思考；
+ * 停久了会挡住 `30 思考中`，看着像卡住。
+ */
+export const SUBMIT_EMOTION_MS = FACTORY.emotion.submitHoldMs;
 
 /**
  * `docs/CONTRACTS.md` § 6「事件表情」表，**行序与契约逐行一致**，供契约测试对着断言。
@@ -57,6 +74,7 @@ export const EVENT_EMOTION_TABLE: readonly {
   emotionId: EmotionId | null;
   priority: number | null;
 }[] = [
+  { rule: 'stop', emotionId: '41', priority: EVENT_PRIORITY.stop },
   { rule: 'error', emotionId: '34', priority: EVENT_PRIORITY.error },
   { rule: 'refusal', emotionId: '38', priority: EVENT_PRIORITY.refusal },
   { rule: 'recall.cold_promoted', emotionId: '40', priority: EVENT_PRIORITY.recallCold },
@@ -65,6 +83,8 @@ export const EVENT_EMOTION_TABLE: readonly {
   { rule: 'write', emotionId: '10', priority: EVENT_PRIORITY.write },
   { rule: 'filter.uncertain', emotionId: '11', priority: EVENT_PRIORITY.filterUncertain },
   { rule: 'inferred', emotionId: null, priority: EVENT_PRIORITY.inferred },
+  { rule: 'submit', emotionId: '31', priority: EVENT_PRIORITY.submit },
+  { rule: 'submit.images', emotionId: '03', priority: EVENT_PRIORITY.submit },
   { rule: 'filter.reject', emotionId: null, priority: null },
   { rule: 'filter.accept', emotionId: null, priority: null },
   { rule: 'recall.empty', emotionId: null, priority: null }
@@ -147,7 +167,7 @@ export function decideReplyEmotion(
 
 /** 能接受事件表情的对象：`CharacterMachine` 与 `QiuqiuInstance` 都满足。 */
 export interface EventEmotionTarget {
-  applyEventEmotion(emotionId: EmotionId, priority: number): boolean;
+  applyEventEmotion(emotionId: EmotionId, priority: number, holdMs?: number): boolean;
 }
 
 /** 把一条记忆事件应用到丘丘身上。返回实际切到的表情，`null` 表示没切。 */
@@ -156,6 +176,50 @@ export function applyEvent(target: EventEmotionTarget, event: MemoryEvent): Emot
   if (!decision) return null;
   target.applyEventEmotion(decision.emotionId, decision.priority);
   return decision.emotionId;
+}
+
+/** 用户按下发送，没带附件。 */
+export const SUBMIT_DECISION: EventEmotionDecision = {
+  emotionId: '31',
+  priority: EVENT_PRIORITY.submit,
+  rule: 'submit'
+};
+
+/** 用户按下发送，带了图片。 */
+export const SUBMIT_IMAGES_DECISION: EventEmotionDecision = {
+  emotionId: '03',
+  priority: EVENT_PRIORITY.submit,
+  rule: 'submit.images'
+};
+
+/** 用户点停止中止本轮。 */
+export const STOP_DECISION: EventEmotionDecision = {
+  emotionId: '41',
+  priority: EVENT_PRIORITY.stop,
+  rule: 'stop'
+};
+
+/** 按下发送时该切哪个。 */
+export function decideSubmitEmotion(hasImages = false): EventEmotionDecision {
+  return hasImages ? SUBMIT_IMAGES_DECISION : SUBMIT_DECISION;
+}
+
+/**
+ * 用户按下发送 → `31 接收任务`（带图片时 → `03 好奇`）。
+ *
+ * 原来提交之后直接跳 `30 思考中`，中间没有「收到了」这一下。点个头再去想，
+ * 跟人说话时的反应顺序一致；带图进来是另一件事，`03 好奇` 表示「这什么，我看看」。
+ */
+export function applySubmit(target: EventEmotionTarget, hasImages = false): EmotionId {
+  const d = decideSubmitEmotion(hasImages);
+  target.applyEventEmotion(d.emotionId, d.priority, SUBMIT_EMOTION_MS);
+  return d.emotionId;
+}
+
+/** 用户点停止中止本轮 → `41 停止终止`。 */
+export function applyStop(target: EventEmotionTarget): EmotionId {
+  target.applyEventEmotion(STOP_DECISION.emotionId, STOP_DECISION.priority);
+  return STOP_DECISION.emotionId;
 }
 
 /** 请求出错 → `34`。 */
@@ -172,6 +236,7 @@ export function applyReply(
 ): EmotionId | null {
   const decision = decideReplyEmotion(replyText, userText);
   if (!decision) return null;
-  target.applyEventEmotion(decision.emotionId, decision.priority);
+  // 回复的情绪停留得比记忆事件久，见 REPLY_EMOTION_MS
+  target.applyEventEmotion(decision.emotionId, decision.priority, REPLY_EMOTION_MS);
   return decision.emotionId;
 }

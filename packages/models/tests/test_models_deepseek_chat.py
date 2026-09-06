@@ -288,3 +288,38 @@ async def test_live_stream_first_token() -> None:
         assert first
     finally:
         await chat.aclose()
+
+
+async def test_each_event_loop_gets_its_own_client() -> None:
+    """两个循环共用一个连接池 → 池里的锁绑在建它的那个循环上，第二个循环会炸。
+
+    记忆层跑在自己的后台循环上，跟接口主循环用的是同一个供应商实例。
+    实测炸法：请求发出去、拿到 200、读流的时候抛
+    「Event object is bound to a different event loop」，
+    然后被当成网络故障重试一次——每轮对话白花一次补全。
+    """
+    import asyncio
+    import threading
+
+    chat = DeepSeekChat(api_key="k", base_url="https://x", model="m")
+    here = chat.client()
+
+    other: list[object] = []
+
+    def run_elsewhere() -> None:
+        loop = asyncio.new_event_loop()
+        try:
+
+            async def grab() -> None:
+                other.append(chat.client())
+
+            loop.run_until_complete(grab())
+        finally:
+            loop.close()
+
+    thread = threading.Thread(target=run_elsewhere)
+    thread.start()
+    thread.join()
+
+    assert other and other[0] is not here
+    assert chat.client() is here  # 回到本循环还是原来那个，不是每次都新建

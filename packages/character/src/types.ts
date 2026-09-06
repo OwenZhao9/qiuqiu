@@ -179,10 +179,14 @@ export interface QiuqiuInstance {
   applyEvent(event: MemoryEvent): void;
   /** 请求出错（SSE / WS `error` 帧）→ `34`。 */
   applyError(): void;
+  /** 用户按下发送：点头确认收到（带图片时是好奇）。 */
+  applySubmit(hasImages?: boolean): void;
+  /** 用户点停止中止本轮。 */
+  applyStop(): void;
   /** 一轮回复结束（SSE `done`）后对全文跑拒绝式与情绪推断。 */
   applyReply(replyText: string, userText?: string): void;
   /** 直接施加一条事件表情，持续 1600 ms。映射表之外的自定义用法走这里。 */
-  applyEventEmotion(emotionId: EmotionId, priority: number): boolean;
+  applyEventEmotion(emotionId: EmotionId, priority: number, holdMs?: number): boolean;
 
   /**
    * 订阅表情变化。返回退订函数。

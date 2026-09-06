@@ -18,6 +18,9 @@ export const UPLINK_RATE = 16000;
 /** 文档建议 20ms 一包，16k int16 下就是 640 字节。 */
 const CHUNK_MS = 20;
 
+/** 通话过程中丘丘处在哪一段。 */
+export type VoicePhase = 'listening' | 'thinking' | 'speaking';
+
 export interface VoiceHandlers {
   /** 识别中的用户话，会不断刷新。 */
   onPartial?(text: string): void;
@@ -27,8 +30,32 @@ export interface VoiceHandlers {
   onLevel?(rms: number): void;
   /** 模型说完一轮。 */
   onTurnEnd?(): void;
+  /** 听 / 想 / 说变了。只在变的时候来一次。 */
+  onPhase?(phase: VoicePhase): void;
   onError?(code: string, message: string, hint: string): void;
   onClosed?(): void;
+}
+
+/**
+ * 一帧引起的段落变化；没变化返回 `null`。
+ *
+ * 端到端链路的帧里没有「现在轮到谁」这个字段，只能推：用户这句定稿了就是模型在想，
+ * 第一帧音频出来就是在说，说完或者被打断就回到听。整通电话如果只报一个 `listening`，
+ * 丘丘从头到尾一个表情——它在想、在说，脸上都得看得出来。
+ *
+ * 中间那一下 `thinking` 不是凑数：状态机里 `listening → speaking` 是挡着的
+ * （`design/state-machine.md` § 2），必须经过 thinking，而这也正是实情——
+ * 模型在组织第一个字。
+ */
+export function nextPhase(
+  current: VoicePhase,
+  frame: { type: string; role?: unknown }
+): VoicePhase | null {
+  let next: VoicePhase | null = null;
+  if (frame.type === 'final' && frame.role !== 'assistant') next = 'thinking';
+  else if (frame.type === 'audio') next = 'speaking';
+  else if (frame.type === 'turn_end' || frame.type === 'interrupt') next = 'listening';
+  return next === null || next === current ? null : next;
 }
 
 export interface VoiceSession {
@@ -94,6 +121,7 @@ function wsUrl(voiceSessionId: string): string {
 export async function startVoice(handlers: VoiceHandlers = {}): Promise<VoiceSession> {
   let stopped = false;
   let ws: WebSocket | null = null;
+  let phase: VoicePhase = 'listening';
   let stream: MediaStream | null = null;
   let ctx: AudioContext | null = null;
   let playCtx: AudioContext | null = null;
@@ -183,7 +211,7 @@ export async function startVoice(handlers: VoiceHandlers = {}): Promise<VoiceSes
   if (mode !== 'realtime') {
     fail(
       'voice.cascade_not_ready',
-      '当前是级联模式，语音识别还没接（M5）。',
+      '当前是级联模式，本项目只实现了端到端实时语音。',
       '把 .env 的 VOICE_MODE 改成 realtime 再重启后端，就能用端到端语音。'
     );
     return { stop, finished };
@@ -192,6 +220,7 @@ export async function startVoice(handlers: VoiceHandlers = {}): Promise<VoiceSes
   // 3) 连 WS
   ws = new WebSocket(wsUrl(voiceSessionId));
   ws.binaryType = 'arraybuffer';
+  handlers.onPhase?.('listening');
 
   playCtx = new AudioContext();
 
@@ -204,6 +233,12 @@ export async function startVoice(handlers: VoiceHandlers = {}): Promise<VoiceSes
       return;
     }
     const type = String(frame.type ?? '');
+
+    const moved = nextPhase(phase, { type, role: frame.role });
+    if (moved) {
+      phase = moved;
+      handlers.onPhase?.(moved);
+    }
 
     if (type === 'audio' && typeof frame.pcm_b64 === 'string') {
       play(base64ToPcm16(frame.pcm_b64), Number(frame.sample_rate) || 24000);

@@ -54,7 +54,25 @@ async def open_voice_session(body: VoiceSessionIn, state: StateDep) -> dict[str,
 
 
 async def _send_error(websocket: WebSocket, code: str, message: str, hint: str) -> None:
-    await websocket.send_json({"type": "error", **error_payload(code, message, hint)})
+    """把错误告诉对面。对面已经走了就算了——没人在听，别再抛一层。"""
+    try:
+        await websocket.send_json({"type": "error", **error_payload(code, message, hint)})
+    except (WebSocketDisconnect, RuntimeError):
+        log.info("voice.error_undelivered", code=code)
+
+
+async def _hang_up(websocket: WebSocket) -> None:
+    """关掉这条连接。对面已经走了就当已经关上。
+
+    挂断是客户端先关的：用户点「挂断」，浏览器发 close 帧走人。服务端收尾时再
+    `close()` 一次，starlette 会抛 `WebSocketDisconnect`，uvicorn 把它当成没接住的
+    异常，于是**每一次正常挂断都在日志里留一整页 traceback**。正常动作不该长得像崩溃。
+    """
+    try:
+        await websocket.close()
+    except (WebSocketDisconnect, RuntimeError):
+        # RuntimeError：这条已经关过了（"Cannot call send once a close message has been sent"）
+        pass
 
 
 @router.websocket("/voice/stream")
@@ -70,7 +88,7 @@ async def voice_stream(websocket: WebSocket, voice_session_id: str | None = None
             f"没有这个语音会话：{voice_session_id!r}。",
             "先 POST /voice/session 拿 voice_session_id，再带着它连 WS /voice/stream。",
         )
-        await websocket.close()
+        await _hang_up(websocket)
         return
 
     if session.mode == "realtime":
@@ -78,7 +96,7 @@ async def voice_stream(websocket: WebSocket, voice_session_id: str | None = None
             realtime = state.capability("realtime")
         except CapabilityUnavailable as exc:
             await _send_error(websocket, exc.code, exc.message, exc.hint)
-            await websocket.close()
+            await _hang_up(websocket)
             return
         await _realtime(websocket, state, realtime, session)
         return
@@ -88,7 +106,7 @@ async def voice_stream(websocket: WebSocket, voice_session_id: str | None = None
         asr = state.capability("asr")
     except CapabilityUnavailable as exc:
         await _send_error(websocket, exc.code, exc.message, exc.hint)
-        await websocket.close()
+        await _hang_up(websocket)
         return
 
     await _cascade(websocket, state, vad, asr)
@@ -128,7 +146,7 @@ async def _realtime(websocket: WebSocket, state: AppState, realtime: Any, sessio
             str(exc),
             getattr(exc, "hint", "检查豆包语音凭证与端到端实时语音的额度。"),
         )
-        await websocket.close()
+        await _hang_up(websocket)
         return
 
     async def uplink() -> None:
@@ -204,7 +222,7 @@ async def _realtime(websocket: WebSocket, state: AppState, realtime: Any, sessio
         )
     finally:
         await realtime.close()
-        await websocket.close()
+        await _hang_up(websocket)
 
 
 async def _cascade(websocket: WebSocket, state: AppState, vad: Any, asr: Any) -> None:
@@ -245,7 +263,7 @@ async def _cascade(websocket: WebSocket, state: AppState, vad: Any, asr: Any) ->
             if control in END_CONTROLS:
                 await finalize()
             elif control == "close":
-                await websocket.close()
+                await _hang_up(websocket)
                 return
     except WebSocketDisconnect:
         return
@@ -258,7 +276,7 @@ async def _cascade(websocket: WebSocket, state: AppState, vad: Any, asr: Any) ->
                 f"语音链路出错：{exc}",
                 "松开重说一次；持续失败就先用文字聊，并看 /health 里 asr 与 vad 这两项。",
             )
-            await websocket.close()
+            await _hang_up(websocket)
         except Exception:  # noqa: BLE001 - 连接已经没了就算了
             pass
 

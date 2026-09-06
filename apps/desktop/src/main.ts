@@ -20,6 +20,8 @@ import {
   Menu,
   nativeImage,
   screen,
+  session,
+  systemPreferences,
   Tray,
   type MenuItemConstructorOptions
 } from 'electron';
@@ -376,6 +378,30 @@ function refreshTray(): void {
   tray.setContextMenu(Menu.buildFromTemplate(toTemplate(trayMenu({ petVisible: visible }))));
 }
 
+/**
+ * 权限：只放行摄像头，其余一律拒。
+ *
+ * 不装这个 handler 的话，被动采集那个开关拨开之后 `getUserMedia()`
+ * **既不 resolve 也不 reject**——界面显示「开着」，一张图也没传过，
+ * 用户看不出哪儿不对。（macOS 上还要先过一遍系统的相机授权，没过的话
+ * Chromium 那边就一直等着。）
+ *
+ * 白名单只有 `media` 一项。默认全放行意味着页面里任何一段代码都能要定位、
+ * 通知、剪贴板；这是个装在别人电脑上、开着摄像头的桌面程序，能少一项是一项。
+ */
+async function wirePermissions(): Promise<void> {
+  if (
+    process.platform === 'darwin' &&
+    systemPreferences.getMediaAccessStatus('camera') !== 'granted'
+  ) {
+    // 弹一次系统授权框。用户点了不允许就是不允许，这里不重复问
+    await systemPreferences.askForMediaAccess('camera').catch(() => false);
+  }
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(permission === 'media');
+  });
+}
+
 function createTray(): void {
   const icon = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL);
   icon.setTemplateImage(false);
@@ -511,6 +537,7 @@ if (!app.requestSingleInstanceLock()) {
       void app.dock.show();
     }
 
+    void wirePermissions();
     wireIpc();
     mainWindow = createMainWindow();
     petWindow = createPetWindow();

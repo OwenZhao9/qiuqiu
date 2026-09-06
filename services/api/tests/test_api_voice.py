@@ -163,3 +163,15 @@ def test_missing_asr_yields_error_frame(
         frame = ws.receive_json()
     assert frame["type"] == "error"
     assert frame["hint"]
+
+
+def test_hanging_up_does_not_look_like_a_crash(client: TestClient) -> None:
+    """挂断是客户端先关的，服务端收尾时再 close 一次不该炸。
+
+    原来每一次正常挂断都在日志里留一整页 ASGI traceback（`WebSocketDisconnect`
+    从 `finally` 里的 `close()` 抛出来），正常动作长得像崩溃。
+    """
+    vs = open_session(client)["voice_session_id"]
+    with client.websocket_connect(f"/voice/stream?voice_session_id={vs}") as ws:
+        ws.send_bytes(silence())
+    # with 结束即客户端关闭；服务端的收尾不抛异常，这个用例就算过

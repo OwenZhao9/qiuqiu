@@ -20,12 +20,25 @@ __all__ = ["Config", "load_env"]
 _env_loaded = False
 
 
+def skip_dotenv() -> bool:
+    """`QIUQIU_NO_DOTENV=1`：不读 `.env`。见 `load_env`。"""
+    return os.environ.get("QIUQIU_NO_DOTENV", "").strip() in {"1", "true", "True", "yes"}
+
+
 def load_env() -> None:
-    """载入 `.env`，只做一次。已经在进程环境里的变量优先，`.env` 不覆盖。"""
+    """载入 `.env`，只做一次。已经在进程环境里的变量优先，`.env` 不覆盖。
+
+    `QIUQIU_NO_DOTENV=1` 时整个跳过。测试把真实 key 从环境里删掉之后，dotenv 会
+    照 `.env` 再填回来（它只是不覆盖已有的，缺的照填），等于白删：真 key 会回到
+    进程里，`VOICE_MODE` 之类的开关也跟着开发机上的 `.env` 飘，同一份测试在两台
+    机器上结论不同。
+    """
     global _env_loaded
     if _env_loaded:
         return
     _env_loaded = True
+    if skip_dotenv():
+        return
     found = find_dotenv(usecwd=True)
     if found:
         load_dotenv(found)

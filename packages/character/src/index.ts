@@ -2,7 +2,7 @@
  * `@qiuqiu/character` —— 丘丘的表情引擎封装、状态机、事件映射、情绪推断。
  *
  * 纯 TypeScript，不依赖 React（`apps/web` 自己包一层 hook）。
- * 对应 `docs/CONTRACTS.md` § 6，契约版本 v0.1.15。
+ * 对应 `docs/CONTRACTS.md` § 6，契约版本 v0.1.17。
  *
  * 典型用法：
  *
@@ -35,6 +35,14 @@ export {
 } from './engine.js';
 
 export {
+  FACTORY,
+  FACTORY_STATE_EMOTION,
+  type FactoryDefaults,
+  type FactoryPreset,
+  type FactorySkin
+} from './defaults.js';
+
+export {
   loadEngine,
   defaultVendorUrls,
   resetLoadCache,
@@ -46,6 +54,13 @@ export {
   applyEvent,
   applyError,
   applyReply,
+  applyStop,
+  applySubmit,
+  decideSubmitEmotion,
+  STOP_DECISION,
+  SUBMIT_DECISION,
+  SUBMIT_EMOTION_MS,
+  SUBMIT_IMAGES_DECISION,
   decideEventEmotion,
   decideReplyEmotion,
   ERROR_DECISION,
@@ -171,5 +186,5 @@ export function feedEnvelope(q: { feedEnvelope(rms: number): void }, rms: number
 
 /** 便捷类型：能接收事件表情、也能切状态的对象。 */
 export type QiuqiuLike = Pick<QiuqiuInstance, 'setEmotion' | 'setState' | 'feedEnvelope'> & {
-  applyEventEmotion(emotionId: EmotionId, priority: number): boolean;
+  applyEventEmotion(emotionId: EmotionId, priority: number, holdMs?: number): boolean;
 };

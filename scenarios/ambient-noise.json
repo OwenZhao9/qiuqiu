@@ -1,0 +1,19 @@
+{
+  "name": "ambient-noise",
+  "title": "99% 是废话",
+  "steps": [
+    { "at_ms": 0, "source": "ambient_audio", "speaker": "user", "text": "嗯……那个……我看看啊" },
+    { "at_ms": 300, "source": "ambient_audio", "speaker": "user", "text": "哦哦哦，好的好的" },
+    { "at_ms": 600, "source": "ambient_audio", "speaker": "user", "text": "咳咳。哎，先这样" },
+    { "at_ms": 900, "source": "ambient_audio", "speaker": "user", "text": "这个……呃，放哪儿了呢" },
+    { "at_ms": 1200, "source": "ambient_audio", "speaker": "user", "text": "唉，行吧行吧" },
+    { "at_ms": 1500, "source": "ambient_audio", "speaker": "user", "text": "嗯嗯，就是就是" },
+    {
+      "at_ms": 1800,
+      "source": "ambient_audio",
+      "speaker": "user",
+      "text": "下周三下午三点体检，别忘了空腹"
+    },
+    { "at_ms": 2100, "source": "ambient_audio", "speaker": "user", "text": "那个……算了，回头再说" }
+  ]
+}

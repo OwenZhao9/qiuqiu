@@ -21,7 +21,7 @@
 | Emotion Ball 引擎与表情数据非商业免费，商业需另行授权 | 许可证：Emotion Ball 双许可 |
 | SimpleMem 可商用 | 许可证：MIT |
 | SenseVoice、silero-vad、sherpa-onnx 可商用 | 许可证：各自的开源许可 |
-| 语音合成走官方接口（豆包语音或 Azure），不用逆向的 Edge 朗读通道 | 许可证：官方服务条款 |
+| 语音合成走官方接口（豆包语音），不用逆向的 Edge 朗读通道 | 许可证：官方服务条款 |
 | 所有记忆数据本地存储，不上传 | 自己定的 |
 | 被动采集的原始音频只存指针，处理完即可删除 | 自己定的 |
 | 图片理解与对话共用一个 DeepSeek key | 自己定的 |
@@ -42,7 +42,7 @@
 | DeepSeek Vision | api.deepseek.com | 后端：编排处理主动附件，`/ingest` 处理 `ambient_image` | 主动附件失败：不生成描述，原话照常进 prompt 与 `ingest`，`blob_id` 保留。被动图片失败：`/ingest` 返回 error 带 hint |
 | Seedream | 火山方舟 | 对话编排 | 回复文字说明本次画不了，不重试 |
 | 豆包端到端实时语音 | 火山引擎 WebSocket | 对话编排 | 连接失败或中断：`/voice/session` 返回 error 带 hint，前端提示切文字 |
-| 语音合成 | `openspeech.bytedance.com`（豆包）或 `{region}.tts.speech.microsoft.com`（Azure） | 对话编排 | 无语音，口型不动，文字照常，本次不重试 |
+| 语音合成 | `openspeech.bytedance.com`（豆包） | 对话编排 | 无语音，口型不动，文字照常，本次不重试 |
 | 权重下载：Qwen/Qwen3-Embedding-0.6B | HuggingFace | 记忆中间件嵌入初始化，只在首次运行 | 缺失则后端启动失败，hint 给 `HF_ENDPOINT` 镜像与手动放置路径 |
 | 权重下载：SenseVoice、silero-vad | GitHub releases | 模型注册表初始化，只在首次运行 | 缺失则语音输入不可用，其余照常，`/health` 报告缺失项 |
 
@@ -85,7 +85,7 @@
 | Vision | DeepSeek `deepseek-v4-flash-vision-exp` | 后端（编排附件、`/ingest` 图片） | 远程，同一个 key |
 | ASR | sherpa-onnx + SenseVoice int8 | 后端（语音输入、被动采集） | 本地 |
 | VAD | silero-vad | 后端（语音输入、被动采集） | 本地 |
-| TTS | 豆包语音合成 2.0（默认）/ Azure 语音服务 | 编排 | 豆包 3 元每万字符；Azure F0 档每月 50 万字符免费 |
+| TTS | 豆包语音合成 2.0 | 编排 | 3 元每万字符 |
 | Image Gen | Seedream（可选） | 编排 | 远程，按张 |
 | RealtimeVoice | 豆包端到端实时语音大模型（O2.0） | 编排 | 远程，按 token；试用额度 100 万字符 |
 | Embedding | Qwen/Qwen3-Embedding-0.6B，1024 维 | 中间件 | 本地 |
@@ -394,7 +394,7 @@ graph LR
 
 | 决定 | 为什么能等 |
 |---|---|
-| 再换别家 TTS（阿里、腾讯） | 已有豆包与 Azure 两家，`TTS` 接口不变，换供应商只加一个适配器文件 |
+| 再换别家 TTS（阿里、腾讯） | `TTS` 接口不变，换供应商只加一个适配器文件 |
 | Seedream 生图 | 不在任何演示场景的必经路径 |
 | 前端的语音输入界面 | 后端两条语音链路都通了；前端的按住说话与音频播放仍是占位 |
 | Windows 打包 | 开发在 macOS，M6 前验证 |

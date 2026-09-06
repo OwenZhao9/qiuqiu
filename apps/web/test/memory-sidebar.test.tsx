@@ -110,12 +110,14 @@ describe('MemorySidebar', () => {
     expect(screen.queryByText('时间缺')).toBeNull();
   });
 
-  it('齿轮展开阈值区，折叠时标题栏显示 0.72 / 0.45', () => {
+  // 两个光秃秃的小数原来单独摆在标题栏上，没人知道那是什么，
+  // 现在挂在「采集阈值」按钮上
+  it('「采集阈值」按钮上带着当前的两个数，点开是阈值区', () => {
     const { store } = stubStore();
     const { container } = show(store);
     expect(screen.getByText('0.72 / 0.45')).toBeTruthy();
     expect(container.querySelector('.qq-thresholds--collapsed')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('阈值'));
+    fireEvent.click(screen.getByRole('button', { name: /采集阈值/ }));
     expect(container.querySelector('.qq-thresholds--expanded')).toBeTruthy();
     expect(screen.getByLabelText('保留线')).toBeTruthy();
     expect(screen.getByLabelText('丢弃线')).toBeTruthy();
