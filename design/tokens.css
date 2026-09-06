@@ -419,8 +419,21 @@
   --qq-color-hangup: #ff7a8a;
 
   /* 圆润字体优先，取不到就退回原来的栈 */
+  /**
+   * **圆体要用中文的那一支，不是日文那一支。**
+   *
+   * 原来第一顺位是 `Hiragino Maru Gothic ProN`——macOS 上最典型的圆体，
+   * 但它是**日文**字体，简体独有的字（记 忆 单 词 检 过 储 …）它没有。
+   * macOS 是逐字兜底，于是一行里两种字体交替：「记忆原子单元」六个字，
+   * 记忆掉回苹方（方正）、原子是日文圆体（圆润）、单又是苹方、元又是圆体，
+   * 笔形和重心都对不上，看着就是歪的。
+   *
+   * `Yuanti SC` 是 macOS 自带的中文圆体，实测这套界面用到的字全覆盖。
+   * 日文那支整个去掉——这个界面一个假名都没有，留着只会继续抢字。
+   * `'YuanTi SC'` 那个大写 T 的写法是我拼错的，系统里没有这个名字。
+   */
   --qq-font-sans:
-    'Hiragino Maru Gothic ProN', 'YuanTi SC', 'Yuanti SC', 'PingFang SC',
+    'Yuanti SC', 'PingFang SC',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
@@ -509,9 +522,9 @@
   --qq-color-call: #3fa9a0;
   --qq-color-hangup: #e0698a;
 
-  /* 圆润但比卡哇伊克制的字体栈 */
+  /* 圆润但比卡哇伊克制。同样用中文圆体，原因见卡哇伊那段 */
   --qq-font-sans:
-    'Hiragino Maru Gothic ProN', 'PingFang SC', 'Noto Sans SC',
+    'Yuanti SC', 'PingFang SC', 'Noto Sans SC',
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
