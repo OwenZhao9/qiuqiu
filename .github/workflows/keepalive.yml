@@ -1,0 +1,32 @@
+# 别让 demo 睡着。
+#
+# Render 免费实例 15 分钟没人访问就停容器，下次有人打开要等约 50 秒才起来——
+# 而这 50 秒里我们的代码根本没跑，页面是空白的，给不了任何提示。第一次点开
+# 链接的人最容易把这个当成「打不开」然后关掉。
+#
+# 所以每 5 分钟敲一次健康检查（那条路免口令，见 deploy/server.py 的 OPEN_PATHS），
+# 容器就一直醒着。GitHub 的定时任务是尽力而为、可能延迟几分钟，所以间隔取 5 分钟
+# 而不是 14 分钟，留足余量。
+#
+# 两件要知道的：
+#   · 公开仓库的 Actions 分钟数不计费，这个任务每次跑几秒。
+#   · **仓库连续 60 天没有提交，GitHub 会自动停掉定时任务**。真停了就手动跑一次
+#     （Actions 页 → Run workflow）或者推一个提交。
+name: keepalive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 敲一下健康检查
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+            https://qiuqiu-ftf5.onrender.com/api/health)
+          echo "health -> $code"
+          # 冷启动那一下可能超时，不算失败——下一轮还会敲
+          [ "$code" = "200" ] || echo "这次没敲通（可能正在冷启动），下一轮再试"
