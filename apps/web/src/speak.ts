@@ -27,8 +27,8 @@ export function base64ToPcm16(b64: string): Int16Array {
 }
 
 export interface SpeakerOptions {
-  /** 造 `AudioContext`。测试里换成假的。 */
-  makeContext?: () => AudioContext;
+  /** 造 `AudioContext`。测试里换成假的。参数是这一路音频的采样率。 */
+  makeContext?: (sampleRate: number) => AudioContext;
 }
 
 /** 攒到这么长再排一段。 */
@@ -41,7 +41,15 @@ export const LEAD_MS = 180;
 const FLUSH_IDLE_MS = 80;
 
 export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
-  const make = opts.makeContext ?? (() => new AudioContext());
+  /**
+   * **按素材的采样率开 `AudioContext`。**
+   *
+   * 不指定的话上下文按硬件走（这台机器是 48k），而帧是 16k 的——每个
+   * `AudioBuffer` 各自被重采样一次，16k 以上折回来的镜像落在 8–12 kHz，
+   * 听上去就是压在人声上的一层电流。指定成 16k 之后图里一次重采样都不做，
+   * 由音频设备那一层统一升到 48k（那儿的重采样器是正经的）。
+   */
+  const make = opts.makeContext ?? ((sampleRate: number) => new AudioContext({ sampleRate }));
   let ctx: AudioContext | null = null;
   /** 下一段该从什么时候开始播。 */
   let playAt = 0;
@@ -95,8 +103,8 @@ export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
     push(pcmB64, sampleRate) {
       const pcm = base64ToPcm16(pcmB64);
       if (pcm.length === 0) return;
-      if (!ctx) ctx = make();
       rate = sampleRate > 0 ? sampleRate : 16000;
+      if (!ctx) ctx = make(rate);
       queue.push(pcm);
       queued += pcm.length;
       if (queued >= (rate * BUFFER_MS) / 1000) drain();

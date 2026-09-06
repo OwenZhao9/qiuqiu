@@ -370,3 +370,20 @@ def test_it_is_told_not_to_invent_memories(state: AppState) -> None:
     system = one[0].content
     assert MEMORY_HEADER in system and NO_MEMORY_NOTE not in system
     assert "这张表之外的事，你不知道" in system
+
+
+def test_an_empty_recall_does_not_make_it_deny_having_memory(state: AppState) -> None:
+    """「这一句没召回到」不等于「我记不住东西」。
+
+    第一版写的是「什么都没召回到，别说你记得任何事」，模型读成了「你根本没有记忆」——
+    实测回「我不会真正把这事儿存下来，你最好自己记到日历里」。对一个主打长期记忆的
+    产品来说，这比编造更糟。
+    """
+    from qiuqiu_api.orchestrator import NO_MEMORY_NOTE, build_messages
+
+    system = build_messages(state, persona_text="", hits=[], history=[], user_text="帮我记着")[
+        0
+    ].content
+    assert NO_MEMORY_NOTE in system
+    assert "不是你记不住东西" in system
+    assert "照常会被记下来" in system

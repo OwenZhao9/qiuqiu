@@ -1850,7 +1850,10 @@ select {
   text-align: center;
   transition:
     background var(--qq-duration-base) var(--qq-ease-out),
-    border-color var(--qq-duration-base) var(--qq-ease-out);
+    border-color var(--qq-duration-base) var(--qq-ease-out),
+    box-shadow var(--qq-duration-base) var(--qq-ease-out),
+    transform var(--qq-duration-base) var(--qq-ease-out),
+    opacity var(--qq-duration-base) var(--qq-ease-out);
 }
 
 .qq-map__box--lg {
@@ -1873,16 +1876,64 @@ select {
   color: var(--qq-color-text-muted);
 }
 
-/* 走过的块：底色 + 一圈光晕。周围全是中性色，这一下才跳得出来 */
+/* 走过的块。
+   原来是「底色 + 2px 细圈 + brightness(1.04)」——录成视频、隔着投影看，
+   那点差别等于没有。现在：抬起来一点、描粗、外面两层光晕，再让光晕自己呼吸。
+   周围的块同时压暗压灰（见下面 `.qq-map__box`），靠对比而不是靠亮度。 */
 .qq-map__box.qq-map--on {
   background: var(--qq-color-write-bg);
   border-color: var(--qq-color-write);
-  box-shadow: 0 0 0 2px rgb(from var(--qq-color-write) r g b / 0.16);
-  animation: qq-map-pulse 2.2s var(--qq-ease-standard) infinite;
+  color: var(--qq-color-write);
+  transform: translateY(-1px) scale(1.035);
+  box-shadow:
+    0 0 0 2px rgb(from var(--qq-color-write) r g b / 0.55),
+    0 0 18px 2px rgb(from var(--qq-color-write) r g b / 0.4),
+    0 4px 14px -4px rgb(from var(--qq-color-write) r g b / 0.5);
+  animation:
+    qq-map-flash 0.42s var(--qq-ease-out) 1,
+    qq-map-pulse 1.5s var(--qq-ease-standard) 0.42s infinite;
+  z-index: 1;
+}
+
+/* 切到这一段的那一下先弹一下。没有它，一段接一段地亮，看着像静态色块在轮换 */
+@keyframes qq-map-flash {
+  0% {
+    transform: translateY(-1px) scale(1);
+    box-shadow: 0 0 0 0 rgb(from var(--qq-color-write) r g b / 0.9);
+  }
+  45% {
+    transform: translateY(-2px) scale(1.075);
+    box-shadow: 0 0 0 8px rgb(from var(--qq-color-write) r g b / 0);
+  }
+  100% {
+    transform: translateY(-1px) scale(1.035);
+    box-shadow: 0 0 0 2px rgb(from var(--qq-color-write) r g b / 0.55);
+  }
 }
 
 .qq-map__box.qq-map--on .qq-map__box-t {
   color: var(--qq-color-write);
+  font-weight: var(--qq-weight-bold);
+}
+
+/* 有一块正在走的时候，同一张图里其余的块退到后面去。
+   「亮起来」这件事一半靠自己亮，一半靠周围暗——只调亮的话，在一片同样明亮的
+   卡片里根本认不出哪个是当前这一段 */
+.qq-map--running .qq-map__box:not(.qq-map--on) {
+  opacity: 0.34;
+  /* 顺手去掉一点颜色。只压亮度的话，那些块本来就带各自分区的色相，
+     一片彩色里当前那一段还是不够跳 */
+  filter: grayscale(0.45);
+}
+
+.qq-map--running .qq-map__wire:not(.qq-map--on) {
+  opacity: 0.22;
+}
+
+/* 分区标题与三条模态入口一起退后，整栏只剩当前那一段是彩色的 */
+.qq-map--running .qq-map__zone:not(:has(.qq-map--on)) {
+  opacity: 0.55;
+  filter: grayscale(0.35);
 }
 
 /* 四条模态：一行一条，窄了各自换行 */
@@ -1970,7 +2021,13 @@ select {
 
 .qq-map__wire.qq-map--on .qq-map__wire-line {
   stroke: var(--qq-color-write);
-  stroke-width: 2.4;
+  stroke-width: 3.4;
+  filter: drop-shadow(0 0 5px rgb(from var(--qq-color-write) r g b / 0.75));
+}
+
+/* 没走的线压下去。走过的那条是靠**对比**跳出来的，光把自己调亮没用 */
+.qq-map__wire:not(.qq-map--on) .qq-map__wire-line {
+  opacity: 0.45;
 }
 
 .qq-map__wire-tip--1,
@@ -2000,15 +2057,18 @@ select {
 .qq-map__wire-flow {
   fill: none;
   stroke: var(--qq-color-write);
-  stroke-width: 5;
+  stroke-width: 7;
   stroke-linecap: round;
-  stroke-dasharray: 0.01 14;
-  animation: qq-map-dash 1s linear infinite;
+  /* 点大一圈、间距收窄、跑快一倍：一眼看得出「有东西正在这条线上过」，
+     而且看得出方向。原来 5px、间距 14、1 秒一轮，录下来像静止的虚线 */
+  stroke-dasharray: 0.01 11;
+  filter: drop-shadow(0 0 6px rgb(from var(--qq-color-write) r g b / 0.9));
+  animation: qq-map-dash 0.62s linear infinite;
 }
 
 @keyframes qq-map-dash {
   to {
-    stroke-dashoffset: -14;
+    stroke-dashoffset: -11;
   }
 }
 
@@ -2051,13 +2111,20 @@ select {
   }
 }
 
+/* 光晕张缩。原来是 `brightness(1.04)`，肉眼几乎看不出 */
 @keyframes qq-map-pulse {
   0%,
   100% {
-    filter: none;
+    box-shadow:
+      0 0 0 2px rgb(from var(--qq-color-write) r g b / 0.55),
+      0 0 18px 2px rgb(from var(--qq-color-write) r g b / 0.4),
+      0 4px 14px -4px rgb(from var(--qq-color-write) r g b / 0.5);
   }
   50% {
-    filter: brightness(1.04);
+    box-shadow:
+      0 0 0 3px rgb(from var(--qq-color-write) r g b / 0.75),
+      0 0 30px 6px rgb(from var(--qq-color-write) r g b / 0.55),
+      0 6px 20px -4px rgb(from var(--qq-color-write) r g b / 0.6);
   }
 }
 

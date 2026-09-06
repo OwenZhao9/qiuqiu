@@ -129,3 +129,34 @@ describe('createSpeaker', () => {
     expect(() => s.stop()).not.toThrow();
   });
 });
+
+describe('createSpeaker · 采样率', () => {
+  it('按素材的采样率开上下文，不让图里做重采样', () => {
+    // 上下文跟着硬件走（48k）而帧是 16k 的话，每个 AudioBuffer 各自被重采样一次，
+    // 8k 以上折回来的镜像落在 8–12 kHz——压在人声上的一层电流就是它。
+    // 实测录下来那一带比基带只低 27 dB，本该低 60 dB 以上
+    const rates: number[] = [];
+    const f = fakeCtx();
+    const s = createSpeaker({
+      makeContext: (rate: number) => {
+        rates.push(rate);
+        return f.ctx as unknown as AudioContext;
+      }
+    });
+    s.push(silence(16000), 16000);
+    expect(rates).toEqual([16000]);
+    s.stop();
+
+    const g = fakeCtx();
+    const rates2: number[] = [];
+    const s2 = createSpeaker({
+      makeContext: (rate: number) => {
+        rates2.push(rate);
+        return g.ctx as unknown as AudioContext;
+      }
+    });
+    s2.push(silence(24000), 24000); // 端到端语音下行是 24k
+    expect(rates2).toEqual([24000]);
+    s2.stop();
+  });
+});

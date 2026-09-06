@@ -264,7 +264,16 @@ export function MemoryMap({ events, compact = false }: MemoryMapProps): React.JS
   const geom = useWireGeom(zonesRef, WIRES);
 
   return (
-    <div className={'qq-map' + (compact ? ' qq-map--compact' : '')}>
+    <div
+      className={
+        'qq-map' +
+        (compact ? ' qq-map--compact' : '') +
+        // 有一段正在走的时候，整张图进「running」：当前这段亮起来，其余的压暗。
+        // 「亮」一半靠自己亮、一半靠周围暗——只调亮的话，在一片同样明亮的卡片里
+        // 认不出哪个是当前这一段，录成视频、隔着投影看尤其如此
+        (step ? ' qq-map--running' : '')
+      }
+    >
       <div className="qq-map__zones" ref={zonesRef}>
         <Wires geom={geom} wires={WIRES} lit={litWires} />
         {/* ── ① 选择性摄入 ───────────────────────────────── */}
