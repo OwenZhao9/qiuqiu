@@ -14,7 +14,6 @@ import {
   type Thresholds
 } from './api.js';
 import { getBridge } from './bridge.js';
-import { startAmbient } from './ambient.js';
 import { createSpeaker } from './speak.js';
 import { ChatPanel } from './components/ChatPanel.js';
 import { Composer } from './components/Composer.js';
@@ -29,9 +28,6 @@ import { createChatStore } from './store/chat.js';
 import { createEventsStore } from './store/events.js';
 import { DEFAULT_THRESHOLDS } from './store/thresholds.js';
 import type { QiuqiuInstance } from '@qiuqiu/character';
-
-/** 被动采集开着时那句说明。出错时的原因不能被它盖掉，所以拎出来当常量比。 */
-const AMBIENT_ON_NOTE = '被动采集开着：每 45 秒看一眼摄像头，够新的才记';
 
 type Page = 'chat' | 'map' | 'memories' | 'persona' | 'settings';
 
@@ -63,14 +59,6 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
    * 被动采集开着没有。**默认关**——开摄像头必须是用户自己按的。
    * 存本地：这是本机的隐私选择，不该跟着账号或后端设置跑。
    */
-  const [ambientOn, setAmbientOn] = useState(() => {
-    try {
-      return localStorage.getItem('qiuqiu.ambient') === '1';
-    } catch {
-      return false;
-    }
-  });
-  const [ambientNote, setAmbientNote] = useState('');
   const [rightOpen, setRightOpen] = useState(false);
   /** 主页那条记忆结构展开没有。存本地，纯界面偏好。 */
   const [mapOpen, setMapOpen] = useState(() => {
@@ -145,47 +133,6 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
   const chatState = useSyncExternalStore(chat.subscribe, chat.get, chat.get);
   const eventsState = useSyncExternalStore(events.subscribe, events.get, events.get);
 
-  // 被动采集：开着就每隔一阵取一张画面交给后端看。一次失败就自己关掉并说明原因
-  useEffect(() => {
-    try {
-      localStorage.setItem('qiuqiu.ambient', ambientOn ? '1' : '0');
-    } catch {
-      /* 存不下就只在本次生效 */
-    }
-    if (!ambientOn) {
-      // 只清「开着」那句说明。出错关掉的那次要把原因留在屏幕上——
-      // 关掉本身会让这个 effect 再跑一遍，无条件清空等于把刚写的原因擦了
-      setAmbientNote((n) => (n.startsWith(AMBIENT_ON_NOTE) ? '' : n));
-      return;
-    }
-    let capture: { stop(): void } | null = null;
-    let alive = true;
-    setAmbientNote(AMBIENT_ON_NOTE);
-    void startAmbient({
-      onError: (message, hint) => {
-        setAmbientOn(false);
-        setAmbientNote(`${message} ${hint}`);
-      }
-    })
-      .then((c) => {
-        if (!alive) {
-          c.stop();
-          return;
-        }
-        capture = c;
-        void c.tick();
-      })
-      .catch((err: unknown) => {
-        const e = err as { message?: string };
-        setAmbientOn(false);
-        setAmbientNote(`打不开摄像头：${e.message ?? String(err)}`);
-      });
-    return () => {
-      alive = false;
-      capture?.stop();
-    };
-  }, [ambientOn]);
-
   // 进程起来时把这个会话的历史铺回来。后端一直存着，界面不读的话重启就一片空白
   useEffect(() => {
     let alive = true;
@@ -220,9 +167,8 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
     const off = [
       bridge.onSubmitFromPet((text: string) => chat.send(text)),
       // 用户在动桌宠。闲置计时在这只丘丘身上，不复位的话人玩着桌宠它却睡过去
-      bridge.onPoke(() => qiuqiuRef.current?.resetIdle()),
+      bridge.onPoke(() => qiuqiuRef.current?.resetIdle())
       // 托盘那个「暂停被动采集」原来翻的是一个没人读的标志位，这里把它接上
-      bridge.onAmbientToggle((paused: boolean) => setAmbientOn(!paused))
     ];
     bridge.mainReady();
     return () => {
@@ -360,13 +306,7 @@ export function MainApp({ sessionId = 'default', ballPreset }: MainAppProps): Re
         {page === 'map' ? <MemoryMap events={eventsState.events} /> : null}
         {page === 'memories' ? <MemoryLibrary /> : null}
         {page === 'persona' ? <PersonaPage /> : null}
-        {page === 'settings' ? (
-          <SettingsPage
-            ambientOn={ambientOn}
-            ambientNote={ambientNote}
-            onAmbientChange={setAmbientOn}
-          />
-        ) : null}
+        {page === 'settings' ? <SettingsPage /> : null}
       </main>
 
       <MemorySidebar

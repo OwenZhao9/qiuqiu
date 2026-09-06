@@ -82,7 +82,7 @@ describe('createMemoryBridge', () => {
       b.dragPet(3, 4);
       b.setPetPassthrough(true);
       b.setPetExpanded(true);
-      b.popupPetMenu({ ambientPaused: false });
+      b.popupPetMenu();
     }).not.toThrow();
   });
 });

@@ -63,11 +63,10 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   /** 输入条展开 / 收起，主进程改窗口 bounds 且保持球心不动。 */
   setPetExpanded(expanded: boolean): void;
   /** 桌宠右键菜单，必须是 Electron 原生菜单——HTML 菜单会被透明窗口边界裁掉。 */
-  popupPetMenu(state: { ambientPaused: boolean }): void;
+  popupPetMenu(): void;
   /** 全局快捷键 `Cmd/Ctrl+Shift+Q` 唤起桌宠时通知渲染进程展开输入条。 */
   onPetFocus(cb: () => void): Unsubscribe;
   /** 托盘 / 右键菜单里的「暂停被动采集」。 */
-  onAmbientToggle(cb: (paused: boolean) => void): Unsubscribe;
   /**
    * 换皮肤。桌宠和主窗口是两个渲染进程，各自一份 `localStorage` 监听，
    * 只能过主进程同步，不然主窗口换了皮肤桌宠还是旧样子。
@@ -189,9 +188,6 @@ export function createMemoryBridge(): QiuqiuBridgeExt {
     },
     onPetFocus(cb) {
       return bus.on('pet-focus', cb as Listener);
-    },
-    onAmbientToggle(cb) {
-      return bus.on('ambient-toggle', cb as Listener);
     },
     onSkin(cb) {
       return bus.on('skin', cb as Listener);

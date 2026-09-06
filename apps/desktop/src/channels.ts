@@ -37,7 +37,6 @@ export const TO_RENDERER = {
   submitFromPet: 'qq:on-submit-from-pet',
   callFromPet: 'qq:on-call-from-pet',
   petFocus: 'qq:on-pet-focus',
-  ambientToggle: 'qq:on-ambient-toggle',
   skin: 'qq:on-skin',
   petGaze: 'qq:on-pet-gaze',
   poke: 'qq:on-poke'

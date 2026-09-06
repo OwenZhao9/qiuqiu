@@ -8,7 +8,7 @@
  */
 
 export type MenuAction =
-  'open-main' | 'focus-pet' | 'hide-pet' | 'toggle-pet' | 'reset-pet' | 'toggle-ambient' | 'quit';
+  'open-main' | 'focus-pet' | 'hide-pet' | 'toggle-pet' | 'reset-pet' | 'quit';
 
 export interface MenuItemSpec {
   label?: string;
@@ -24,18 +24,12 @@ export interface MenuItemSpec {
 const SEPARATOR: MenuItemSpec = { type: 'separator' };
 
 /** 桌宠右键菜单，`design/interaction.md` § 1「右键菜单」那张表。 */
-export function petContextMenu(state: { ambientPaused: boolean }): MenuItemSpec[] {
+export function petContextMenu(): MenuItemSpec[] {
   return [
     { label: '打开主窗口', action: 'open-main', bold: true },
     { label: '收起丘丘', action: 'hide-pet' },
     { label: '回到默认位置', action: 'reset-pet' },
     SEPARATOR,
-    {
-      label: '暂停被动采集',
-      action: 'toggle-ambient',
-      type: 'checkbox',
-      checked: state.ambientPaused
-    },
     SEPARATOR,
     { label: '退出丘丘', action: 'quit' }
   ];

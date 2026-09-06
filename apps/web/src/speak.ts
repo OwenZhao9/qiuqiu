@@ -31,32 +31,88 @@ export interface SpeakerOptions {
   makeContext?: () => AudioContext;
 }
 
+/** 攒到这么长再排一段。 */
+export const BUFFER_MS = 240;
+
+/** 首段往后推这么久再响。 */
+export const LEAD_MS = 180;
+
+/** 没有新帧了就把尾巴排掉，别让最后不足一段的音频卡在队列里。 */
+const FLUSH_IDLE_MS = 80;
+
 export function createSpeaker(opts: SpeakerOptions = {}): Speaker {
   const make = opts.makeContext ?? (() => new AudioContext());
   let ctx: AudioContext | null = null;
   /** 下一段该从什么时候开始播。 */
   let playAt = 0;
+  /** 还没排出去的采样，以及它们的采样率。 */
+  let queue: Int16Array[] = [];
+  let queued = 0;
+  let rate = 16000;
+  let idle: ReturnType<typeof setTimeout> | null = null;
   const sources = new Set<AudioBufferSourceNode>();
+
+  /**
+   * 把攒着的采样拼成一段排进去。
+   *
+   * **为什么要攒。** 后端一帧是 20 毫秒（640 字节）。一帧一个 `AudioBuffer` 的话有两个毛病：
+   *
+   * 1. **重采样接缝**。帧是 16k，`AudioContext` 跑在 48k，每个 buffer 各自重采样一次，
+   *    接缝处对不齐——一秒五十个接缝，听上去就是持续的电流声。
+   * 2. **抖动**。帧到得比播得慢一点，`playAt` 就落到 `currentTime` 后面，
+   *    排出去的那一段中间空一小截，空一次响一下。
+   *
+   * 攒到 240 毫秒再排，接缝少了十二倍；首段再往后垫 180 毫秒，
+   * 之后的到达抖动只要不超过这个垫子就填得平。开头最吵、说着说着就好了，
+   * 正是因为队列跑在前面之后抖动被吃掉了——那时候垫子是自然攒出来的。
+   */
+  const drain = (): void => {
+    if (queued === 0 || !ctx) return;
+    const merged = new Int16Array(queued);
+    let at = 0;
+    for (const part of queue) {
+      merged.set(part, at);
+      at += part.length;
+    }
+    queue = [];
+    queued = 0;
+
+    const buf = ctx.createBuffer(1, merged.length, rate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < merged.length; i += 1) ch[i] = merged[i]! / 0x8000;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    // 落在过去就说明欠载了（首段也走这条），重新垫一段再排，别排到已经过去的时刻
+    if (playAt <= ctx.currentTime) playAt = ctx.currentTime + LEAD_MS / 1000;
+    src.start(playAt);
+    playAt += buf.duration;
+    sources.add(src);
+    src.onended = () => void sources.delete(src);
+  };
 
   return {
     push(pcmB64, sampleRate) {
       const pcm = base64ToPcm16(pcmB64);
       if (pcm.length === 0) return;
       if (!ctx) ctx = make();
-      const rate = sampleRate > 0 ? sampleRate : 16000;
-      const buf = ctx.createBuffer(1, pcm.length, rate);
-      const ch = buf.getChannelData(0);
-      for (let i = 0; i < pcm.length; i += 1) ch[i] = pcm[i]! / 0x8000;
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      playAt = Math.max(playAt, ctx.currentTime);
-      src.start(playAt);
-      playAt += buf.duration;
-      sources.add(src);
-      src.onended = () => void sources.delete(src);
+      rate = sampleRate > 0 ? sampleRate : 16000;
+      queue.push(pcm);
+      queued += pcm.length;
+      if (queued >= (rate * BUFFER_MS) / 1000) drain();
+      if (idle !== null) clearTimeout(idle);
+      idle = setTimeout(() => {
+        idle = null;
+        drain();
+      }, FLUSH_IDLE_MS);
     },
     stop() {
+      if (idle !== null) {
+        clearTimeout(idle);
+        idle = null;
+      }
+      queue = [];
+      queued = 0;
       for (const src of sources) {
         try {
           src.stop();

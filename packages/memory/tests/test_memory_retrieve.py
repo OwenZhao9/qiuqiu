@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 
+import pytest
 from memory_helpers import BASE_TIME, FakeChat, make_runtime
 from qiuqiu_memory.facade import MemoryFacade
 from qiuqiu_memory.pipeline import retrieve as retrieve_module
@@ -29,6 +30,14 @@ CORPUS = (
 def seed(facade: MemoryFacade) -> None:
     for text in CORPUS:
         facade.ingest(text, source=Source.DIALOGUE, speaker="user", ts=BASE_TIME)
+
+
+@pytest.fixture
+def llm_planner(monkeypatch: pytest.MonkeyPatch):
+    """让这一组用例走 LLM 规划——默认已经是确定性的那条（见 `_planner_mode`）。"""
+    from qiuqiu_memory.pipeline.retrieve import PLANNER_ENV
+
+    monkeypatch.setenv(PLANNER_ENV, "llm")
 
 
 class TestPlanner:
@@ -57,7 +66,9 @@ class TestPlanner:
         )
         assert "2030-03-01" in plan.rewritten
 
-    async def test_model_plan_honoured(self, clock: dict[str, dt.datetime]) -> None:
+    async def test_model_plan_honoured(
+        self, clock: dict[str, dt.datetime], llm_planner: None
+    ) -> None:
         reply = json.dumps(
             {"paths": ["lexical"], "depth": 3, "rewritten": "用户的名字", "cold": True},
             ensure_ascii=False,
@@ -72,7 +83,9 @@ class TestPlanner:
         finally:
             rt.close()
 
-    async def test_model_depth_clamped(self, clock: dict[str, dt.datetime]) -> None:
+    async def test_model_depth_clamped(
+        self, clock: dict[str, dt.datetime], llm_planner: None
+    ) -> None:
         reply = json.dumps({"paths": ["semantic"], "depth": 9999, "rewritten": "x"})
         rt = make_runtime(clock, FakeChat([("检索规划器", reply)]))
         try:

@@ -44,7 +44,7 @@ from ..text import (
 from ..types import PATHS, Budget, Hit, RecallResult, RetrievalPlan, iso, to_utc
 from .tiering import promote
 
-__all__ = ["PATH_QUOTA", "DEFAULT_DEPTH", "plan_retrieval", "retrieve"]
+__all__ = ["PATH_QUOTA", "DEFAULT_DEPTH", "PLANNER_ENV", "plan_retrieval", "retrieve"]
 
 log = structlog.get_logger("qiuqiu_memory.retrieve")
 
@@ -131,16 +131,45 @@ def _deterministic_plan(query: str, now: dt.datetime) -> tuple[RetrievalPlan, bo
     return RetrievalPlan(paths=paths, depth=depth, rewritten=rewritten), cold
 
 
+PLANNER_ENV = "RECALL_PLANNER"
+
+
+def _planner_mode() -> str:
+    """`fast`（默认）用确定性规划；`llm` 多花一次模型调用问一份计划。
+
+    **默认改成 fast 是量出来的**：LLM 规划这一步实测 2.1 秒，而它落在**用户看得见的
+    关键路径上**——检索没出结果，prompt 拼不出来，模型一个字都还没开始吐。一轮对话
+    从发出去到第一个字 6.2 秒，其中三分之一在等这份计划。
+
+    换来的是什么：同一个查询「我下周去哪儿来着」，LLM 改写成「用户查询 2026 年 9 月 7 日起
+    一周内的出行计划」、只走语义一路；确定性规划改写成「用户 2026-09-13 去哪儿来着」、
+    走语义 + 字面两路——原词保住了，相对日期也解析了，还多一路。这一例上它并不更好。
+
+    要用 LLM 规划就设 `RECALL_PLANNER=llm`。留着这条路是因为复杂查询（多个条件、
+    要拆成几次检索）上它可能确实更强，只是没有证据支持让每一轮都付这 2.1 秒。
+    """
+    import os
+
+    return "llm" if os.environ.get(PLANNER_ENV, "fast").strip().lower() == "llm" else "fast"
+
+
 async def plan_retrieval(
     runtime: Any, query: str, *, budget: Budget, now: dt.datetime
 ) -> tuple[RetrievalPlan, bool]:
     """出一份检索计划，外加「要不要下探冷表」。
 
-    先问 Chat；模型不可用或答得不成形状就退到 `_deterministic_plan`。
+    默认走确定性规划（0 毫秒）。设了 `RECALL_PLANNER=llm` 才问 Chat；
+    模型不可用或答得不成形状照样退回确定性的那份。
     `Budget.paths` 不为 `None` 时是硬约束——调用方点了名的路径，规划器不能加戏。
     """
     fallback, fallback_cold = _deterministic_plan(query, now)
     plan, cold = fallback, fallback_cold
+
+    if _planner_mode() != "llm":
+        if budget.paths is not None:
+            allowed = [p for p in plan.paths if p in budget.paths]
+            plan.paths = allowed or [p for p in PATHS if p in budget.paths]
+        return plan, cold
 
     try:
         parsed = await complete_json(

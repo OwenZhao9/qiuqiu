@@ -157,11 +157,11 @@ describe('createQiuqiuBridge · 契约之外的扩展', () => {
     const b = createQiuqiuBridge(f.ipc);
     b.setPetPassthrough(false);
     b.setPetExpanded(true);
-    b.popupPetMenu({ ambientPaused: true });
+    b.popupPetMenu();
     expect(f.sent).toEqual([
       [TO_MAIN.setPetPassthrough, false],
       [TO_MAIN.setPetExpanded, true],
-      [TO_MAIN.popupPetMenu, { ambientPaused: true }]
+      [TO_MAIN.popupPetMenu]
     ]);
   });
 
@@ -193,7 +193,6 @@ describe('订阅要能退订', () => {
     'onSubmitFromPet',
     'onCallFromPet',
     'onPetFocus',
-    'onAmbientToggle',
     'onSkin',
     'onPoke'
   ] as const;

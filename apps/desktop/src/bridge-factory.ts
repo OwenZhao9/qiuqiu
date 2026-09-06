@@ -81,9 +81,8 @@ export interface QiuqiuBridgeExt extends QiuqiuBridge {
   onPoke(cb: () => void): Unsubscribe;
   setPetPassthrough(ignore: boolean): void;
   setPetExpanded(expanded: boolean): void;
-  popupPetMenu(state: { ambientPaused: boolean }): void;
+  popupPetMenu(): void;
   onPetFocus(cb: () => void): Unsubscribe;
-  onAmbientToggle(cb: (paused: boolean) => void): Unsubscribe;
   platform(): 'desktop';
 }
 
@@ -141,8 +140,8 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     setPetExpanded(expanded) {
       ipc.send(TO_MAIN.setPetExpanded, expanded);
     },
-    popupPetMenu(state) {
-      ipc.send(TO_MAIN.popupPetMenu, state);
+    popupPetMenu() {
+      ipc.send(TO_MAIN.popupPetMenu);
     },
     setSkin(skin) {
       ipc.send(TO_MAIN.setSkin, skin);
@@ -176,9 +175,6 @@ export function createQiuqiuBridge(ipc: IpcLike): QiuqiuBridgeExt {
     },
     onPetFocus(cb) {
       return sub(TO_RENDERER.petFocus)(() => cb());
-    },
-    onAmbientToggle(cb) {
-      return sub(TO_RENDERER.ambientToggle)((paused) => cb(Boolean(paused)));
     },
     onSkin(cb) {
       return sub(TO_RENDERER.skin)((skin) => cb(String(skin)));

@@ -4,24 +4,16 @@ import { describe, expect, it } from 'vitest';
 import { FOCUS_PET_ACCELERATOR, petContextMenu, trayMenu } from '../src/menus.js';
 
 describe('petContextMenu', () => {
-  const menu = petContextMenu({ ambientPaused: false });
+  const menu = petContextMenu();
   const labels = menu.filter((m) => m.type !== 'separator').map((m) => m.label);
 
-  it('五个可点项与两条分隔线，顺序与设计一致', () => {
-    expect(labels).toEqual(['打开主窗口', '收起丘丘', '回到默认位置', '暂停被动采集', '退出丘丘']);
+  it('四个可点项与两条分隔线，顺序与设计一致', () => {
+    expect(labels).toEqual(['打开主窗口', '收起丘丘', '回到默认位置', '退出丘丘']);
     expect(menu.filter((m) => m.type === 'separator')).toHaveLength(2);
   });
 
   it('「打开主窗口」是默认项，加粗', () => {
     expect(menu[0]).toMatchObject({ action: 'open-main', bold: true });
-  });
-
-  it('「暂停被动采集」是勾选项，跟着当前状态走', () => {
-    const paused = petContextMenu({ ambientPaused: true }).find(
-      (m) => m.action === 'toggle-ambient'
-    );
-    expect(paused).toMatchObject({ type: 'checkbox', checked: true });
-    expect(menu.find((m) => m.action === 'toggle-ambient')).toMatchObject({ checked: false });
   });
 
   it('每个可点项都挂了动作', () => {

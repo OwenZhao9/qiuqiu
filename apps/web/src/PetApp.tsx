@@ -307,7 +307,7 @@ export function PetApp(): React.JSX.Element {
         onPointerUp={onPointerUp}
         onContextMenu={(e) => {
           e.preventDefault();
-          bridge.popupPetMenu({ ambientPaused: false });
+          bridge.popupPetMenu();
         }}
       >
         <QiuqiuBall

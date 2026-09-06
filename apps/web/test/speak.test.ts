@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { base64ToPcm16, createSpeaker } from '../src/speak.js';
+import { BUFFER_MS, LEAD_MS, base64ToPcm16, createSpeaker } from '../src/speak.js';
 
 /** 假的 AudioContext，只记下发生了什么。 */
 function fakeCtx() {
@@ -69,12 +69,26 @@ describe('base64ToPcm16', () => {
 });
 
 describe('createSpeaker', () => {
-  it('一帧一帧排队播，接在上一段后面，中间不留缝', () => {
+  it('攒够一段再排，接在上一段后面，中间不留缝', () => {
     const f = fakeCtx();
     const s = createSpeaker({ makeContext: () => f.ctx as unknown as AudioContext });
-    s.push(silence(16000), 16000); // 1 秒
+    s.push(silence(16000), 16000); // 1 秒，超过 240ms 的门槛，立刻排
     s.push(silence(8000), 16000); // 0.5 秒
-    expect(f.started.map((x) => x.at)).toEqual([0, 1]);
+    // 首段垫 180ms，第二段紧接其后
+    expect(f.started.map((x) => x.at)).toEqual([LEAD_MS / 1000, LEAD_MS / 1000 + 1]);
+  });
+
+  it('不足一段的帧先攒着，不一帧一个节点', () => {
+    // 一帧 20ms。一帧一个 AudioBuffer 的话，16k 到 48k 的重采样一秒要接五十次缝，
+    // 听上去就是持续的电流声——开头最吵，等队列跑到前面去了才好
+    const f = fakeCtx();
+    const s = createSpeaker({ makeContext: () => f.ctx as unknown as AudioContext });
+    for (let i = 0; i < 5; i += 1) s.push(silence(320), 16000); // 共 100ms
+    expect(f.started).toHaveLength(0);
+
+    for (let i = 0; i < 8; i += 1) s.push(silence(320), 16000); // 累计 260ms，过门槛
+    expect(f.started).toHaveLength(1);
+    expect(f.started[0]!.length).toBeGreaterThanOrEqual((16000 * BUFFER_MS) / 1000);
   });
 
   it('空帧不建节点', () => {
@@ -87,7 +101,7 @@ describe('createSpeaker', () => {
   it('采样率给 0 时按 16k 兜底，不让 createBuffer 抛', () => {
     const f = fakeCtx();
     const s = createSpeaker({ makeContext: () => f.ctx as unknown as AudioContext });
-    s.push(silence(1600), 0);
+    s.push(silence(16000), 0); // 够一段，立刻排
     expect(f.started[0]!.rate).toBe(16000);
   });
 
@@ -103,14 +117,14 @@ describe('createSpeaker', () => {
     // 停完再来一轮，从头排，不接着上一轮的时间
     const g = fakeCtx();
     const s2 = createSpeaker({ makeContext: () => g.ctx as unknown as AudioContext });
-    s2.push(silence(1600), 16000);
-    expect(g.started[0]!.at).toBe(0);
+    s2.push(silence(16000), 16000);
+    expect(g.started[0]!.at).toBe(LEAD_MS / 1000);
   });
 
   it('重复 stop 不炸', () => {
     const f = fakeCtx();
     const s = createSpeaker({ makeContext: () => f.ctx as unknown as AudioContext });
-    s.push(silence(1600), 16000);
+    s.push(silence(16000), 16000);
     s.stop();
     expect(() => s.stop()).not.toThrow();
   });
