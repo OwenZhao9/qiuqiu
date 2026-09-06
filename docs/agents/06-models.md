@@ -56,20 +56,13 @@
 **接口版本容易踩**：2.0 走 `/api/v3/tts/unidirectional`；1.0 那套 `/api/v1/tts` 加
 `cluster` 参数在 2.0 上一律 403。方舟的 ark key 在语音接口上返回 401，两套凭证各管各的。
 
-**TTS · Azure**（`azure_tts.py`）**已完成，备选**
-- [x] Azure 语音服务 REST 接口，端点 `https://{region}.tts.speech.microsoft.com/cognitiveservices/v1`
-- [x] 输出 `raw-16khz-16bit-mono-pcm`，裸 PCM 直接就是 `AudioChunk` 要的形状，不用解码
-- [x] `synthesize()` 返回 `AudioChunk` 流，上游分片重切成 20ms 定长块（不重切的话 rms 会抖）
-- [x] 默认音色 `zh-CN-XiaoxiaoNeural`，`AZURE_TTS_VOICE` 可换
-- [x] SSML 转义用户文本；错误按状态码给不同 hint
-
-音色与 Edge 朗读同一批——`zh-CN-XiaoxiaoNeural` 本来就是 Azure 的音色名，Edge 背后调的
-就是这个服务。这里走官方接口带自己的订阅密钥，可用于产品。F0 档每月 50 万字符免费。
+**曾经有过的 Azure 适配器已删除。** 它只做语音合成，跟端到端实时通话没有任何关系；
+留着等于多一条没人走的路、多一份要维护的凭证、多一段每次都要跟着改的文档。
+TTS 现在只有豆包一家，`TTS_PROVIDER` 这个开关也一并去掉了。
 
 **再换别家**（可选）
 - [ ] 阿里、腾讯等只是多一个 `<vendor>_tts.py`，`TTS` 协议不变
-- [x] 由 `TTS_PROVIDER` 选（`volcengine` 默认 / `azure`），缺凭证时 registry 抛带 hint 的错
-      （AD-16，不静默换 mock），且 hint 同时说清两条路怎么配
+- [x] 缺凭证时 registry 抛带 hint 的错（AD-16，不静默换 mock）
 
 **Image Gen · Seedream**（`seedream.py`，可选）
 - [ ] 火山方舟 `/images/generations`
@@ -104,7 +97,7 @@
 - 真实 key 下 `ChatModel.stream()` 首字 < 1s
 - SenseVoice 识别 10 秒中文音频，字准率 > 90%（用公开测试集一段）
 - silero 对 1 秒静音返回 `has_speech=False`，对 1 秒人声返回 `True`
-- Azure 合成 20 字中文，`AudioChunk` 的 `rms` 序列非零且随语音起伏
+- 豆包合成 20 字中文，`AudioChunk` 的 `rms` 序列非零且随语音起伏
 - `pytest` 通过
 
 ## 受哪些 AD 约束

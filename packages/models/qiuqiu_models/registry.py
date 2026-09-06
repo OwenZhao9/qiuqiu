@@ -33,7 +33,7 @@ _lock = threading.Lock()
 _instances: dict[str, Any] = {}
 
 #: 还没有真实实现、或缺配置的能力 → (供应商名, 缺什么, 怎么办)。
-#: `tts` 已有真实实现（`azure_tts`），这里的条目只在缺 key 时用来报错。
+#: `tts` 已有真实实现（`volc_tts`），这里的条目只在缺 key 时用来报错。
 _DEFERRED: dict[str, tuple[str, str, str]] = {
     "asr": (
         "sensevoice",
@@ -48,9 +48,8 @@ _DEFERRED: dict[str, tuple[str, str, str]] = {
     "tts": (
         "volcengine",
         "语音合成没配好。",
-        "默认走豆包语音：在豆包语音控制台建应用，填 VOLC_SPEECH_APPID 与 "
-        "VOLC_SPEECH_TOKEN。想换 Azure 就设 TTS_PROVIDER=azure 并填 "
-        "AZURE_SPEECH_KEY 与 AZURE_SPEECH_REGION。没配时回复照常显示文字，只是没有声音。",
+        "在豆包语音控制台建应用，填 VOLC_SPEECH_APPID 与 VOLC_SPEECH_TOKEN。"
+        "没配时回复照常显示文字，只是没有声音。",
     ),
     "realtime": (
         "doubao",
@@ -142,27 +141,20 @@ def _build(capability: str) -> Any:
 
 
 def tts_provider() -> str:
-    """``volcengine``（默认）或 ``azure``。两家都是官方接口，都能用于产品。"""
+    """只有豆包语音一家。
 
-    return (os.environ.get("TTS_PROVIDER") or "volcengine").strip().lower()
+    原来还有一个 Azure 适配器，靠 ``TTS_PROVIDER`` 切换。Azure 只做语音合成，
+    跟端到端实时通话没有任何关系，留着只是多一条没人走的路和一份要维护的凭证。
+    这个函数留下来是因为 ``/health`` 与错误提示都要报「用的是哪一家」。
+    """
+
+    return "volcengine"
 
 
 def _build_tts() -> Any:
-    name = tts_provider()
-    if name == "azure":
-        from .providers import azure_tts
+    from .providers import volc_tts
 
-        return azure_tts.from_env()
-    if name == "volcengine":
-        from .providers import volc_tts
-
-        return volc_tts.from_env()
-    raise ProviderNotConfiguredError(
-        f"不认识的 TTS 供应商 {name!r}。",
-        hint="TTS_PROVIDER 只能是 volcengine 或 azure。",
-        capability="tts",
-        provider=name,
-    )
+    return volc_tts.from_env()
 
 
 def _build_mock(capability: str) -> Any:
@@ -227,19 +219,12 @@ def list_providers() -> list[dict[str, Any]]:
                 else (todo if mode == "realtime" else "级联模式下不使用端到端语音。")
             )
         elif capability == "tts":
-            # 两家都是官方接口，key 齐了就真的能用，不只是 mock 下可用。
-            name = tts_provider()
-            if name == "azure":
-                has_key = bool(
-                    os.environ.get("AZURE_SPEECH_KEY", "").strip()
-                    and os.environ.get("AZURE_SPEECH_REGION", "").strip()
-                )
-            else:
-                has_key = bool(
-                    os.environ.get("VOLC_SPEECH_APPID", "").strip()
-                    and os.environ.get("VOLC_SPEECH_TOKEN", "").strip()
-                )
-            provider = "mock" if mock else name
+            # 官方接口，key 齐了就真的能用，不只是 mock 下可用。
+            has_key = bool(
+                os.environ.get("VOLC_SPEECH_APPID", "").strip()
+                and os.environ.get("VOLC_SPEECH_TOKEN", "").strip()
+            )
+            provider = "mock" if mock else tts_provider()
             available = mock or has_key
             hint = None if available else todo
         else:

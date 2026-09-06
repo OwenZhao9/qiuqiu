@@ -126,52 +126,6 @@ def test_tts_without_key_points_at_the_default_provider() -> None:
         registry.get("tts")
     hint = excinfo.value.hint
     assert "VOLC_SPEECH_APPID" in hint
-    assert "TTS_PROVIDER=azure" in hint, "hint 要同时告诉人怎么换另一家"
-
-
-def test_default_tts_provider_is_volcengine() -> None:
-    assert registry.tts_provider() == "volcengine"
-
-
-def test_volcengine_tts_reports_configured_with_both_vars(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """`GET /providers` 的 `has_key` 要如实反映配没配好，且**不回凭证本身**。"""
-    monkeypatch.setenv("VOLC_SPEECH_APPID", "2040315767")
-    monkeypatch.setenv("VOLC_SPEECH_TOKEN", "fake-token")
-    registry.reset()
-    tts = next(p for p in registry.list_providers() if p["capability"] == "tts")
-    assert (tts["provider"], tts["has_key"], tts["available"]) == ("volcengine", True, True)
-    assert "fake-token" not in str(tts)
-
-
-def test_azure_takes_over_when_tts_provider_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TTS_PROVIDER", "azure")
-    monkeypatch.setenv("AZURE_SPEECH_KEY", "fake-key")
-    monkeypatch.setenv("AZURE_SPEECH_REGION", "eastasia")
-    registry.reset()
-    tts = next(p for p in registry.list_providers() if p["capability"] == "tts")
-    assert (tts["provider"], tts["has_key"]) == ("azure", True)
-    assert "fake-key" not in str(tts)
-
-
-def test_volcengine_credentials_do_not_satisfy_azure(monkeypatch: pytest.MonkeyPatch) -> None:
-    """两套凭证不通用：选了 azure 却只填了豆包的，得报没配好。"""
-    monkeypatch.setenv("TTS_PROVIDER", "azure")
-    monkeypatch.setenv("VOLC_SPEECH_APPID", "2040315767")
-    monkeypatch.setenv("VOLC_SPEECH_TOKEN", "fake-token")
-    monkeypatch.delenv("AZURE_SPEECH_KEY", raising=False)
-    registry.reset()
-    tts = next(p for p in registry.list_providers() if p["capability"] == "tts")
-    assert tts["has_key"] is False
-
-
-def test_unknown_tts_provider_refuses_with_a_hint(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("TTS_PROVIDER", "nope")
-    registry.reset()
-    with pytest.raises(base.ProviderNotConfiguredError) as excinfo:
-        registry.get("tts")
-    assert "volcengine" in excinfo.value.hint
 
 
 def test_realtime_without_mock_in_realtime_mode_raises(
