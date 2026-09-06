@@ -222,14 +222,26 @@ _RELATIVE_DAYS: tuple[tuple[str, int], ...] = (
     ("明儿", 1),
     ("后天", 2),
 )
-_RELATIVE_WEEKS: tuple[tuple[str, int], ...] = (
-    ("上上周", -14),
-    ("上周", -7),
-    ("上个星期", -7),
-    ("这周", 0),
-    ("本周", 0),
-    ("下周", 7),
-    ("下个星期", 7),
+#: 星期几 → 距周一几天。中文里「周日」「周天」是同一天。
+_WEEKDAY_CN: dict[str, int] = {"一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6, "天": 6}
+
+#: 「上/这/下」是**第几周**的偏移，不是几天。带星期几时要按周锚定，不能加天数。
+_WEEK_OFFSET: dict[str, int] = {
+    "上上周": -2, "上上个星期": -2, "上上礼拜": -2,
+    "上周": -1, "上个星期": -1, "上礼拜": -1,
+    "这周": 0, "本周": 0, "这个星期": 0, "这礼拜": 0,
+    "下周": 1, "下个星期": 1, "下礼拜": 1,
+    "下下周": 2, "下下个星期": 2, "下下礼拜": 2,
+}
+
+#: 长的写法排在前面，`|` 是从左往右试的——「上上周」不能先被「上周」吃掉。
+#: 结尾的 `(?!末)` 是为了放过「周末」「下周末」：那不是星期几，换成日期就成了
+#: 「2026-09-13末」。
+_WEEK_RE = re.compile(
+    r"(上上个星期|上上礼拜|上上周|下下个星期|下下礼拜|下下周"
+    r"|上个星期|上礼拜|上周|这个星期|这礼拜|这周|本周"
+    r"|下个星期|下礼拜|下周|星期|礼拜|周)"
+    r"([一二三四五六日天])?(?!末)"
 )
 
 
@@ -237,12 +249,39 @@ def absolutize_time(text: str, now: dt.datetime) -> str:
     """相对时间词换成绝对日期（SimpleMem 的 Φ_time）。
 
     只处理确定能算出来的那几个词；「以后」「过阵子」这种模糊表达不动。
+
+    **星期几必须和「上/这/下周」一起算。** 原来是一张词表逐个 `str.replace`：
+    「我下周五要去上海」先撞上「下周」，换成「今天 + 7 天」，把「五」剩在
+    后面——2026-09-06（周日）说这句话，存进库里的是「2026-09-13五」，
+    而 09-13 是周日，正确答案是 09-11。日期错了一天不算什么，错成另一个
+    星期几就是把事记岔了。
+
+    现在按**周一为一周之始**锚定：先找到本周一，再按周偏移和星期几加天数。
+    光说「周五」不带前缀，取**下一个**周五（今天就是周五时取今天）——
+    这是口语里的意思。
     """
     out = text or ""
-    for word, delta in (*_RELATIVE_DAYS, *_RELATIVE_WEEKS):
+    for word, delta in _RELATIVE_DAYS:
         if word in out:
             out = out.replace(word, (now + dt.timedelta(days=delta)).strftime("%Y-%m-%d"))
-    return out
+
+    monday = now.date() - dt.timedelta(days=now.weekday())
+
+    def _one(m: re.Match[str]) -> str:
+        head, day = m.group(1), m.group(2)
+        if day is None:
+            # 光一个「周」「星期」不是时间词，别动
+            if head not in _WEEK_OFFSET:
+                return m.group(0)
+            return (now + dt.timedelta(days=7 * _WEEK_OFFSET[head])).strftime("%Y-%m-%d")
+        idx = _WEEKDAY_CN[day]
+        if head in _WEEK_OFFSET:
+            target = monday + dt.timedelta(days=7 * _WEEK_OFFSET[head] + idx)
+        else:
+            target = now.date() + dt.timedelta(days=(idx - now.weekday()) % 7)
+        return target.strftime("%Y-%m-%d")
+
+    return _WEEK_RE.sub(_one, out)
 
 
 # ---------- 实体抽取 ----------

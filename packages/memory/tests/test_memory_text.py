@@ -77,6 +77,38 @@ class TestAbsolutizeTime:
     def test_next_week_offsets_seven_days(self) -> None:
         assert "2026-09-12" in absolutize_time("下周去深圳", NOW)
 
+    def test_weekday_anchors_to_the_week_not_plus_seven_days(self) -> None:
+        """「下周五」要算成下周的那个周五，不是「今天 + 7 天」再把「五」剩下。
+
+        这条是从真实记忆库里翻出来的：2026-09-06（周日）说「我下周五要去上海
+        出差」，存进去的是「用户2026-09-13五要去上海出差」——09-13 是周日，
+        而且末尾多个「五」。正确答案是 09-11。
+        """
+        sunday = dt.datetime(2026, 9, 6, 10, 0, tzinfo=dt.UTC)
+        assert absolutize_time("我下周五要去上海出差", sunday) == "我2026-09-11要去上海出差"
+        assert "五要去" not in absolutize_time("我下周五要去上海出差", sunday)
+
+    def test_bare_weekday_takes_the_coming_one(self) -> None:
+        """不带前缀的「周五」按口语取下一个周五；今天就是周五时取今天。"""
+        sunday = dt.datetime(2026, 9, 6, 10, 0, tzinfo=dt.UTC)
+        assert absolutize_time("周五去上海", sunday) == "2026-09-11去上海"
+        friday = dt.datetime(2026, 9, 11, 10, 0, tzinfo=dt.UTC)
+        assert absolutize_time("周五去上海", friday) == "2026-09-11去上海"
+
+    def test_this_and_last_week_weekdays(self) -> None:
+        """以周一为一周之始：周日说「本周五」指的是刚过去的那个 09-04。"""
+        sunday = dt.datetime(2026, 9, 6, 10, 0, tzinfo=dt.UTC)
+        assert absolutize_time("本周五", sunday) == "2026-09-04"
+        assert absolutize_time("上周五", sunday) == "2026-08-28"
+        assert absolutize_time("下下周三", sunday) == "2026-09-16"
+        assert absolutize_time("这周日", sunday) == "2026-09-06"
+
+    def test_weekend_is_not_a_weekday(self) -> None:
+        """「周末」不是星期几，换成日期会得到「2026-09-13末」。"""
+        sunday = dt.datetime(2026, 9, 6, 10, 0, tzinfo=dt.UTC)
+        assert absolutize_time("下周末再说", sunday) == "下周末再说"
+        assert absolutize_time("周末去爬山", sunday) == "周末去爬山"
+
     def test_vague_words_untouched(self) -> None:
         assert absolutize_time("过阵子再说", NOW) == "过阵子再说"
 
