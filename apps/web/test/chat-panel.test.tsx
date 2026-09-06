@@ -27,6 +27,57 @@ describe('ChatPanel', () => {
     expect(screen.getByText('还没聊过')).toBeTruthy();
   });
 
+  /** jsdom 不排版，`scrollHeight` 永远是 0——量不出「跟到底了没有」，自己钉一个。 */
+  function fakeLayout(el: HTMLElement, scrollHeight: number, clientHeight: number) {
+    Object.defineProperty(el, 'scrollHeight', { value: scrollHeight, configurable: true });
+    Object.defineProperty(el, 'clientHeight', { value: clientHeight, configurable: true });
+  }
+
+  it('新消息把对话滚到底——原来一行滚动都没有，说满一屏之后新说的话全在屏幕外', () => {
+    const { rerender } = render(
+      <ChatPanel messages={[msg({ id: 'a', content: '第一句' })]} recallTexts={new Map()} />
+    );
+    const thread = screen.getByTestId('thread');
+    fakeLayout(thread, 1000, 300);
+    thread.scrollTop = 0;
+
+    rerender(
+      <ChatPanel
+        messages={[msg({ id: 'a', content: '第一句' }), msg({ id: 'b', content: '第二句' })]}
+        recallTexts={new Map()}
+      />
+    );
+    expect(thread.scrollTop).toBe(1000);
+  });
+
+  it('边说边跟：同一条回复越写越长也一直贴着底', () => {
+    const { rerender } = render(
+      <ChatPanel messages={[msg({ id: 'a', content: '好' })]} recallTexts={new Map()} />
+    );
+    const thread = screen.getByTestId('thread');
+    fakeLayout(thread, 800, 300);
+    rerender(<ChatPanel messages={[msg({ id: 'a', content: '好嘞，记下了' })]} recallTexts={new Map()} />);
+    expect(thread.scrollTop).toBe(800);
+  });
+
+  it('人往上翻的时候不许拽回去——他在看前面说过什么', () => {
+    const { rerender } = render(
+      <ChatPanel messages={[msg({ id: 'a', content: '第一句' })]} recallTexts={new Map()} />
+    );
+    const thread = screen.getByTestId('thread');
+    fakeLayout(thread, 1000, 300);
+    thread.scrollTop = 100; // 离底 600，远远不算贴着底
+    fireEvent.scroll(thread);
+
+    rerender(
+      <ChatPanel
+        messages={[msg({ id: 'a', content: '第一句' }), msg({ id: 'b', content: '第二句' })]}
+        recallTexts={new Map()}
+      />
+    );
+    expect(thread.scrollTop).toBe(100);
+  });
+
   it('流式中的回复标上 data-streaming，写完就摘掉', () => {
     const { rerender, container } = render(
       <ChatPanel messages={[msg({ content: '在的', streaming: true })]} recallTexts={new Map()} />

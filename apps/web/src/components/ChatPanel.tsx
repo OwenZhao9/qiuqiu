@@ -5,7 +5,7 @@
  * 条目 id 来自 `/chat` 的 `meta.recall_ids`。两边对不上时只显示 id。
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { blobUrl } from '../api.js';
 import type { ChatMessage } from '../store/chat.js';
 import { shortId } from '../format.js';
@@ -46,7 +46,38 @@ function RecallNote({
   );
 }
 
+/** 离底多少像素以内还算「在底下」。与事件侧栏同一个口径。 */
+const AT_BOTTOM_SLACK = 48;
+
 export function ChatPanel({ messages, recallTexts }: ChatPanelProps): React.JSX.Element {
+  const threadRef = useRef<HTMLDivElement>(null);
+  /**
+   * 现在贴着底没有。**只有贴着底才自动跟**——人往上翻是在看前面说过什么，
+   * 这时候把他拽回底部，等于不让看。
+   */
+  const stick = useRef(true);
+
+  const onScroll = useCallback(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    stick.current = el.scrollHeight - el.scrollTop - el.clientHeight <= AT_BOTTOM_SLACK;
+  }, []);
+
+  /**
+   * 新消息、以及流式回复每长一截，都往下跟。
+   *
+   * 原来这里**一行滚动都没有**：说满一屏之后，新说的话全落在可视区下面，
+   * 界面看着像卡在第一轮——录屏里最明显，右边事件在刷，中间对话一动不动。
+   * 依赖里带上最后一条的长度，边说边跟；`behavior` 用默认的 auto，
+   * 流式一秒几十次，平滑滚动会排队，越滚越慢。
+   */
+  const last = messages.at(-1);
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el || !stick.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages.length, last?.content.length, last?.id]);
+
   if (messages.length === 0) {
     return (
       <div className="qq-thread">
@@ -59,7 +90,7 @@ export function ChatPanel({ messages, recallTexts }: ChatPanelProps): React.JSX.
   }
 
   return (
-    <div className="qq-thread" data-testid="thread">
+    <div className="qq-thread" data-testid="thread" ref={threadRef} onScroll={onScroll}>
       {messages.map((m) => (
         // 外面这层是「一行」，占满阅读栏并决定左右；气泡在里面，按内容自己收窄。
         // 少了这层的话，`.qq-thread > *` 的 width: 100% 会直接落在气泡上，
