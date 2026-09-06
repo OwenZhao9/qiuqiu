@@ -1,0 +1,32 @@
+# Render 蓝图。在 Render 里 New → Blueprint → 选这个仓库，它读这个文件建服务，
+# 只会问你两个密文变量的值（key 和访问口令），别的都写死在这儿。
+#
+# **key 只存在 Render 这边的加密变量里**，不进仓库、不进浏览器。
+# 这是让别人「打开就能用」又不泄露 key 的唯一办法。
+services:
+  - type: web
+    name: qiuqiu
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    # 免口令，否则平台探活一直失败
+    healthCheckPath: /api/health
+    envVars:
+      # sync: false = 不写进仓库，部署时在 Render 界面上填
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false
+      # 语音要另外配；不填就只有文字对话，演示够用
+      - key: VOLC_SPEECH_APPID
+        sync: false
+      - key: VOLC_SPEECH_TOKEN
+        sync: false
+      # 免费层没有持久盘，重启即空库——演示反而干净：打开就是一只空记忆的丘丘
+      - key: DATA_DIR
+        value: /data
+      # 免费层内存 512 MB，把嵌入模型钉在轻量那条路上
+      - key: MODELS_MOCK
+        value: "0"
