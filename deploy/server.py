@@ -59,7 +59,7 @@ class Gate:
         self.password = password
 
     async def __call__(self, scope: dict, receive: object, send: object) -> None:  # type: ignore[override]
-        if scope["type"] != "http" or not self.password:
+        if scope["type"] not in ("http", "websocket") or not self.password:
             await self.app(scope, receive, send)  # type: ignore[operator]
             return
         path = scope.get("path", "")
@@ -86,6 +86,9 @@ class Gate:
         if ok_cookie:
             await self.app(scope, receive, send)  # type: ignore[operator]
             return
+        if ok_query and scope["type"] == "websocket":
+            await self.app(scope, receive, send)  # type: ignore[operator]
+            return
         if ok_query:
             # 带对了就种上 cookie，刷新和后续的 SSE 请求就不用再挂 `?k=`
             cookie = f"qq={quote(self.password)}; Path=/; Max-Age=86400; SameSite=Lax".encode()
@@ -96,6 +99,13 @@ class Gate:
                 await send(message)  # type: ignore[operator]
 
             await self.app(scope, receive, send_with_cookie)  # type: ignore[operator]
+            return
+
+        # **WebSocket 也要挡。** 实时通话走 `WS /api/voice/stream`，
+        # 原来这里只看 `scope["type"] == "http"`，等于语音那条路完全敞着：
+        # 知道地址的人不用口令就能开一路豆包实时语音，花的是你的钱。
+        if scope["type"] == "websocket":
+            await send({"type": "websocket.close", "code": 4401})  # type: ignore[operator]
             return
 
         body = b"need a key: add ?k=... to the url"
