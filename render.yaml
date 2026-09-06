@@ -30,6 +30,15 @@ services:
         sync: false
       - key: VOLC_SPEECH_TOKEN
         sync: false
+      # 实时通话的开关与音色。**`VOICE_MODE` 不设就是 `cascade`**——
+      # 光把 VOLC 两个凭证填上没用，注册表读的是这个变量（AD-13）。
+      # 这几个是开关和模型名，不是密钥，可以写进仓库。
+      - key: VOICE_MODE
+        value: realtime
+      - key: DOUBAO_REALTIME_MODEL
+        value: "1.2.1.1"
+      - key: DOUBAO_REALTIME_SPEAKER
+        value: zh_female_vv_jupiter_bigtts
       - key: DATA_DIR
         value: /data
       # 走真实模型，不用 mock
