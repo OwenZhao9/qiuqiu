@@ -387,3 +387,19 @@ def test_an_empty_recall_does_not_make_it_deny_having_memory(state: AppState) ->
     assert NO_MEMORY_NOTE in system
     assert "不是你记不住东西" in system
     assert "照常会被记下来" in system
+
+def test_system_prompt_carries_today() -> None:
+    """系统提示里得有今天几号、周几。
+
+    没这一句时实测过一次：记忆里是「用户计划在 2026 年 9 月 11 日去上海出差」，
+    用户嘴上说的是「下周五」，丘丘反问「你说的下周五跟 9 月 11 日对不太上啊，
+    是改时间了吗」——9 月 11 日**就是**那个周五，它只是不知道今天几号、没法换算。
+    """
+    import datetime as dt
+
+    from qiuqiu_api.orchestrator import today_line
+
+    line = today_line(dt.datetime(2026, 9, 6, 4, 0, tzinfo=dt.UTC))
+    assert line.startswith("今天是 2026 年 9 月 6 日，周")
+    assert line.rstrip("。")[-1] in "一二三四五六日"
+

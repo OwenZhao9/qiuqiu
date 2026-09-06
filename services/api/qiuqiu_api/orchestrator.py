@@ -45,6 +45,24 @@ __all__ = [
 
 log = structlog.get_logger("qiuqiu_api.orchestrator")
 
+_WEEKDAY_CN = "一二三四五六日"
+
+
+def today_line(moment: dt.datetime) -> str:
+    """告诉它今天几号、周几。
+
+    **不给这一句，它就没法把相对时间和库里的绝对日期对上。** 实测：记忆里是
+    「用户计划在 2026 年 9 月 11 日去上海出差」，用户嘴上说的是「下周五」，
+    丘丘于是反问「你说的下周五跟 9 月 11 日对不太上啊，是改时间了吗」——
+    9 月 11 日**就是**那个周五，它只是不知道今天是几号，没法换算。
+    一个专门记带日期的事的东西，不知道今天几号是说不过去的。
+
+    用本机时区，不用 UTC：人说「今天」指的是他窗外的今天。
+    """
+    local = moment.astimezone()
+    return f"今天是 {local.year} 年 {local.month} 月 {local.day} 日，周{_WEEKDAY_CN[local.weekday()]}。"
+
+
 MEMORY_HEADER = (
     "【记忆】下面是你记得的、和这次对话相关的事实。当作已知信息用，不要复述这段话本身。\n"
     "**这张表之外的事，你不知道。** 不许说「我记得你……」去讲一件没列在上面的事，"
@@ -243,11 +261,17 @@ def build_messages(
     hits: list[Any],
     history: list[dict[str, Any]],
     user_text: str,
+    now: dt.datetime | None = None,
 ) -> list[Any]:
-    """人格快照 + 召回 + 本会话历史 + 这一句。顺序不能换：人格永远在最前（AD-12）。"""
+    """人格快照 + 今天几号 + 召回 + 本会话历史 + 这一句。
+
+    顺序不能换：人格永远在最前（AD-12）。日期紧跟其后——它是读召回内容的
+    前提，「下周五」要靠它才对得上库里的「9 月 11 日」。
+    """
     from qiuqiu_models import Message
 
     system_parts = [persona_text.strip()] if persona_text.strip() else []
+    system_parts.append(today_line(now or dt.datetime.now(dt.UTC)))
     blocks = _memory_block(hits) if hits else []
     # 没召回到也要说一句。什么都不说的时候它最爱编：实测拿一条「用户正在学吉他」
     # 就能顺出「我记得你周末一般抱着吉他练一会儿，累了冲杯美式，天气好还去爬山」，
@@ -347,6 +371,7 @@ async def stream_chat(
                 hits=hits,
                 history=history,
                 user_text=user_text,
+                now=moment,
             )
             chat = state.capability("chat")
         except Exception as exc:  # noqa: BLE001 - 准备阶段失败，一条 error 事件收场
@@ -632,6 +657,7 @@ async def run_once(
             hits=hits,
             history=history,
             user_text=query,
+            now=now,
         )
         chat = state.capability("chat")
         parts: list[str] = []
