@@ -1812,7 +1812,9 @@ select {
   align-items: stretch;
   gap: var(--qq-space-2);
   padding: var(--qq-space-5);
-  border: var(--qq-border-thin) solid var(--qq-color-border);
+  /* **不描边。** 从一条原子单元往上数原来有三层带边的圆角盒子：
+     原子单元 → 存储架 → 分区，三层同样的粉、同样的 1px、同样的圆角，
+     看不出谁装着谁。最外这层删掉——标题加白底加间距已经够分组了。 */
   border-radius: var(--qq-radius-lg);
   background: var(--qq-color-surface);
 }
@@ -1851,13 +1853,17 @@ select {
 .qq-map__box {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* **左对齐，不居中。** 这些方块里的说明长短差很多——「答案」两个字和
+     「生成记忆原子单元 拆出 0 条 / 留下来的才进这一步，省的就是这里的钱」
+     在同一张图上。居中排版只在每行长度接近时才干净，长短不一时左右两边
+     全是锯齿，整张图看着就是乱的。左对齐之后至少左边是一条直线。 */
+  align-items: flex-start;
   gap: 1px;
   padding: var(--qq-space-3) var(--qq-space-4);
   border: var(--qq-border-thin) solid var(--qq-color-border-strong);
   border-radius: var(--qq-radius-sm);
   background: var(--qq-color-surface);
-  text-align: center;
+  text-align: left;
   transition:
     background var(--qq-duration-base) var(--qq-ease-out),
     border-color var(--qq-duration-base) var(--qq-ease-out),
@@ -1999,10 +2005,13 @@ select {
 
 /* 不走的路一律中性灰。线也按分区上三种颜色的话，一屏里颜色太多，
    真正该跳出来的那条反而混在里面 */
+/* **主线要看得见。** ①→②→③ 是这张图唯一要讲的事，原来却用了全图最淡的
+   颜色（描边色）再压到 45% 不透明度——比方块的边框还浅，中间那个小圆点
+   都比线本身醒目。改成正文的弱色，粗一档。 */
 .qq-map__wire-line {
   fill: none;
-  stroke: var(--qq-color-border-strong);
-  stroke-width: 2;
+  stroke: var(--qq-color-text-muted);
+  stroke-width: 2.4;
   stroke-linecap: butt;
   stroke-linejoin: round;
 }
@@ -2035,15 +2044,16 @@ select {
   filter: drop-shadow(0 0 5px rgb(from var(--qq-color-write) r g b / 0.75));
 }
 
-/* 没走的线压下去。走过的那条是靠**对比**跳出来的，光把自己调亮没用 */
+/* 没走的线压下去，但别压没了——有一轮在跑时另有一条 `--running` 的规则
+   把它们压到 0.34，这里只需要比亮起来的那条弱一档 */
 .qq-map__wire:not(.qq-map--on) .qq-map__wire-line {
-  opacity: 0.45;
+  opacity: 0.75;
 }
 
 .qq-map__wire-tip--1,
 .qq-map__wire-tip--2,
 .qq-map__wire-tip--3 {
-  fill: var(--qq-color-border-strong);
+  fill: var(--qq-color-text-muted);
 }
 
 .qq-map__wire-tip--on {
@@ -2498,7 +2508,8 @@ select {
 
 .qq-map--compact .qq-map__box {
   flex-flow: row wrap;
-  justify-content: center;
+  justify-content: flex-start;
+  align-items: baseline;
   gap: 0 var(--qq-space-3);
   padding: var(--qq-space-2) var(--qq-space-4);
 }
