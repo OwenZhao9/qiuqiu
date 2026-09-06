@@ -1803,7 +1803,9 @@ select {
 
 /* 分区底色原来是三块饱和的黄 / 绿 / 蓝，方块、卡片、注释又各有各的颜色，
    一屏里六七种色互相抢，真正该跳出来的「这一轮走过的路」反而看不见。
-   现在分区退成近白，身份只留在标题和顶上那道细线，颜色预算全留给高亮。 */
+   现在分区退成近白，身份只留在标题的颜色上，颜色预算全留给高亮。
+   顶上原来还有一道 3 px 的色条，一并去掉了——三个框各顶一条粗色边，
+   在一屏里比亮起来的那一段还抢眼。 */
 .qq-map__zone {
   display: flex;
   flex-direction: column;
@@ -1811,21 +1813,8 @@ select {
   gap: var(--qq-space-2);
   padding: var(--qq-space-5);
   border: var(--qq-border-thin) solid var(--qq-color-border);
-  border-top: 3px solid var(--qq-color-border-strong);
   border-radius: var(--qq-radius-lg);
   background: var(--qq-color-surface);
-}
-
-.qq-map__zone[data-tone='1'] {
-  border-top-color: var(--qq-color-uncertain);
-}
-
-.qq-map__zone[data-tone='2'] {
-  border-top-color: var(--qq-color-write);
-}
-
-.qq-map__zone[data-tone='3'] {
-  border-top-color: var(--qq-color-recall);
 }
 
 .qq-map__zone-h {
