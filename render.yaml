@@ -9,10 +9,16 @@ services:
     runtime: docker
     dockerfilePath: ./deploy/Dockerfile
     dockerContext: .
-    plan: free
+    plan: starter
     region: singapore
     # 免口令，否则平台探活一直失败
     healthCheckPath: /api/health
+    # 挂盘之后记忆不会因为重启清空——别人隔天再打开，它还记得上次说过的话。
+    # 免费层没有这个，一重启就是空库。
+    disk:
+      name: qiuqiu-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       # sync: false = 不写进仓库，部署时在 Render 界面上填
       - key: DEEPSEEK_API_KEY
@@ -24,9 +30,8 @@ services:
         sync: false
       - key: VOLC_SPEECH_TOKEN
         sync: false
-      # 免费层没有持久盘，重启即空库——演示反而干净：打开就是一只空记忆的丘丘
       - key: DATA_DIR
         value: /data
-      # 免费层内存 512 MB，把嵌入模型钉在轻量那条路上
+      # 走真实模型，不用 mock
       - key: MODELS_MOCK
         value: "0"
